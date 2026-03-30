@@ -469,55 +469,158 @@ docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e 
 
 
 
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# dmesg | tail -50
-[603562.929321] docker0: port 1(vetha1305e7) entered disabled state
-[603562.929455] veth13ab339: renamed from eth0
-[603562.952341] overlayfs: lowerdir is in-use as upperdir/workdir of another mount, accessing files from both mounts will result in undefined behavior.
-[603563.013019] docker0: port 3(veth466889e) entered blocking state
-[603563.013029] docker0: port 3(veth466889e) entered disabled state
-[603563.013046] veth466889e: entered allmulticast mode
-[603563.013171] veth466889e: entered promiscuous mode
-[603563.040971] docker0: port 1(vetha1305e7) entered disabled state
-[603563.101081] vetha1305e7 (unregistering): left allmulticast mode
-[603563.101089] vetha1305e7 (unregistering): left promiscuous mode
-[603563.101104] docker0: port 1(vetha1305e7) entered disabled state
-[603563.195755] eth0: renamed from veth873bf8a
-[603563.202042] docker0: port 3(veth466889e) entered blocking state
-[603563.202051] docker0: port 3(veth466889e) entered forwarding state
-[603733.786431] docker0: port 3(veth466889e) entered disabled state
-[603733.786543] veth873bf8a: renamed from eth0
-[603733.844305] docker0: port 3(veth466889e) entered disabled state
-[603733.845864] veth466889e (unregistering): left allmulticast mode
-[603733.845872] veth466889e (unregistering): left promiscuous mode
-[603733.845878] docker0: port 3(veth466889e) entered disabled state
-[603733.909699] overlayfs: lowerdir is in-use as upperdir/workdir of another mount, accessing files from both mounts will result in undefined behavior.
-[603750.509239] docker0: port 1(veth577533f) entered blocking state
-[603750.509248] docker0: port 1(veth577533f) entered disabled state
-[603750.509261] veth577533f: entered allmulticast mode
-[603750.509411] veth577533f: entered promiscuous mode
-[603750.636508] eth0: renamed from vethe5a3668
-[603750.643964] docker0: port 1(veth577533f) entered blocking state
-[603750.643974] docker0: port 1(veth577533f) entered forwarding state
-[604020.049132] docker0: port 1(veth577533f) entered disabled state
-[604020.050291] vethe5a3668: renamed from eth0
-[604020.089543] overlayfs: lowerdir is in-use as upperdir/workdir of another mount, accessing files from both mounts will result in undefined behavior.
-[604020.136576] docker0: port 1(veth577533f) entered disabled state
-[604020.139102] veth577533f (unregistering): left allmulticast mode
-[604020.139110] veth577533f (unregistering): left promiscuous mode
-[604020.139119] docker0: port 1(veth577533f) entered disabled state
-[604114.840869] docker0: port 1(veth4c85962) entered blocking state
-[604114.840879] docker0: port 1(veth4c85962) entered disabled state
-[604114.840894] veth4c85962: entered allmulticast mode
-[604114.841033] veth4c85962: entered promiscuous mode
-[604114.859074] eth0: renamed from vethcdc6cc1
-[604114.870197] docker0: port 1(veth4c85962) entered blocking state
-[604114.870207] docker0: port 1(veth4c85962) entered forwarding state
-[604128.554937] uvicorn[519883]: segfault at a ip 00000000005266a0 sp 00007ffddcd0a350 error 4 in python3.11[41f000+2c2000] likely on CPU 3 (core 3, socket 0)
-[604128.554993] Code: ff e9 f5 fa ff ff c3 0f 1f 00 f3 0f 1e fa 41 57 41 56 41 55 41 54 55 53 48 83 ec 38 48 81 7e 08 a0 69 96 00 0f 85 3c 07 f1 ff <80> 7f 0a 00 48 89 fd 0f 84 2f 07 f1 ff 4c 8b 6e 18 48 89 f3 49 83
-[604134.218540] docker0: port 1(veth4c85962) entered disabled state
-[604134.218782] vethcdc6cc1: renamed from eth0
-[604134.569601] docker0: port 1(veth4c85962) entered disabled state
-[604134.571971] veth4c85962 (unregistering): left allmulticast mode
-[604134.571980] veth4c85962 (unregistering): left promiscuous mode
-[604134.571987] docker0: port 1(veth4c85962) entered disabled state
-why getting this 
+import os
+import json
+import tempfile
+import traceback
+import time
+from contextlib import asynccontextmanager
+
+import numpy as np
+import soundfile as sf
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
+print("STEP 0: server module loaded", flush=True)
+
+MODEL_NAME = os.getenv("MODEL_NAME", "nvidia/parakeet-tdt-0.6b-v3")
+DEVICE = os.getenv("DEVICE", "cuda")
+SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", "16000"))
+PARTIAL_EVERY_SEC = float(os.getenv("PARTIAL_EVERY_SEC", "1.5"))
+FORCE_FLUSH_SEC = float(os.getenv("FORCE_FLUSH_SEC", "6"))
+MIN_UTT_MS = int(os.getenv("MIN_UTT_MS", "250"))
+
+asr_model = None
+
+
+def pcm16_to_float32(audio_bytes: bytes) -> np.ndarray:
+    x = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
+    return x / 32768.0
+
+
+def transcribe_audio(audio_bytes: bytes) -> str:
+    global asr_model
+
+    if asr_model is None:
+        raise RuntimeError("ASR model is not loaded")
+
+    audio = pcm16_to_float32(audio_bytes)
+
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
+        sf.write(tmp.name, audio, SAMPLE_RATE, subtype="PCM_16")
+        output = asr_model.transcribe([tmp.name])
+
+    if isinstance(output, list) and len(output) > 0:
+        return str(output[0]).strip()
+
+    return ""
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global asr_model
+    try:
+        print("STEP 1: importing NeMo", flush=True)
+        import nemo.collections.asr as nemo_asr
+        print("STEP 2: NeMo import success", flush=True)
+
+        print(f"STEP 3: loading model {MODEL_NAME}", flush=True)
+        asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name=MODEL_NAME)
+        print("STEP 4: model loaded", flush=True)
+
+        if DEVICE == "cuda":
+            print("STEP 5: moving model to CUDA", flush=True)
+            asr_model = asr_model.cuda()
+
+        asr_model.eval()
+        print("STEP 6: model ready", flush=True)
+
+    except Exception:
+        print("MODEL STARTUP FAILED", flush=True)
+        traceback.print_exc()
+        raise
+
+    yield
+
+    print("STEP 7: shutdown", flush=True)
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/")
+def health():
+    return {
+        "status": "running",
+        "model": MODEL_NAME,
+        "device": DEVICE,
+    }
+
+
+@app.websocket("/ws/asr")
+async def websocket_asr(ws: WebSocket):
+    await ws.accept()
+    print("WS client connected", flush=True)
+
+    audio_buffer = bytearray()
+    last_partial_time = time.time()
+
+    try:
+        while True:
+            chunk = await ws.receive_bytes()
+
+            if chunk == b"":
+                if len(audio_buffer) > 0:
+                    t0 = time.time()
+                    text = transcribe_audio(bytes(audio_buffer))
+                    latency_ms = round((time.time() - t0) * 1000, 2)
+
+                    await ws.send_text(json.dumps({
+                        "type": "final",
+                        "text": text,
+                        "latency_ms": latency_ms
+                    }))
+
+                    audio_buffer = bytearray()
+                continue
+
+            audio_buffer.extend(chunk)
+            audio_sec = len(audio_buffer) / (SAMPLE_RATE * 2)
+
+            if (
+                time.time() - last_partial_time >= PARTIAL_EVERY_SEC
+                and audio_sec >= (MIN_UTT_MS / 1000.0)
+            ):
+                text = transcribe_audio(bytes(audio_buffer))
+                await ws.send_text(json.dumps({
+                    "type": "partial",
+                    "text": text
+                }))
+                last_partial_time = time.time()
+
+            if audio_sec >= FORCE_FLUSH_SEC:
+                t0 = time.time()
+                text = transcribe_audio(bytes(audio_buffer))
+                latency_ms = round((time.time() - t0) * 1000, 2)
+
+                await ws.send_text(json.dumps({
+                    "type": "final",
+                    "text": text,
+                    "reason": "max_segment",
+                    "latency_ms": latency_ms
+                }))
+                audio_buffer = bytearray()
+
+    except WebSocketDisconnect:
+        print("WS client disconnected", flush=True)
+    except Exception:
+        print("WS ERROR", flush=True)
+        traceback.print_exc()
+
+
+fastapi==0.116.1
+uvicorn==0.35.0
+websockets==15.0.1
+sounddevice==0.5.2
+soundfile==0.13.1
+numpy==1.26.4
+nemo_toolkit[asr]
