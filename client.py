@@ -469,50 +469,167 @@ docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e 
 
 
 
-import os
 import json
+import os
 import tempfile
-import traceback
 import time
+import traceback
 from contextlib import asynccontextmanager
+from typing import Optional
 
 import numpy as np
 import soundfile as sf
+import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-print("STEP 0: server module loaded", flush=True)
-
+# =========================
+# CONFIG
+# =========================
+SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", "16000"))
 MODEL_NAME = os.getenv("MODEL_NAME", "nvidia/parakeet-tdt-0.6b-v3")
 DEVICE = os.getenv("DEVICE", "cuda")
-SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", "16000"))
+
 PARTIAL_EVERY_SEC = float(os.getenv("PARTIAL_EVERY_SEC", "1.5"))
-FORCE_FLUSH_SEC = float(os.getenv("FORCE_FLUSH_SEC", "6"))
+FORCE_FLUSH_SEC = float(os.getenv("FORCE_FLUSH_SEC", "6.0"))
+SILENCE_TIMEOUT_MS = int(os.getenv("SILENCE_TIMEOUT_MS", "900"))
 MIN_UTT_MS = int(os.getenv("MIN_UTT_MS", "250"))
+
+VAD_FRAME_MS = int(os.getenv("VAD_FRAME_MS", "30"))
+VAD_RMS_THRESHOLD = float(os.getenv("VAD_RMS_THRESHOLD", "0.01"))
+
+print("STEP 0: module loaded", flush=True)
 
 asr_model = None
 
 
-def pcm16_to_float32(audio_bytes: bytes) -> np.ndarray:
-    x = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
-    return x / 32768.0
+# =========================
+# HELPERS
+# =========================
+def pcm16_bytes_to_float32(audio_bytes: bytes) -> np.ndarray:
+    if not audio_bytes:
+        return np.array([], dtype=np.float32)
+    return np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
 
 
-def transcribe_audio(audio_bytes: bytes) -> str:
+def rms_energy(x: np.ndarray) -> float:
+    if x.size == 0:
+        return 0.0
+    return float(np.sqrt(np.mean(np.square(x)) + 1e-12))
+
+
+def transcribe_audio_array(audio_f32: np.ndarray, sample_rate: int) -> str:
     global asr_model
 
     if asr_model is None:
         raise RuntimeError("ASR model is not loaded")
 
-    audio = pcm16_to_float32(audio_bytes)
+    if audio_f32.size == 0:
+        return ""
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmp:
-        sf.write(tmp.name, audio, SAMPLE_RATE, subtype="PCM_16")
-        output = asr_model.transcribe([tmp.name])
+        sf.write(tmp.name, audio_f32, sample_rate, subtype="PCM_16")
+        out = asr_model.transcribe([tmp.name])
 
-    if isinstance(output, list) and len(output) > 0:
-        return str(output[0]).strip()
+    if isinstance(out, list) and len(out) > 0:
+        text = out[0]
+        return text.strip() if isinstance(text, str) else str(text).strip()
 
     return ""
+
+
+class SessionState:
+    def __init__(self) -> None:
+        self.audio_buffer = bytearray()
+        self.in_speech = False
+        self.last_speech_time: Optional[float] = None
+        self.last_partial_time: float = 0.0
+        self.segment_start_time: Optional[float] = None
+        self.last_partial_text: str = ""
+        self.segment_count: int = 0
+        self.bytes_per_frame = int(SAMPLE_RATE * (VAD_FRAME_MS / 1000.0) * 2)
+
+    def reset_segment(self) -> None:
+        self.audio_buffer = bytearray()
+        self.in_speech = False
+        self.last_speech_time = None
+        self.last_partial_time = 0.0
+        self.segment_start_time = None
+        self.last_partial_text = ""
+
+    def segment_duration_sec(self) -> float:
+        return len(self.audio_buffer) / (SAMPLE_RATE * 2.0)
+
+    def enough_audio_for_min_utt(self) -> bool:
+        return len(self.audio_buffer) >= int(SAMPLE_RATE * 2 * (MIN_UTT_MS / 1000.0))
+
+
+async def send_json(ws: WebSocket, payload: dict) -> None:
+    await ws.send_text(json.dumps(payload, ensure_ascii=False))
+
+
+async def maybe_send_partial(ws: WebSocket, st: SessionState) -> None:
+    now = time.time()
+    if not st.in_speech:
+        return
+    if (now - st.last_partial_time) < PARTIAL_EVERY_SEC:
+        return
+    if not st.enough_audio_for_min_utt():
+        return
+
+    audio_f32 = pcm16_bytes_to_float32(bytes(st.audio_buffer))
+    if audio_f32.size == 0:
+        return
+
+    try:
+        text = transcribe_audio_array(audio_f32, SAMPLE_RATE)
+        if text and text != st.last_partial_text:
+            st.last_partial_text = text
+            st.last_partial_time = now
+            await send_json(
+                ws,
+                {
+                    "type": "partial",
+                    "text": text,
+                    "segment_index": st.segment_count,
+                    "audio_sec": round(st.segment_duration_sec(), 2),
+                },
+            )
+    except Exception as e:
+        await send_json(ws, {"type": "error", "message": f"partial_failed: {e}"})
+
+
+async def finalize_segment(ws: WebSocket, st: SessionState, reason: str) -> None:
+    if not st.enough_audio_for_min_utt():
+        st.reset_segment()
+        return
+
+    audio_f32 = pcm16_bytes_to_float32(bytes(st.audio_buffer))
+    if audio_f32.size == 0:
+        st.reset_segment()
+        return
+
+    t0 = time.time()
+    try:
+        text = transcribe_audio_array(audio_f32, SAMPLE_RATE)
+        latency_ms = round((time.time() - t0) * 1000.0, 2)
+
+        if text:
+            await send_json(
+                ws,
+                {
+                    "type": "final",
+                    "text": text,
+                    "reason": reason,
+                    "segment_index": st.segment_count,
+                    "audio_sec": round(st.segment_duration_sec(), 2),
+                    "latency_ms": latency_ms,
+                },
+            )
+            st.segment_count += 1
+    except Exception as e:
+        await send_json(ws, {"type": "error", "message": f"final_failed: {e}"})
+
+    st.reset_segment()
 
 
 @asynccontextmanager
@@ -521,18 +638,16 @@ async def lifespan(app: FastAPI):
     try:
         print("STEP 1: importing NeMo", flush=True)
         import nemo.collections.asr as nemo_asr
-        print("STEP 2: NeMo import success", flush=True)
 
-        print(f"STEP 3: loading model {MODEL_NAME}", flush=True)
+        print("STEP 2: loading model", flush=True)
         asr_model = nemo_asr.models.ASRModel.from_pretrained(model_name=MODEL_NAME)
-        print("STEP 4: model loaded", flush=True)
 
         if DEVICE == "cuda":
-            print("STEP 5: moving model to CUDA", flush=True)
+            print("STEP 3: moving model to CUDA", flush=True)
             asr_model = asr_model.cuda()
 
         asr_model.eval()
-        print("STEP 6: model ready", flush=True)
+        print("STEP 4: model ready", flush=True)
 
     except Exception:
         print("MODEL STARTUP FAILED", flush=True)
@@ -541,7 +656,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    print("STEP 7: shutdown", flush=True)
+    print("STEP 5: shutdown", flush=True)
 
 
 app = FastAPI(lifespan=lifespan)
@@ -551,71 +666,102 @@ app = FastAPI(lifespan=lifespan)
 def health():
     return {
         "status": "running",
-        "model": MODEL_NAME,
+        "model_name": MODEL_NAME,
         "device": DEVICE,
+        "sample_rate": SAMPLE_RATE,
     }
 
 
 @app.websocket("/ws/asr")
-async def websocket_asr(ws: WebSocket):
+async def ws_asr(ws: WebSocket):
     await ws.accept()
-    print("WS client connected", flush=True)
+    st = SessionState()
 
-    audio_buffer = bytearray()
-    last_partial_time = time.time()
+    await send_json(
+        ws,
+        {
+            "type": "status",
+            "message": "connected",
+            "sample_rate": SAMPLE_RATE,
+            "model_name": MODEL_NAME,
+            "device": DEVICE,
+        },
+    )
 
     try:
         while True:
-            chunk = await ws.receive_bytes()
+            message = await ws.receive()
 
-            if chunk == b"":
-                if len(audio_buffer) > 0:
-                    t0 = time.time()
-                    text = transcribe_audio(bytes(audio_buffer))
-                    latency_ms = round((time.time() - t0) * 1000, 2)
+            if "bytes" in message and message["bytes"] is not None:
+                chunk = message["bytes"]
 
-                    await ws.send_text(json.dumps({
-                        "type": "final",
-                        "text": text,
-                        "latency_ms": latency_ms
-                    }))
+                if chunk == b"":
+                    await finalize_segment(ws, st, reason="client_eos")
+                    continue
 
-                    audio_buffer = bytearray()
-                continue
+                st.audio_buffer.extend(chunk)
 
-            audio_buffer.extend(chunk)
-            audio_sec = len(audio_buffer) / (SAMPLE_RATE * 2)
+                if len(st.audio_buffer) >= st.bytes_per_frame:
+                    recent = bytes(st.audio_buffer[-st.bytes_per_frame:])
+                    recent_f32 = pcm16_bytes_to_float32(recent)
+                    current_rms = rms_energy(recent_f32)
+                    now = time.time()
 
-            if (
-                time.time() - last_partial_time >= PARTIAL_EVERY_SEC
-                and audio_sec >= (MIN_UTT_MS / 1000.0)
-            ):
-                text = transcribe_audio(bytes(audio_buffer))
-                await ws.send_text(json.dumps({
-                    "type": "partial",
-                    "text": text
-                }))
-                last_partial_time = time.time()
+                    if current_rms >= VAD_RMS_THRESHOLD:
+                        st.last_speech_time = now
+                        if not st.in_speech:
+                            st.in_speech = True
+                            if st.segment_start_time is None:
+                                st.segment_start_time = now
+                    else:
+                        if (
+                            st.in_speech
+                            and st.last_speech_time is not None
+                            and (now - st.last_speech_time) * 1000.0 >= SILENCE_TIMEOUT_MS
+                        ):
+                            await finalize_segment(ws, st, reason="silence")
 
-            if audio_sec >= FORCE_FLUSH_SEC:
-                t0 = time.time()
-                text = transcribe_audio(bytes(audio_buffer))
-                latency_ms = round((time.time() - t0) * 1000, 2)
+                if st.segment_duration_sec() >= FORCE_FLUSH_SEC:
+                    await finalize_segment(ws, st, reason="max_segment")
 
-                await ws.send_text(json.dumps({
-                    "type": "final",
-                    "text": text,
-                    "reason": "max_segment",
-                    "latency_ms": latency_ms
-                }))
-                audio_buffer = bytearray()
+                await maybe_send_partial(ws, st)
+
+            elif "text" in message and message["text"] is not None:
+                text = message["text"].strip().lower()
+                if text == "eos":
+                    await finalize_segment(ws, st, reason="client_text_eos")
+                else:
+                    await send_json(ws, {"type": "status", "message": f"unknown_text_command: {text}"})
+
+            elif message.get("type") == "websocket.disconnect":
+                break
 
     except WebSocketDisconnect:
-        print("WS client disconnected", flush=True)
-    except Exception:
-        print("WS ERROR", flush=True)
-        traceback.print_exc()
+        print("Client disconnected", flush=True)
+    except Exception as e:
+        try:
+            await send_json(ws, {"type": "error", "message": str(e)})
+        except Exception:
+            pass
+    finally:
+        try:
+            await ws.close()
+        except Exception:
+            pass
 
+
+if __name__ == "__main__":
+    print("STEP 6: starting uvicorn", flush=True)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        ws_ping_interval=20,
+        ws_ping_timeout=120,
+        loop="asyncio",
+        http="h11",
+        ws="websockets",
+    )
 
 fastapi==0.116.1
 uvicorn==0.35.0
