@@ -426,8 +426,10 @@ FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
+# System packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3-pip \
@@ -435,12 +437,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
     portaudio19-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 RUN ln -sf /usr/bin/python3.11 /usr/bin/python
 RUN python -m pip install --upgrade pip setuptools wheel
 
+# =====================================
+# INSTALL GPU TORCH FIRST
+# =====================================
+RUN pip install \
+    torch==2.5.1 \
+    torchaudio==2.5.1 \
+    torchvision==0.20.1 \
+    --index-url https://download.pytorch.org/whl/cu124
+
+# =====================================
+# INSTALL NEMO + APP DEPS
+# =====================================
 COPY requirements.txt .
+
 RUN pip install -r requirements.txt
 
 COPY server.py .
