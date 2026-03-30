@@ -1,33 +1,147 @@
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# docker run --gpus all -p 8000:8000 parakeet_asr
+#server.py
+import io
+import json
+import time
+import wave
 
-==========
-== CUDA ==
-==========
+import numpy as np
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+import uvicorn
+import nemo.collections.asr as nemo_asr
 
-CUDA Version 12.4.1
+SAMPLE_RATE = 16000
+MODEL_NAME = "nvidia/parakeet-ctc-0.6b"
 
-Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+app = FastAPI()
 
-This container image and its contents are governed by the NVIDIA Deep Learning Container License.
-By pulling and using the container, you accept the terms and conditions of this license:
-https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+print("Loading model...")
+asr_model = nemo_asr.models.ASRModel.from_pretrained(
+    model_name=MODEL_NAME
+)
+asr_model = asr_model.eval()
+print("Model loaded successfully")
 
-A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
 
-DEBUG | backend=parakeet | model=nvidia/parakeet-tdt-0.6b-v3 | device=cuda | sample_rate=16000
-INFO:     Started server process [1]
-INFO:     Waiting for application startup.
-2026-03-30 11:30:48,587 | INFO | asr_server | Server startup initiated
-2026-03-30 11:30:48,587 | INFO | asr_server | Preloading ASR engines...
-2026-03-30 11:30:48,587 | INFO | asr_server | Initializing engine: parakeet
-2026-03-30 11:30:50,586 | INFO | matplotlib.font_manager | generated new fontManager
-2026-03-30 11:30:52,114 | INFO | numexpr.utils | NumExpr defaulting to 8 threads.
-[NeMo W 2026-03-30 11:30:53 nemo_logging:405] Megatron num_microbatches_calculator not found, using Apex version.
-2026-03-30 11:30:53,434 | WARNING | nv_one_logger.api.config | OneLogger: Setting error_handling_strategy to DISABLE_QUIETLY_AND_REPORT_METRIC_ERROR for rank (rank=0) with OneLogger disabled. To override: explicitly set error_handling_strategy parameter.
-2026-03-30 11:30:53,444 | INFO | nv_one_logger.exporter.export_config_manager | Final configuration contains 0 exporter(s)
-2026-03-30 11:30:53,444 | WARNING | nv_one_logger.training_telemetry.api.training_telemetry_provider | No exporters were provided. This means that no telemetry data will be collected.
+def pcm_to_wav_bytes(audio_pcm: bytes, sr: int = SAMPLE_RATE):
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sr)
+        wf.writeframes(audio_pcm)
+    buffer.seek(0)
+    return buffer
 
-                                                                                                                                                    
-                                                                                                                                                    python3.11 -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
-python3.11 -c "import nemo.collections.asr as nemo_asr; print('nemo import ok')"
-python3.11 -c "import nemo.collections.asr as nemo_asr; m=nemo_asr.models.ASRModel.from_pretrained(model_name='nvidia/parakeet-tdt-0.6b-v3'); print('model load ok')"
+
+@app.websocket("/ws/asr")
+async def websocket_asr(ws: WebSocket):
+    await ws.accept()
+    print("Client connected")
+
+    audio_buffer = bytearray()
+
+    try:
+        while True:
+            chunk = await ws.receive_bytes()
+
+            # EOS signal
+            if chunk == b"":
+                if len(audio_buffer) == 0:
+                    break
+
+                wav_file = pcm_to_wav_bytes(bytes(audio_buffer))
+
+                t0 = time.time()
+                text = asr_model.transcribe([wav_file])[0]
+                latency = round((time.time() - t0) * 1000, 2)
+
+                await ws.send_text(json.dumps({
+                    "type": "final",
+                    "text": text,
+                    "latency_ms": latency
+                }))
+
+                audio_buffer = bytearray()
+                continue
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+#client.py-
+import asyncio
+import json
+
+import numpy as np
+import sounddevice as sd
+import websockets
+
+WS_URL = "ws://localhost:8000/ws/asr"
+SAMPLE_RATE = 16000
+CHUNK_MS = 500
+CHUNK_SIZE = int(SAMPLE_RATE * CHUNK_MS / 1000)
+
+
+async def stream_audio():
+    async with websockets.connect(WS_URL, max_size=10_000_000) as ws:
+        print("Connected to ASR server")
+        print("Speak now... Ctrl+C to stop")
+
+        def callback(indata, frames, time, status):
+            if status:
+                print(status)
+
+            pcm = (indata[:, 0] * 32767).astype(np.int16).tobytes()
+            asyncio.create_task(ws.send(pcm))
+
+        with sd.InputStream(
+            samplerate=SAMPLE_RATE,
+            channels=1,
+            dtype="float32",
+            blocksize=CHUNK_SIZE,
+            callback=callback,
+        ):
+            while True:
+                msg = await ws.recv()
+                data = json.loads(msg)
+                print(f"[{data['type'].upper()}] {data['text']}")
+
+
+if __name__ == "__main__":
+    asyncio.run(stream_audio())
+
+
+#requirements.txt
+fastapi
+uvicorn[standard]
+websockets
+sounddevice
+numpy
+nemo_toolkit[asr]
+torch
+torchaudio
+
+
+#Dockerfile 
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3-pip \
+    ffmpeg \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN pip3 install --upgrade pip setuptools wheel
+RUN pip3 install -r requirements.txt
+
+COPY server.py .
+COPY client.py .
+
+EXPOSE 8000
+
+CMD ["python3", "server.py"]
