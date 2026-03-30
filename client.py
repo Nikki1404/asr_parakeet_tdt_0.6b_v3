@@ -1,85 +1,28 @@
-import asyncio
-import json
-import sys
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# docker run --gpus all -p 8000:8000 parakeet_asr
 
-import sounddevice as sd
-import websockets
+==========
+== CUDA ==
+==========
 
+CUDA Version 12.4.1
 
-WS_URL = "ws://127.0.0.1:8002/asr/realtime-custom-vad"
-SAMPLE_RATE = 16000
-CHANNELS = 1
-DTYPE = "int16"
-BLOCK_MS = 80
-BLOCK_SIZE = int(SAMPLE_RATE * BLOCK_MS / 1000)
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
 
-async def send_audio(ws):
-    loop = asyncio.get_running_loop()
-    q = asyncio.Queue()
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
 
-    def callback(indata, frames, time_info, status):
-        if status:
-            print(f"[mic-status] {status}", file=sys.stderr)
-        loop.call_soon_threadsafe(q.put_nowait, bytes(indata))
-
-    with sd.RawInputStream(
-        samplerate=SAMPLE_RATE,
-        blocksize=BLOCK_SIZE,
-        channels=CHANNELS,
-        dtype=DTYPE,
-        callback=callback,
-    ):
-        print("Recording started. Press Ctrl+C to stop.")
-        while True:
-            chunk = await q.get()
-            await ws.send(chunk)
-
-
-async def recv_msgs(ws):
-    while True:
-        msg = await ws.recv()
-        obj = json.loads(msg)
-
-        kind = obj.get("type")
-        text = obj.get("text", "")
-        lang = obj.get("language", "en")
-        t_start = obj.get("t_start")
-
-        if kind == "partial":
-            print(f"[PARTIAL][{lang}] {text} (t_start={t_start} ms)")
-        elif kind == "final":
-            print(f"[FINAL][{lang}] {text} (t_start={t_start} ms)")
-        else:
-            print(obj)
-
-
-async def main():
-    async with websockets.connect(
-        WS_URL,
-        max_size=10_000_000,
-        ping_interval=20,
-        ping_timeout=120,
-    ) as ws:
-        await ws.send(json.dumps({
-            "backend": "parakeet",
-            "sample_rate": SAMPLE_RATE,
-        }))
-
-        sender = asyncio.create_task(send_audio(ws))
-        receiver = asyncio.create_task(recv_msgs(ws))
-
-        done, pending = await asyncio.wait(
-            [sender, receiver],
-            return_when=asyncio.FIRST_EXCEPTION,
-        )
-
-        for task in pending:
-            task.cancel()
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("\nStopped.")
+DEBUG | backend=parakeet | model=nvidia/parakeet-tdt-0.6b-v3 | device=cuda | sample_rate=16000
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+2026-03-30 11:30:48,587 | INFO | asr_server | Server startup initiated
+2026-03-30 11:30:48,587 | INFO | asr_server | Preloading ASR engines...
+2026-03-30 11:30:48,587 | INFO | asr_server | Initializing engine: parakeet
+2026-03-30 11:30:50,586 | INFO | matplotlib.font_manager | generated new fontManager
+2026-03-30 11:30:52,114 | INFO | numexpr.utils | NumExpr defaulting to 8 threads.
+[NeMo W 2026-03-30 11:30:53 nemo_logging:405] Megatron num_microbatches_calculator not found, using Apex version.
+2026-03-30 11:30:53,434 | WARNING | nv_one_logger.api.config | OneLogger: Setting error_handling_strategy to DISABLE_QUIETLY_AND_REPORT_METRIC_ERROR for rank (rank=0) with OneLogger disabled. To override: explicitly set error_handling_strategy parameter.
+2026-03-30 11:30:53,444 | INFO | nv_one_logger.exporter.export_config_manager | Final configuration contains 0 exporter(s)
+2026-03-30 11:30:53,444 | WARNING | nv_one_logger.training_telemetry.api.training_telemetry_provider | No exporters were provided. This means that no telemetry data will be collected.
