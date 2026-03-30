@@ -1,12 +1,7 @@
 FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
-ARG http_proxy
-ARG https_proxy
-
-ENV http_proxy=${http_proxy}
-ENV https_proxy=${https_proxy}
-ENV HTTP_PROXY=${http_proxy}
-ENV HTTPS_PROXY=${https_proxy}
+ENV http_proxy="http://163.116.128.80:8080"
+ENV https_proxy="http://163.116.128.80:8080"
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /srv
