@@ -1,25 +1,45 @@
- => [6/9] RUN python3.11 -m pip install --no-cache-dir -r requirements.txt                                                                                                                                                         197.1s
- => ERROR [7/9] RUN python3.11 - <<EOF                                                                                                                                                                                               9.1s
-------
- > [7/9] RUN python3.11 - <<EOF:
-7.598 [NeMo W 2026-03-30 11:07:23 nemo_logging:405] Megatron num_microbatches_calculator not found, using Apex version.
-8.077 OneLogger: Setting error_handling_strategy to DISABLE_QUIETLY_AND_REPORT_METRIC_ERROR for rank (rank=0) with OneLogger disabled. To override: explicitly set error_handling_strategy parameter.
-8.088 No exporters were provided. This means that no telemetry data will be collected.
-9.065 Segmentation fault (core dumped)
-------
-Dockerfile:23
---------------------
-  22 |
-  23 | >>> RUN python3.11 - <<EOF
-  24 | >>> import nemo.collections.asr as nemo_asr
-  25 | >>> print("Downloading Parakeet model...")
-  26 | >>> _ = nemo_asr.models.ASRModel.from_pretrained(
-  27 | >>>     model_name="nvidia/parakeet-tdt-0.6b-v3",
-  28 | >>>     map_location="cpu"
-  29 | >>> )
-  30 | >>> print("Parakeet downloaded successfully.")
-  31 | >>> EOF
-  32 |
---------------------
-ERROR: failed to build: failed to solve: process "/bin/sh -c python3.11 - <<EOF\nimport nemo.collections.asr as nemo_asr\nprint(\"Downloading Parakeet model...\")\n_ = nemo_asr.models.ASRModel.from_pretrained(\n    model_name=\"nvidia/parakeet-tdt-0.6b-v3\",\n    map_location=\"cpu\"\n)\nprint(\"Parakeet downloaded successfully.\")\nEOF" did not complete successfully: exit code: 139
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3#
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+#ENV http_proxy="http://163.116.128.80:8080"
+#ENV https_proxy="http://163.116.128.80:8080"
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /srv
+
+# Install Python + system deps
+COPY requirements.txt .
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3-pip \
+    python3-dev \
+    ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Download and prepare models
+RUN python3 - <<EOF
+import nemo.collections.asr as nemo_asr
+from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor
+
+print("Downloading Nemotron from HuggingFace")
+
+model = nemo_asr.models.ASRModel.from_pretrained(
+    "nvidia/nemotron-speech-streaming-en-0.6b"
+)
+model.save_to("/srv/nemotron-speech-streaming-en-0.6b.nemo")
+print("Nemotron saved as .nemo")
+print("Warm loading Nemotron (CPU)")
+
+model = nemo_asr.models.ASRModel.restore_from(
+    restore_path="/srv/nemotron-speech-streaming-en-0.6b.nemo",
+    map_location="cpu"
+)
+print("Nemotron warm load complete")
+EOF
+
+COPY app ./app
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
