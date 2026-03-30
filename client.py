@@ -465,74 +465,7 @@ EXPOSE 8000
 CMD ["python", "server.py"]
 
 
-docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e DEVICE=cuda -e FORCE_FLUSH_SEC=6 -e SILENCE_TIMEOUT_MS=900 -e MIN_UTT_MS=250 nemo-asr-en-es
+docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e DEVICE=cuda nemo-asr-en-es
 
 
-getting this 
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e DEVICE=cuda -e FORCE_FLUSH_SEC=6 -e SILENCE_TIMEOUT_MS=900 -e MIN_UTT_MS=250 nemo-asr-en-es
 
-==========
-== CUDA ==
-==========
-
-CUDA Version 12.4.1
-
-Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-
-This container image and its contents are governed by the NVIDIA Deep Learning Container License.
-By pulling and using the container, you accept the terms and conditions of this license:
-https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
-
-A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
-
-Traceback (most recent call last):
-  File "/app/server.py", line 12, in <module>
-    import nemo.collections.asr as nemo_asr
-  File "/usr/local/lib/python3.11/dist-packages/nemo/collections/asr/__init__.py", line 15, in <module>
-    from nemo.collections.asr import data, losses, models, modules
-  File "/usr/local/lib/python3.11/dist-packages/nemo/collections/asr/losses/__init__.py", line 15, in <module>
-    from nemo.collections.asr.losses.angularloss import AngularSoftmaxLoss
-  File "/usr/local/lib/python3.11/dist-packages/nemo/collections/asr/losses/angularloss.py", line 18, in <module>
-    from nemo.core.classes import Loss, Typing, typecheck
-  File "/usr/local/lib/python3.11/dist-packages/nemo/core/__init__.py", line 16, in <module>
-    from nemo.core.classes import *
-  File "/usr/local/lib/python3.11/dist-packages/nemo/core/classes/__init__.py", line 17, in <module>
-    import lightning.pytorch
-  File "/usr/local/lib/python3.11/dist-packages/lightning/__init__.py", line 20, in <module>
-    from lightning.pytorch.callbacks import Callback  # noqa: E402
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/dist-packages/lightning/pytorch/__init__.py", line 27, in <module>
-    from lightning.pytorch.callbacks import Callback  # noqa: E402
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/dist-packages/lightning/pytorch/callbacks/__init__.py", line 14, in <module>
-    from lightning.pytorch.callbacks.batch_size_finder import BatchSizeFinder
-  File "/usr/local/lib/python3.11/dist-packages/lightning/pytorch/callbacks/batch_size_finder.py", line 26, in <module>
-    from lightning.pytorch.callbacks.callback import Callback
-  File "/usr/local/lib/python3.11/dist-packages/lightning/pytorch/callbacks/callback.py", line 22, in <module>
-    from lightning.pytorch.utilities.types import STEP_OUTPUT
-  File "/usr/local/lib/python3.11/dist-packages/lightning/pytorch/utilities/types.py", line 42, in <module>
-    from torchmetrics import Metric
-  File "/usr/local/lib/python3.11/dist-packages/torchmetrics/__init__.py", line 37, in <module>
-    from torchmetrics import functional  # noqa: E402
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/dist-packages/torchmetrics/functional/__init__.py", line 56, in <module>
-    from torchmetrics.functional.image._deprecated import (
-  File "/usr/local/lib/python3.11/dist-packages/torchmetrics/functional/image/__init__.py", line 14, in <module>
-    from torchmetrics.functional.image.arniqa import arniqa
-  File "/usr/local/lib/python3.11/dist-packages/torchmetrics/functional/image/arniqa.py", line 31, in <module>
-    from torchvision import transforms
-  File "/usr/local/lib/python3.11/dist-packages/torchvision/__init__.py", line 10, in <module>
-    from torchvision import _meta_registrations, datasets, io, models, ops, transforms, utils  # usort:skip
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/dist-packages/torchvision/_meta_registrations.py", line 163, in <module>
-    @torch.library.register_fake("torchvision::nms")
-     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/dist-packages/torch/library.py", line 1087, in register
-    use_lib._register_fake(
-  File "/usr/local/lib/python3.11/dist-packages/torch/library.py", line 204, in _register_fake
-    handle = entry.fake_impl.register(
-             ^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/dist-packages/torch/_library/fake_impl.py", line 50, in register
-    if torch._C._dispatch_has_kernel_for_dispatch_key(self.qualname, "Meta"):
-       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: operator torchvision::nms does not exist
