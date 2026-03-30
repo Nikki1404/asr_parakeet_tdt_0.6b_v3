@@ -463,3 +463,14 @@ COPY client.py .
 EXPOSE 8000
 
 CMD ["python", "server.py"]
+
+
+docker run --gpus all \
+  --name nemo-asr-prod \
+  -p 8000:8000 \
+  -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 \
+  -e DEVICE=cuda \
+  -e FORCE_FLUSH_SEC=6 \
+  -e SILENCE_TIMEOUT_MS=900 \
+  -e MIN_UTT_MS=250 \
+  nemo-asr-en-es
