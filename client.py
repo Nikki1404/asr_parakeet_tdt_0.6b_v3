@@ -766,20 +766,28 @@ numpy==1.26.4
 nemo_toolkit[asr]
 
 
-# Install exact CUDA 12.4 torch first
-RUN pip install --no-cache-dir \
-    torch==2.5.1 \
-    torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu124
+again broke at this step 
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e DEVICE=cuda nemo-asr-en-es
 
-# Install app dependencies WITHOUT torch deps override
-COPY requirements.txt .
-RUN pip install --no-cache-dir --no-deps -r requirements.txt
+==========
+== CUDA ==
+==========
 
-# Install NeMo separately without letting it upgrade torch
-RUN pip install --no-cache-dir --no-deps \
-    nemo_toolkit[asr]==2.3.0 \
-    lightning==2.4.0 \
-    torchmetrics==1.4.0
+CUDA Version 12.4.1
 
+Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
+This container image and its contents are governed by the NVIDIA Deep Learning Container License.
+By pulling and using the container, you accept the terms and conditions of this license:
+https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
+
+A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
+
+STEP 0: module loaded
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+STEP 1: importing NeMo
+[NeMo W 2026-03-30 15:56:41 megatron_init:62] Megatron num_microbatches_calculator not found, using Apex version.
+OneLogger: Setting error_handling_strategy to DISABLE_QUIETLY_AND_REPORT_METRIC_ERROR for rank (rank=0) with OneLogger disabled. To override: explicitly set error_handling_strategy parameter.
+No exporters were provided. This means that no telemetry data will be collected.
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3#
