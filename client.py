@@ -417,8 +417,6 @@ sounddevice==0.5.2
 soundfile==0.13.1
 numpy==1.26.4
 nemo_toolkit[asr]
-torch
-torchaudio
 
 
 #Dockerfile 
