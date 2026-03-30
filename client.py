@@ -469,3 +469,43 @@ docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e 
 
 
 
+getting this 
+125.2   Building wheel for wget (pyproject.toml): started
+125.5   Building wheel for wget (pyproject.toml): finished with status 'done'
+125.5   Created wheel for wget: filename=wget-3.2-py3-none-any.whl size=9685 sha256=b0c83e11e3176c576b64168248418fb4e25228792e6854b514816b5538a454a4
+125.5   Stored in directory: /root/.cache/pip/wheels/40/b3/0f/a40dbd1c6861731779f62cc4babcb234387e11d697df70ee97
+125.5 Successfully built antlr4-python3-runtime sox kaldi-python-io docopt wget
+126.4 Installing collected packages: wget, text-unidecode, StrEnum, sortedcontainers, pydub, pure-eval, ptyprocess, nvidia-cusparselt-cu13, kaldialign, docopt, cuda-toolkit, braceexpand, antlr4-python3-runtime, xxhash, wrapt, werkzeug, websockets, wcwidth, uvloop, urllib3, typing-inspection, typeguard, triton, traitlets, tqdm, toolz, toml, threadpoolctl, tensorboard-data-server, tabulate, sympy, smmap, six, shellingham, setuptools, sentencepiece, safetensors, ruamel.yaml, regex, rapidfuzz, pyyaml, python-dotenv, pyparsing, pygments, pydantic-core, pycparser, pyarrow, psutil, protobuf, propcache, portalocker, platformdirs, Pillow, pexpect, parso, packaging, overrides, nvidia-nvtx, nvidia-nvshmem-cu13, nvidia-nvjitlink, nvidia-nccl-cu13, nvidia-curand, nvidia-cufile, nvidia-cuda-runtime, nvidia-cuda-nvrtc, nvidia-cuda-cupti, nvidia-cublas, numpy, multidict, msgpack, more_itertools, mdurl, marshmallow, markdown, Mako, lxml, llvmlite, kiwisolver, joblib, intervaltree, indic-numtowords, idna, httptools, hf-xet, h11, grpcio, greenlet, graphviz, fsspec, frozenlist, fonttools, executing, einops, editdistance, diskcache, dill, decorator, cycler, cuda-pathfinder, colorlog, colorama, cloudpickle, click, charset_normalizer, certifi, audioread, attrs, asttokens, annotated-types, annotated-doc, aiohappyeyeballs, absl-py, yarl, whisper_normalizer, webdataset, uvicorn, tensorboard, stack_data, sqlalchemy, soxr, sox, sentry-sdk, scipy, sacremoses, sacrebleu, requests, python-dateutil, pydantic, prompt_toolkit, omegaconf, nvidia-cusparse, nvidia-cufft, nvidia-cudnn-cu13, numexpr, numba, multiprocess, ml_dtypes, matplotlib-inline, markdown-it-py, lilcom, lightning-utilities, libcst, lazy_loader, kaldi-python-io, jiwer, jedi, ipython-pygments-lexers, inflect, httpcore, gitdb, cytoolz, cuda-bindings, contourpy, CFFI, anyio, aiosignal, watchfiles, starlette, soundfile, sounddevice, scikit-learn, rich, resampy, pyloudnorm, pyannote.core, pooch, pandas, onnx, nvidia-cusolver, nv_one_logger_core, matplotlib, ipython, hydra-core, huggingface_hub, httpx, gitpython, fiddle, alembic, aiohttp, wandb, typer, tokenizers, optuna, nv_one_logger_training_telemetry, mediapy, librosa, fastapi, transformers, torch, pyannote.database, datasets, torchmetrics, pyannote.metrics, nemo_toolkit, lhotse, accelerate, pytorch-lightning, peft, lightning, nv_one_logger_pytorch_lightning_integration
+128.1   Attempting uninstall: triton
+128.1     Found existing installation: triton 3.1.0
+128.1     Uninstalling triton-3.1.0:
+136.3       Successfully uninstalled triton-3.1.0
+144.2   Attempting uninstall: sympy
+144.2     Found existing installation: sympy 1.13.1
+144.4     Uninstalling sympy-1.13.1:
+147.9       Successfully uninstalled sympy-1.13.1
+153.3   Attempting uninstall: setuptools
+153.3     Found existing installation: setuptools 82.0.1
+153.3     Uninstalling setuptools-82.0.1:
+154.4       Successfully uninstalled setuptools-82.0.1
+161.8   Attempting uninstall: packaging
+161.8     Found existing installation: packaging 26.0
+161.8     Uninstalling packaging-26.0:
+161.9       Successfully uninstalled packaging-26.0
+190.6 ERROR: Could not install packages due to an OSError: [Errno 28] No space left on device
+190.6
+190.6
+190.7 WARNING: There was an error checking the latest version of pip.
+------
+Dockerfile:38
+--------------------
+  36 |     COPY requirements.txt .
+  37 |
+  38 | >>> RUN pip install -r requirements.txt
+  39 |
+  40 |     COPY server.py .
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c pip install -r requirements.txt" did not complete successfully: exit code: 1
+
+
+
