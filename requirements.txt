@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+numpy
+resampy
+sounddevice
+websockets
+torch==2.4.0
+omegaconf
+nemo_toolkit[asr]
