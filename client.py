@@ -469,65 +469,55 @@ docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e 
 
 
 
-getting this 
-125.2   Building wheel for wget (pyproject.toml): started
-125.5   Building wheel for wget (pyproject.toml): finished with status 'done'
-125.5   Created wheel for wget: filename=wget-3.2-py3-none-any.whl size=9685 sha256=b0c83e11e3176c576b64168248418fb4e25228792e6854b514816b5538a454a4
-125.5   Stored in directory: /root/.cache/pip/wheels/40/b3/0f/a40dbd1c6861731779f62cc4babcb234387e11d697df70ee97
-125.5 Successfully built antlr4-python3-runtime sox kaldi-python-io docopt wget
-126.4 Installing collected packages: wget, text-unidecode, StrEnum, sortedcontainers, pydub, pure-eval, ptyprocess, nvidia-cusparselt-cu13, kaldialign, docopt, cuda-toolkit, braceexpand, antlr4-python3-runtime, xxhash, wrapt, werkzeug, websockets, wcwidth, uvloop, urllib3, typing-inspection, typeguard, triton, traitlets, tqdm, toolz, toml, threadpoolctl, tensorboard-data-server, tabulate, sympy, smmap, six, shellingham, setuptools, sentencepiece, safetensors, ruamel.yaml, regex, rapidfuzz, pyyaml, python-dotenv, pyparsing, pygments, pydantic-core, pycparser, pyarrow, psutil, protobuf, propcache, portalocker, platformdirs, Pillow, pexpect, parso, packaging, overrides, nvidia-nvtx, nvidia-nvshmem-cu13, nvidia-nvjitlink, nvidia-nccl-cu13, nvidia-curand, nvidia-cufile, nvidia-cuda-runtime, nvidia-cuda-nvrtc, nvidia-cuda-cupti, nvidia-cublas, numpy, multidict, msgpack, more_itertools, mdurl, marshmallow, markdown, Mako, lxml, llvmlite, kiwisolver, joblib, intervaltree, indic-numtowords, idna, httptools, hf-xet, h11, grpcio, greenlet, graphviz, fsspec, frozenlist, fonttools, executing, einops, editdistance, diskcache, dill, decorator, cycler, cuda-pathfinder, colorlog, colorama, cloudpickle, click, charset_normalizer, certifi, audioread, attrs, asttokens, annotated-types, annotated-doc, aiohappyeyeballs, absl-py, yarl, whisper_normalizer, webdataset, uvicorn, tensorboard, stack_data, sqlalchemy, soxr, sox, sentry-sdk, scipy, sacremoses, sacrebleu, requests, python-dateutil, pydantic, prompt_toolkit, omegaconf, nvidia-cusparse, nvidia-cufft, nvidia-cudnn-cu13, numexpr, numba, multiprocess, ml_dtypes, matplotlib-inline, markdown-it-py, lilcom, lightning-utilities, libcst, lazy_loader, kaldi-python-io, jiwer, jedi, ipython-pygments-lexers, inflect, httpcore, gitdb, cytoolz, cuda-bindings, contourpy, CFFI, anyio, aiosignal, watchfiles, starlette, soundfile, sounddevice, scikit-learn, rich, resampy, pyloudnorm, pyannote.core, pooch, pandas, onnx, nvidia-cusolver, nv_one_logger_core, matplotlib, ipython, hydra-core, huggingface_hub, httpx, gitpython, fiddle, alembic, aiohttp, wandb, typer, tokenizers, optuna, nv_one_logger_training_telemetry, mediapy, librosa, fastapi, transformers, torch, pyannote.database, datasets, torchmetrics, pyannote.metrics, nemo_toolkit, lhotse, accelerate, pytorch-lightning, peft, lightning, nv_one_logger_pytorch_lightning_integration
-128.1   Attempting uninstall: triton
-128.1     Found existing installation: triton 3.1.0
-128.1     Uninstalling triton-3.1.0:
-136.3       Successfully uninstalled triton-3.1.0
-144.2   Attempting uninstall: sympy
-144.2     Found existing installation: sympy 1.13.1
-144.4     Uninstalling sympy-1.13.1:
-147.9       Successfully uninstalled sympy-1.13.1
-153.3   Attempting uninstall: setuptools
-153.3     Found existing installation: setuptools 82.0.1
-153.3     Uninstalling setuptools-82.0.1:
-154.4       Successfully uninstalled setuptools-82.0.1
-161.8   Attempting uninstall: packaging
-161.8     Found existing installation: packaging 26.0
-161.8     Uninstalling packaging-26.0:
-161.9       Successfully uninstalled packaging-26.0
-190.6 ERROR: Could not install packages due to an OSError: [Errno 28] No space left on device
-190.6
-190.6
-190.7 WARNING: There was an error checking the latest version of pip.
-------
-Dockerfile:38
---------------------
-  36 |     COPY requirements.txt .
-  37 |
-  38 | >>> RUN pip install -r requirements.txt
-  39 |
-  40 |     COPY server.py .
---------------------
-ERROR: failed to build: failed to solve: process "/bin/sh -c pip install -r requirements.txt" did not complete successfully: exit code: 1
-
-
-
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# dmesg | tail -50
+[603562.929321] docker0: port 1(vetha1305e7) entered disabled state
+[603562.929455] veth13ab339: renamed from eth0
+[603562.952341] overlayfs: lowerdir is in-use as upperdir/workdir of another mount, accessing files from both mounts will result in undefined behavior.
+[603563.013019] docker0: port 3(veth466889e) entered blocking state
+[603563.013029] docker0: port 3(veth466889e) entered disabled state
+[603563.013046] veth466889e: entered allmulticast mode
+[603563.013171] veth466889e: entered promiscuous mode
+[603563.040971] docker0: port 1(vetha1305e7) entered disabled state
+[603563.101081] vetha1305e7 (unregistering): left allmulticast mode
+[603563.101089] vetha1305e7 (unregistering): left promiscuous mode
+[603563.101104] docker0: port 1(vetha1305e7) entered disabled state
+[603563.195755] eth0: renamed from veth873bf8a
+[603563.202042] docker0: port 3(veth466889e) entered blocking state
+[603563.202051] docker0: port 3(veth466889e) entered forwarding state
+[603733.786431] docker0: port 3(veth466889e) entered disabled state
+[603733.786543] veth873bf8a: renamed from eth0
+[603733.844305] docker0: port 3(veth466889e) entered disabled state
+[603733.845864] veth466889e (unregistering): left allmulticast mode
+[603733.845872] veth466889e (unregistering): left promiscuous mode
+[603733.845878] docker0: port 3(veth466889e) entered disabled state
+[603733.909699] overlayfs: lowerdir is in-use as upperdir/workdir of another mount, accessing files from both mounts will result in undefined behavior.
+[603750.509239] docker0: port 1(veth577533f) entered blocking state
+[603750.509248] docker0: port 1(veth577533f) entered disabled state
+[603750.509261] veth577533f: entered allmulticast mode
+[603750.509411] veth577533f: entered promiscuous mode
+[603750.636508] eth0: renamed from vethe5a3668
+[603750.643964] docker0: port 1(veth577533f) entered blocking state
+[603750.643974] docker0: port 1(veth577533f) entered forwarding state
+[604020.049132] docker0: port 1(veth577533f) entered disabled state
+[604020.050291] vethe5a3668: renamed from eth0
+[604020.089543] overlayfs: lowerdir is in-use as upperdir/workdir of another mount, accessing files from both mounts will result in undefined behavior.
+[604020.136576] docker0: port 1(veth577533f) entered disabled state
+[604020.139102] veth577533f (unregistering): left allmulticast mode
+[604020.139110] veth577533f (unregistering): left promiscuous mode
+[604020.139119] docker0: port 1(veth577533f) entered disabled state
+[604114.840869] docker0: port 1(veth4c85962) entered blocking state
+[604114.840879] docker0: port 1(veth4c85962) entered disabled state
+[604114.840894] veth4c85962: entered allmulticast mode
+[604114.841033] veth4c85962: entered promiscuous mode
+[604114.859074] eth0: renamed from vethcdc6cc1
+[604114.870197] docker0: port 1(veth4c85962) entered blocking state
+[604114.870207] docker0: port 1(veth4c85962) entered forwarding state
+[604128.554937] uvicorn[519883]: segfault at a ip 00000000005266a0 sp 00007ffddcd0a350 error 4 in python3.11[41f000+2c2000] likely on CPU 3 (core 3, socket 0)
+[604128.554993] Code: ff e9 f5 fa ff ff c3 0f 1f 00 f3 0f 1e fa 41 57 41 56 41 55 41 54 55 53 48 83 ec 38 48 81 7e 08 a0 69 96 00 0f 85 3c 07 f1 ff <80> 7f 0a 00 48 89 fd 0f 84 2f 07 f1 ff 4c 8b 6e 18 48 89 f3 49 83
+[604134.218540] docker0: port 1(veth4c85962) entered disabled state
+[604134.218782] vethcdc6cc1: renamed from eth0
+[604134.569601] docker0: port 1(veth4c85962) entered disabled state
+[604134.571971] veth4c85962 (unregistering): left allmulticast mode
+[604134.571980] veth4c85962 (unregistering): left promiscuous mode
+[604134.571987] docker0: port 1(veth4c85962) entered disabled state
 why getting this 
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3# docker run --gpus all -p 8000:8000 -e MODEL_NAME=nvidia/parakeet-tdt-0.6b-v3 -e DEVICE=cuda nemo-asr-en-es
-
-==========
-== CUDA ==
-==========
-
-CUDA Version 12.4.1
-
-Container image Copyright (c) 2016-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-
-This container image and its contents are governed by the NVIDIA Deep Learning Container License.
-By pulling and using the container, you accept the terms and conditions of this license:
-https://developer.nvidia.com/ngc/nvidia-deep-learning-container-license
-
-A copy of this license is made available in this container at /NGC-DL-CONTAINER-LICENSE for your convenience.
-
-[NeMo W 2026-03-30 13:01:19 megatron_init:62] Megatron num_microbatches_calculator not found, using Apex version.
-OneLogger: Setting error_handling_strategy to DISABLE_QUIETLY_AND_REPORT_METRIC_ERROR for rank (rank=0) with OneLogger disabled. To override: explicitly set error_handling_strategy parameter.
-No exporters were provided. This means that no telemetry data will be collected.
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav/asr_parakeet_tdt_0.6b_v3#
-                                                                                     
