@@ -43,3 +43,5 @@ EOF
 COPY app ./app
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002"]
+
+us-central1-docker.pkg.dev/emr-dgt-autonomous-uctr1-snbx/asr-parakeet-v3
