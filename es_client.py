@@ -216,7 +216,4 @@ if __name__ == "__main__":
         Path(args.output_folder)
     )
 
-python3 transcribe_parakeet_es_batch.py \
-  --base-url http://localhost:9000 \
-  --input-folder /home/re_nikitav/audio_maria \
-  --output-folder /home/re_nikitav/parakeet_es_results
+python3 transcribe_parakeet_es_batch.py --base-url http://localhost:9000 --input-folder /home/re_nikitav/audio_maria --output-folder /home/re_nikitav/parakeet_es_results
