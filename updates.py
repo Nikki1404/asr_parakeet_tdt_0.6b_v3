@@ -1,138 +1,54 @@
-I want to write a client script to get transcriptions from audio files(approx 56 file of 30mb and 1 file is of 150 mb ) uploaded here 
-so get the files from this location downloads/audios/audios in local in mp3 format and  upload to generate final transcription of that audio file and get ttfb , ttft as latecy per audio file
-
-this is the client currently i am using 
-client.py-
 """
-Parakeet ASR – Terminal Microphone Client
-Captures microphone audio, sends it to the WebSocket server in real time,
-and prints transcriptions as they arrive. Works for English & Spanish
-(parakeet-tdt-0.6b-v3 auto-detects the language).
+Parakeet ASR – Batch Benchmark Client
+Streams all MP3 files from downloads/audios/audios/ to the WebSocket server,
+collects full transcriptions, and records TTFB / TTFT latency per file.
+
+Output CSVs:
+    transcriptions.csv  →  file_name | transcription
+    latency.csv         →  file_name | ttfb_ms | ttft_ms
 
 Usage:
-    # Microphone mode (default)
-    python client.py (local testing)
-    python client.py --host 34.118.200.125 --port 8001 (GCP)
-    
-
-    # File mode – streams audio file(s) chunk by chunk at real-time speed
-    python client.py --host 34.118.200.125 --port 8001 --file english.wav
-    python client.py --host 34.118.200.125 --port 8001 --file english.wav spanish.mp3
-    python client.py --host 34.118.200.125 --port 8001 --file audio.wav --speed 1.5
-
+    python benchmark_client.py
+    python benchmark_client.py --host 34.118.200.125 --port 8001
+    python benchmark_client.py --host 34.118.200.125 --port 8001 --speed 10.0
+    python benchmark_client.py --audio-dir path/to/audios --speed 5.0
 
 Dependencies:
-    pip install pyaudio websockets soundfile numpy
-    pip install pydub   (optional, for MP3/OGG)
-    apt install ffmpeg  (optional, for non-WAV resampling)
+    pip install websockets soundfile numpy pydub
+    apt install ffmpeg   (required for MP3 resampling)
 """
 
 import argparse
 import asyncio
+import csv
 import json
 import logging
 import sys
-import threading
 import time
 from pathlib import Path
-from queue import Empty, Queue
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
-import pyaudio
 import websockets
 
-# Config
+# ── Audio config
 SAMPLE_RATE   = 16_000
-CHANNELS      = 1
-FORMAT        = pyaudio.paInt16
 CHUNK_MS      = 30
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000   # 480 samples
-CHUNK_BYTES   = CHUNK_SAMPLES * 2                # int16 → 2 bytes per sample
+CHUNK_BYTES   = CHUNK_SAMPLES * 2                 # int16 → 2 bytes/sample
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
-BANNER = r"""
-╔══════════════════════════════════════════════════════════════╗
-║        Parakeet-TDT-0.6B-v3  |  Real-Time ASR Client        ║
-║          Auto language detection (EN / ES / more)           ║
-║          WebSocket: ws://localhost:8001/ws                   ║
-╚══════════════════════════════════════════════════════════════╝
-"""
-
-HELP = """
-Commands
-  [Enter]   Manual flush – force transcription of buffered audio
-  q         Quit
-  d         List available audio input devices
-
-Test phrases
-  EN: "The quick brown fox jumps over the lazy dog"
-  ES: "El zorro marrón rápido salta sobre el perro perezoso"
-"""
+DEFAULT_AUDIO_DIR   = "downloads/audios/audios"
+TRANSCRIPTIONS_CSV  = "transcriptions.csv"
+LATENCY_CSV         = "latency.csv"
 
 
-# Audio capture (mic)
+# ── Audio loading ──────────────────────────────────────────────────────────────
 
-class MicCapture:
-    """Captures microphone audio into a thread-safe queue."""
-
-    def __init__(self, device_index: Optional[int] = None):
-        self.queue: Queue[bytes] = Queue(maxsize=512)
-        self._stop   = threading.Event()
-        self._device = device_index
-        self._thread = threading.Thread(target=self._capture, daemon=True)
-
-    def start(self):
-        self._thread.start()
-
-    def stop(self):
-        self._stop.set()
-
-    def _capture(self):
-        pa = pyaudio.PyAudio()
-        try:
-            stream = pa.open(
-                format=FORMAT,
-                channels=CHANNELS,
-                rate=SAMPLE_RATE,
-                input=True,
-                input_device_index=self._device,
-                frames_per_buffer=CHUNK_SAMPLES,
-            )
-            while not self._stop.is_set():
-                data = stream.read(CHUNK_SAMPLES, exception_on_overflow=False)
-                self.queue.put(data)
-        except OSError as exc:
-            print(f"\n[ERROR] Audio capture failed: {exc}", file=sys.stderr)
-            self._stop.set()
-        finally:
-            try:
-                stream.stop_stream()
-                stream.close()
-            except Exception:
-                pass
-            pa.terminate()
-
-
-def list_devices():
-    pa = pyaudio.PyAudio()
-    print("\nAvailable audio input devices:")
-    for i in range(pa.get_device_count()):
-        info = pa.get_device_info_by_index(i)
-        if info["maxInputChannels"] > 0:
-            print(f"  [{i}] {info['name']}  ({int(info['defaultSampleRate'])} Hz)")
-    pa.terminate()
-    print()
-
-
-#  Audio loading (file) 
 def load_audio_as_16k_pcm(path: str) -> bytes:
-    """
-    Load any audio file → raw int16 LE PCM at 16 kHz mono.
-    Tries soundfile first (WAV/FLAC/OGG), then pydub (MP3 etc).
-    """
+    """Load any audio file → raw int16 LE PCM at 16 kHz mono."""
     try:
         import soundfile as sf
         data, sr = sf.read(path, dtype="float32", always_2d=False)
@@ -152,7 +68,7 @@ def load_audio_as_16k_pcm(path: str) -> bytes:
                 f"Cannot load '{path}'.\n"
                 f"  soundfile : {sf_err}\n"
                 f"  pydub     : {pd_err}\n"
-                f"  Tip: install ffmpeg for MP3/OGG support."
+                f"  Tip: install ffmpeg for MP3 support."
             )
 
 
@@ -169,7 +85,7 @@ def _resample(data: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
         return resample_poly(data, target_sr // g, orig_sr // g).astype(np.float32)
     except ImportError:
         pass
-    # Pure numpy linear interpolation fallback
+    # Numpy linear interpolation fallback
     duration  = len(data) / orig_sr
     old_times = np.linspace(0, duration, len(data))
     new_times = np.linspace(0, duration, int(duration * target_sr))
@@ -180,169 +96,76 @@ def _float32_to_pcm16(data: np.ndarray) -> bytes:
     return (np.clip(data, -1.0, 1.0) * 32767).astype(np.int16).tobytes()
 
 
-# ── Shared receiver (same for mic and file modes)
+# ── Per-file benchmark ─────────────────────────────────────────────────────────
 
-async def _receiver(ws):
-    """Receives partial + final transcripts and prints them."""
+class BenchmarkResult:
+    def __init__(self, file_name: str):
+        self.file_name      = file_name
+        self.ttfb_ms: Optional[float] = None   # time to first byte (any server response)
+        self.ttft_ms: Optional[float] = None   # time to first transcript (partial text)
+        self.transcription  = ""
+        self.error: Optional[str]     = None
+
+
+async def _benchmark_receiver(
+    ws,
+    send_start_time: float,
+    result: BenchmarkResult,
+) -> None:
+    """
+    Receive messages from the server and record:
+      TTFB – wall-clock ms from send_start until first message of any kind arrives.
+      TTFT – wall-clock ms from send_start until first message with non-empty text.
+    Collects the final transcript text (type == "transcript").
+    """
+    transcript_parts: List[str] = []
+
     try:
         async for raw in ws:
+            now = time.perf_counter()
+            elapsed_ms = (now - send_start_time) * 1000
+
+            # TTFB: first byte / message received
+            if result.ttfb_ms is None:
+                result.ttfb_ms = elapsed_ms
+
             try:
                 msg = json.loads(raw)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # Raw binary ack or unknown — still counts as TTFB
                 continue
 
             msg_type = msg.get("type", "")
-            text     = msg.get("text", "")
-            dur_ms   = msg.get("duration_ms", 0)
-            ts       = time.strftime("%H:%M:%S")
+            text     = msg.get("text", "").strip()
+
+            # TTFT: first message that carries actual text
+            if result.ttft_ms is None and text:
+                result.ttft_ms = elapsed_ms
 
             if msg_type == "partial":
-                print(f"\r  ⏳ [{ts}] {text:<80}", end="", flush=True)
+                pass  # already captured TTFT above
 
             elif msg_type == "transcript":
-                rtf = msg.get("rtf", 0)
-                print(f"\r{' ' * 90}\r", end="")
-                print(f"[{ts}] ({dur_ms/1000:.1f}s | RTF {rtf:.2f}x)")
-                print(f"  ✅  {text}")
-                print("─" * 64)
+                if text:
+                    transcript_parts.append(text)
 
     except websockets.exceptions.ConnectionClosed:
-        print("\n[Connection closed]")
+        pass
+
+    result.transcription = " ".join(transcript_parts)
 
 
-# ── stdin reader 
+async def _benchmark_sender(ws, pcm: bytes, speed: float) -> float:
+    """
+    Stream PCM to the server at `speed`× real-time.
+    Returns the perf_counter timestamp just before the first chunk is sent
+    (used as the reference t=0 for latency measurements).
+    """
+    chunk_delay = (CHUNK_MS / 1000) / speed
+    offset = 0
 
-def stdin_reader(cmd_queue: Queue):
-    while True:
-        try:
-            line = sys.stdin.readline()
-            if line:
-                cmd_queue.put(line.strip())
-        except Exception:
-            break
-
-
-#  MODE 1 : Microphone 
-
-async def run_mic(host: str, port: int, device_index: Optional[int]):
-    uri = f"ws://{host}:{port}/ws"
-    print(BANNER)
-    print(f"Connecting to {uri} …", end=" ", flush=True)
-
-    try:
-        async with websockets.connect(uri, ping_interval=20, ping_timeout=20) as ws:
-            print("connected ✓\n")
-            print("🎙  Speak now – transcriptions appear below\n")
-            print("─" * 64)
-
-            mic = MicCapture(device_index)
-            mic.start()
-
-            cmd_queue: Queue[str] = Queue()
-            threading.Thread(target=stdin_reader, args=(cmd_queue,), daemon=True).start()
-
-            send_task = asyncio.create_task(_mic_sender(ws, mic, cmd_queue))
-            recv_task = asyncio.create_task(_receiver(ws))
-
-            done, pending = await asyncio.wait(
-                [send_task, recv_task],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for t in pending:
-                t.cancel()
-            mic.stop()
-
-    except (OSError, websockets.exceptions.WebSocketException) as exc:
-        print(f"failed ✗\n[ERROR] {exc}", file=sys.stderr)
-        sys.exit(1)
-
-
-async def _mic_sender(ws, mic: MicCapture, cmd_queue: Queue):
-    print(HELP)
-    try:
-        while True:
-            try:
-                cmd = cmd_queue.get_nowait()
-                if cmd.lower() in ("q", "quit", "exit"):
-                    print("\nBye!")
-                    return
-                elif cmd == "":
-                    await ws.send(json.dumps({"cmd": "flush"}).encode())
-                    print("[flushed]\n", flush=True)
-                elif cmd.lower() == "d":
-                    list_devices()
-            except Empty:
-                pass
-
-            sent = 0
-            while not mic.queue.empty() and sent < 50:
-                frame = mic.queue.get_nowait()
-                await ws.send(frame)
-                sent += 1
-
-            await asyncio.sleep(0.005)
-
-    except websockets.exceptions.ConnectionClosed:
-        print("\n[Connection closed by server]")
-
-
-# File streaming
-async def run_files(host: str, port: int, files: List[str], speed: float):
-    uri = f"ws://{host}:{port}/ws"
-    print(BANNER)
-    print(f"  Mode   : FILE streaming at {speed:.1f}× real-time speed")
-    print(f"  Server : {uri}")
-    print(f"  Files  : {', '.join(Path(f).name for f in files)}\n")
-
-    for filepath in files:
-        p = Path(filepath)
-        if not p.exists():
-            print(f"  [SKIP] File not found: {filepath}\n")
-            continue
-
-        # Load and resample
-        print(f"  Loading {p.name} …", end=" ", flush=True)
-        try:
-            pcm = load_audio_as_16k_pcm(str(p))
-        except RuntimeError as e:
-            print(f"FAILED ✗\n  {e}\n")
-            continue
-
-        duration_sec = len(pcm) / 2 / SAMPLE_RATE
-        print(f"{duration_sec:.1f}s  ✓")
-        print(f"\n{'═' * 64}")
-        print(f"  📄 {p.name}  ({duration_sec:.1f}s)  — language auto-detected by model")
-        print(f"{'═' * 64}\n")
-
-        try:
-            async with websockets.connect(
-                uri, ping_interval=20, ping_timeout=20, max_size=2**23
-            ) as ws:
-                send_task = asyncio.create_task(
-                    _file_sender(ws, pcm, speed)
-                )
-                recv_task = asyncio.create_task(_receiver(ws))
-
-                # Receiver exits on ConnectionClosed; sender exits when done
-                done, pending = await asyncio.wait(
-                    [send_task, recv_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                for t in pending:
-                    t.cancel()
-
-        except (OSError, websockets.exceptions.WebSocketException) as exc:
-            print(f"\n  [ERROR] WebSocket failed: {exc}")
-
-        print()   # blank line between files
-
-    print("  All files processed.")
-
-
-async def _file_sender(ws, pcm: bytes, speed: float):
-    """Stream PCM bytes to server chunk by chunk at real-time speed."""
-    chunk_delay = (CHUNK_MS / 1000) / speed   # e.g. 0.03s at 1×, 0.015s at 2×
-    offset      = 0
+    # Record start time right before first send
+    send_start = time.perf_counter()
 
     while offset + CHUNK_BYTES <= len(pcm):
         chunk   = pcm[offset: offset + CHUNK_BYTES]
@@ -355,44 +178,186 @@ async def _file_sender(ws, pcm: bytes, speed: float):
     if leftover:
         await ws.send(leftover + bytes(CHUNK_BYTES - len(leftover)))
 
-    # Small pause then manual flush to force final transcript
+    # Flush to force the final transcript
     await asyncio.sleep(0.3)
     await ws.send(json.dumps({"cmd": "flush"}).encode())
 
-    # Wait long enough for the server to respond with the final transcript
-    await asyncio.sleep(10)
+    return send_start
 
+
+async def benchmark_file(
+    uri: str,
+    filepath: Path,
+    pcm: bytes,
+    speed: float,
+) -> BenchmarkResult:
+    result = BenchmarkResult(file_name=filepath.name)
+
+    try:
+        async with websockets.connect(
+            uri,
+            ping_interval=20,
+            ping_timeout=60,
+            max_size=2 ** 24,   # 16 MB – handles the 150 MB file's chunked frames
+            open_timeout=30,
+        ) as ws:
+            # We need the sender to return its start-time to the receiver.
+            # Use a shared list as a mutable container.
+            start_time_holder: List[float] = []
+
+            async def sender_wrapper():
+                t = await _benchmark_sender(ws, pcm, speed)
+                start_time_holder.append(t)
+                # Give the receiver some extra time to collect the final transcript
+                await asyncio.sleep(15)
+                await ws.close()
+
+            # Receiver needs the start time; we approximate it as "now" and refine
+            # once the sender fires. Use a simple shared float via list.
+            approx_start = time.perf_counter()
+
+            async def receiver_wrapper():
+                # Wait briefly so sender can record its precise start
+                await asyncio.sleep(0.01)
+                actual_start = start_time_holder[0] if start_time_holder else approx_start
+                await _benchmark_receiver(ws, actual_start, result)
+
+            recv_task = asyncio.create_task(receiver_wrapper())
+            send_task = asyncio.create_task(sender_wrapper())
+
+            await asyncio.gather(send_task, recv_task, return_exceptions=True)
+
+    except Exception as exc:
+        result.error = str(exc)
+
+    return result
+
+
+# ── Batch runner ───────────────────────────────────────────────────────────────
+
+async def run_benchmark(host: str, port: int, audio_dir: str, speed: float):
+    uri       = f"ws://{host}:{port}/ws"
+    audio_path = Path(audio_dir)
+
+    if not audio_path.exists():
+        print(f"[ERROR] Audio directory not found: {audio_path.resolve()}", file=sys.stderr)
+        sys.exit(1)
+
+    mp3_files = sorted(audio_path.glob("*.mp3"))
+    if not mp3_files:
+        print(f"[ERROR] No MP3 files found in {audio_path.resolve()}", file=sys.stderr)
+        sys.exit(1)
+
+    total = len(mp3_files)
+    print(f"\n{'═' * 64}")
+    print(f"  Parakeet ASR Benchmark Client")
+    print(f"  Server  : {uri}")
+    print(f"  Dir     : {audio_path.resolve()}")
+    print(f"  Files   : {total}")
+    print(f"  Speed   : {speed:.1f}× real-time")
+    print(f"{'═' * 64}\n")
+
+    results: List[BenchmarkResult] = []
+
+    for idx, filepath in enumerate(mp3_files, 1):
+        size_mb = filepath.stat().st_size / (1024 ** 2)
+        print(f"[{idx:>3}/{total}] {filepath.name}  ({size_mb:.1f} MB)", end="  ", flush=True)
+
+        # Load audio
+        try:
+            pcm = load_audio_as_16k_pcm(str(filepath))
+        except RuntimeError as exc:
+            print(f"LOAD FAILED ✗\n         {exc}\n")
+            r = BenchmarkResult(filepath.name)
+            r.error = str(exc)
+            results.append(r)
+            continue
+
+        duration_sec = len(pcm) / 2 / SAMPLE_RATE
+        print(f"({duration_sec:.1f}s audio)", end="  ", flush=True)
+
+        # Benchmark
+        wall_start = time.time()
+        result     = await benchmark_file(uri, filepath, pcm, speed)
+        wall_elapsed = time.time() - wall_start
+
+        results.append(result)
+
+        if result.error:
+            print(f"ERROR ✗  →  {result.error}")
+        else:
+            ttfb = f"{result.ttfb_ms:.0f}ms" if result.ttfb_ms is not None else "N/A"
+            ttft = f"{result.ttft_ms:.0f}ms" if result.ttft_ms is not None else "N/A"
+            preview = (result.transcription[:60] + "…") if len(result.transcription) > 60 else result.transcription
+            print(f"TTFB={ttfb}  TTFT={ttft}  wall={wall_elapsed:.1f}s")
+            print(f"         ✅  {preview}")
+
+        print()
+
+    # ── Write CSVs ────────────────────────────────────────────────────────────
+    _write_transcriptions_csv(results)
+    _write_latency_csv(results)
+
+    print(f"\n{'═' * 64}")
+    print(f"  Done! Results saved to:")
+    print(f"    {Path(TRANSCRIPTIONS_CSV).resolve()}")
+    print(f"    {Path(LATENCY_CSV).resolve()}")
+    print(f"{'═' * 64}\n")
+
+    # ── Summary stats ─────────────────────────────────────────────────────────
+    successful = [r for r in results if r.error is None]
+    ttfb_vals  = [r.ttfb_ms for r in successful if r.ttfb_ms is not None]
+    ttft_vals  = [r.ttft_ms for r in successful if r.ttft_ms is not None]
+
+    if ttfb_vals:
+        print(f"  TTFB  avg={_avg(ttfb_vals):.0f}ms  "
+              f"min={min(ttfb_vals):.0f}ms  max={max(ttfb_vals):.0f}ms")
+    if ttft_vals:
+        print(f"  TTFT  avg={_avg(ttft_vals):.0f}ms  "
+              f"min={min(ttft_vals):.0f}ms  max={max(ttft_vals):.0f}ms")
+    print(f"  Success: {len(successful)}/{total}\n")
+
+
+def _avg(vals):
+    return sum(vals) / len(vals)
+
+
+# ── CSV writers ────────────────────────────────────────────────────────────────
+
+def _write_transcriptions_csv(results: List[BenchmarkResult]):
+    with open(TRANSCRIPTIONS_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["file_name", "transcription"])
+        for r in results:
+            writer.writerow([r.file_name, r.transcription if not r.error else f"ERROR: {r.error}"])
+
+
+def _write_latency_csv(results: List[BenchmarkResult]):
+    with open(LATENCY_CSV, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["file_name", "ttfb_ms", "ttft_ms"])
+        for r in results:
+            writer.writerow([
+                r.file_name,
+                f"{r.ttfb_ms:.2f}" if r.ttfb_ms is not None else "N/A",
+                f"{r.ttft_ms:.2f}" if r.ttft_ms is not None else "N/A",
+            ])
+
+
+# ── CLI ────────────────────────────────────────────────────────────────────────
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Parakeet ASR client – mic or file mode")
-    p.add_argument("--host",   default="localhost", help="Server host (default: localhost)")
-    p.add_argument("--port",   type=int, default=8001, help="Server port (default: 8001)")
-    p.add_argument("--device", type=int, default=None, metavar="INDEX",
-                   help="Mic device index for mic mode (see --list)")
-    p.add_argument("--list",   action="store_true",
-                   help="List audio input devices and exit")
-    p.add_argument("--file",   nargs="+", metavar="FILE",
-                   help="File mode: stream audio file(s) instead of mic "
-                        "(WAV / MP3 / FLAC / OGG)")
-    p.add_argument("--speed",  type=float, default=1.0,
-                   help="File mode: playback speed multiplier "
-                        "(default 1.0 = real-time, 2.0 = 2× faster)")
+    p = argparse.ArgumentParser(
+        description="Parakeet ASR batch benchmark – streams MP3 files and records latency"
+    )
+    p.add_argument("--host",      default="localhost",         help="Server host (default: localhost)")
+    p.add_argument("--port",      type=int, default=8001,      help="Server port (default: 8001)")
+    p.add_argument("--audio-dir", default=DEFAULT_AUDIO_DIR,   help=f"Directory with MP3 files (default: {DEFAULT_AUDIO_DIR})")
+    p.add_argument("--speed",     type=float, default=10.0,
+                   help="Streaming speed multiplier (default: 10.0 = 10× faster than real-time, good for benchmarking)")
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
-
-    if args.list:
-        list_devices()
-        sys.exit(0)
-
-    if args.file:
-        asyncio.run(run_files(args.host, args.port, args.file, args.speed))
-    else:
-        asyncio.run(run_mic(args.host, args.port, args.device))
-
-update it accordingly and save the transcriptions per audio file in csv file with file name like 
-file name | transcription
-and another csv file for latency 
-file name | latency (ttft/ttfb)
+    asyncio.run(run_benchmark(args.host, args.port, args.audio_dir, args.speed))
