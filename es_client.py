@@ -216,4 +216,8 @@ if __name__ == "__main__":
         Path(args.output_folder)
     )
 
-python3 -c "import requests; print(requests.post('http://192.168.4.62:9000/v1/audio/transcriptions').text)"
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 -c "import requests; print(requests.post('http://127.0.0.1:9000/v1/audio/transcriptions').text)"
+{"error":{"message":"file: Field required","type":"BadRequestError","code":400}}
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 -c "import requests; print(requests.post('http://192.168.4.62:9000/v1/audio/transcriptions').text)"
+{"error":{"message":"file: Field required","type":"BadRequestError","code":400}}
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
