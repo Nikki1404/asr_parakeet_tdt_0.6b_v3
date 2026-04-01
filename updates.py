@@ -20,7 +20,7 @@ CHUNK_MS = 30
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
 
-INPUT_FOLDER = Path("downloads/audios/audios")
+INPUT_FOLDER = Path("C:/Users/re_nikitav/Downloads/audios/audios")
 OUTPUT_FOLDER = Path("transcription_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
@@ -147,7 +147,8 @@ async def transcribe_file(filepath, host, port, speed):
                         if is_final and first_final_time is None:
                             first_final_time = latency_ms
 
-                        if text:
+                        # Save ONLY final transcript
+                        if text and is_final:
                             transcript_parts.append(text)
 
                         latencies.append({
@@ -295,59 +296,64 @@ if __name__ == "__main__":
     )
 
 
-async def receiver():
-    nonlocal first_response_time
-    nonlocal first_final_time
-    nonlocal response_num
+give complete fix for this 
 
-    while True:
-        try:
-            raw = await asyncio.wait_for(
-                ws.recv(),
-                timeout=60
-            )
+and for now first only transcribe 
+maria named audios 
+zeledon7.mp3
+zeledon8.mp3
+zeledon9.mp3
+zeledon2.mp3
+zeledon3.mp3
+zeledon4.mp3
+zeledon5.mp3
+zeledon6.mp3
+→sastre9.mp3
+zeledon1.mp3
+zeledon11.mp3
+zeledon13.mp3
+zeledon14.mp3
+sastre6.mp3
+sastre7.mp3
+sastre8.mp3
+sastre2.mp3
+sastre4.mp3
+sastre 13.mp3
+sastre12.mp3
+maria4.mp3
+maria40.mp3
+herring2.mp3
+maria27.mp3
+herring3.mp3
+maria30.mp3
+herring5.mp3
+maria2.mp3
+herring6.mp3
+sastre3.mp3
+maria18.mp3
+herring7.mp3
+maria19.mp3
+herring14.mp3
+maria20.mp3
+herring15.mp3
+sastre1.mp3
+maria21.mp3
+herring16.mp3
+sastre 10.mp3
+maria24.mp3
+herring17.mp3
+sastre11.mp3
+maria16.mp3
+herring8.mp3
+herring10.mp3
+herring11.mp3
+herring9.mp3
+herring12.mp3
+maria7.mp3
+maria1.mp3
+herring 13.mp3
+sastre5.mp3
+maria31.mp3
+maria10.mp3
+herring1.mp3
 
-            now = time.time()
-
-            msg = json.loads(raw)
-
-            text = msg.get("text", "")
-            msg_type = msg.get("type", "")
-
-            latency_ms = (now - start_time) * 1000
-
-            response_num += 1
-
-            if first_response_time is None:
-                first_response_time = latency_ms
-
-            is_final = msg_type == "transcript"
-
-            if is_final and first_final_time is None:
-                first_final_time = latency_ms
-
-            # Save ONLY final transcript
-            if text and is_final:
-                transcript_parts.append(text)
-
-            latencies.append({
-                "response_num": response_num,
-                "latency_ms": latency_ms,
-                "is_final": is_final,
-                "words": len(text.split())
-            })
-
-            if is_final:
-                print(
-                    f"{filepath.name} | "
-                    f"FINAL {response_num} | "
-                    f"TTFT {latency_ms:.0f} ms"
-                )
-
-        except asyncio.TimeoutError:
-            print(f"{filepath.name} | receiver timeout")
-            break
-
-        except websockets.exceptions.ConnectionClosed:
-            print(f"{filepath.name} | connection closed")
-            break
