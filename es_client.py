@@ -1,4 +1,3 @@
-```python
 import requests
 from pathlib import Path
 import time
@@ -35,4 +34,4 @@ print(json.dumps({
     "latency_sec": round(latency_sec, 2),
     "result": result
 }, indent=2))
-```
+
