@@ -351,3 +351,9 @@ if __name__ == "__main__":
             Path(args.output_folder)
         )
     )
+
+
+python3 transcribe_parakeet_es_batch.py \
+  --base-url http://192.168.4.62:9000 \
+  --input-folder /home/re_nikitav/audio_maria \
+  --output-folder /home/re_nikitav/parakeet_es_results
