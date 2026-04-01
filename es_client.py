@@ -353,7 +353,38 @@ if __name__ == "__main__":
     )
 
 
-python3 transcribe_parakeet_es_batch.py \
-  --base-url http://192.168.4.62:9000 \
-  --input-folder /home/re_nikitav/audio_maria \
-  --output-folder /home/re_nikitav/parakeet_es_results
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 transcribe_parakeet_es_batch.py --base-url http://192.168.4.62:9000 --input-folder
+ /home/re_nikitav/audio_maria --output-folder /home/re_nikitav/parakeet_es_results
+TOTAL FILES = 15
+
+STARTING -> maria1.mp3
+WS URL -> ws://192.168.4.62:9000/v1/realtime
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 347, in <module>
+    asyncio.run(
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 311, in run_batch
+    await transcribe_file(
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 112, in transcribe_file
+    async with websockets.connect(
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/client.py", line 590, in __aenter__
+    return await self
+           ^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/client.py", line 546, in __await_impl__
+    await self.connection.handshake(
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/client.py", line 115, in handshake
+    raise self.protocol.handshake_exc
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/client.py", line 327, in parse
+    self.process_response(response)
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/client.py", line 144, in process_response
+    raise InvalidStatus(response)
+websockets.exceptions.InvalidStatus: server rejected WebSocket connection: HTTP 403
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
