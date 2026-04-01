@@ -425,6 +425,156 @@ which was working earlier for exact same code , host and port nothing is changed
     
 in server logs 
 i am getting this 
+
+026-04-01 14:04:31,169 [INFO] [vad-silence] Final transcription 3.39 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00,  9.77it/s]
+2026-04-01 14:04:31,291 [INFO]   → FINAL "So we had bot and the same thing and you can hear me."  [0.12s RTF 0.04x]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 10.68it/s]
+2026-04-01 14:04:31,306 [ERROR] Transcription error: Cannot unfreeze partially without first freezing the module with `freeze()`
+Traceback (most recent call last):
+  File "/app/server.py", line 117, in transcribe_pcm
+    results = asr_model.transcribe([tmp_path])
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 308, in transcribe
+    return super().transcribe(
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 270, in transcribe
+    for processed_outputs in generator:
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 382, in transcribe_generator
+    self._transcribe_on_end(transcribe_cfg)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 763, in _transcribe_on_end
+    self.encoder.unfreeze(partial=True)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/module.py", line 114, in unfreeze
+    raise ValueError("Cannot unfreeze partially without first freezing the module with `freeze()`")
+ValueError: Cannot unfreeze partially without first freezing the module with `freeze()`
+2026-04-01 14:04:31,678 [INFO] [vad-silence] Final transcription 1.20 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 15.41it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 14.81it/s]
+2026-04-01 14:04:31,811 [ERROR] Transcription error: Cannot unfreeze partially without first freezing the module with `freeze()`
+Traceback (most recent call last):
+  File "/app/server.py", line 117, in transcribe_pcm
+    results = asr_model.transcribe([tmp_path])
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 308, in transcribe
+    return super().transcribe(
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 270, in transcribe
+    for processed_outputs in generator:
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 382, in transcribe_generator
+    self._transcribe_on_end(transcribe_cfg)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 763, in _transcribe_on_end
+    self.encoder.unfreeze(partial=True)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/module.py", line 114, in unfreeze
+    raise ValueError("Cannot unfreeze partially without first freezing the module with `freeze()`")
+ValueError: Cannot unfreeze partially without first freezing the module with `freeze()`
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 22.03it/s]
+2026-04-01 14:04:32,289 [INFO] [vad-silence] Final transcription 1.14 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.77it/s]
+2026-04-01 14:04:32,388 [INFO] [vad-silence] Final transcription 1.53 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 21.22it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.64it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.99it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.91it/s]
+2026-04-01 14:04:33,954 [ERROR] Unexpected error: 'bytes'
+Traceback (most recent call last):
+  File "/app/server.py", line 207, in websocket_endpoint
+    raw = await ws.receive_bytes()
+  File "/usr/local/lib/python3.10/dist-packages/starlette/websockets.py", line 127, in receive_bytes
+    return typing.cast(bytes, message["bytes"])
+KeyError: 'bytes'
+2026-04-01 14:04:34,353 [INFO] [vad-silence] Final transcription 3.36 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.32it/s]
+INFO:     connection closed
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.17it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.16it/s]
+2026-04-01 14:04:56,547 [INFO] [vad-silence] Final transcription 1.86 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.42it/s]
+2026-04-01 14:04:56,618 [INFO]   → FINAL "Anyways,"  [0.07s RTF 0.04x]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.98it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.78it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.86it/s]
+2026-04-01 14:05:37,325 [INFO] [vad-silence] Final transcription 2.34 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.42it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.62it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.62it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.41it/s]
+2026-04-01 14:06:12,061 [INFO] [vad-silence] Final transcription 2.25 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.58it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.66it/s]
+2026-04-01 14:06:48,134 [INFO] [vad-silence] Final transcription 1.23 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.95it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.95it/s]
+2026-04-01 14:07:23,978 [INFO] [vad-silence] Final transcription 2.22 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.96it/s]
+2026-04-01 14:07:24,047 [INFO]   → FINAL "De envenaste"  [0.07s RTF 0.03x]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 21.18it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.35it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.93it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.43it/s]
+2026-04-01 14:08:16,991 [INFO] [vad-silence] Final transcription 2.73 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.10it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.01it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.90it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.10it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.74it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.18it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.99it/s]
+2026-04-01 14:09:18,940 [INFO] [vad-silence] Final transcription 4.53 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.47it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 21.05it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.39it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.29it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.12it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.12it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 17.63it/s]
+2026-04-01 14:10:10,669 [INFO] [vad-silence] Final transcription 4.20 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.56it/s]
+2026-04-01 14:10:10,742 [INFO]   → FINAL "I was gonna give the girl it was a Plastic Pen, design,"  [0.07s RTF 0.02x]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.46it/s]
+2026-04-01 14:10:11,953 [INFO] [vad-silence] Final transcription 2.13 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 21.12it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.06it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.64it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.76it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.19it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 16.56it/s]
+2026-04-01 14:10:17,412 [INFO] [vad-silence] Final transcription 10.14 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.33it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.47it/s]
+2026-04-01 14:10:18,125 [INFO] [vad-silence] Final transcription 1.23 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.84it/s]
+2026-04-01 14:10:19,148 [INFO] [vad-silence] Final transcription 0.78 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.15it/s]
+2026-04-01 14:10:19,217 [INFO]   → FINAL "A church!"  [0.07s RTF 0.09x]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.40it/s]
+2026-04-01 14:10:20,164 [INFO] [vad-silence] Final transcription 0.99 s …
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.43it/s]
+2026-04-01 14:10:20,231 [INFO]   → FINAL "Ame!"  [0.07s RTF 0.07x]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.89it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.20it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 20.75it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.50it/s]
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 19.85it/s]
+2026-04-01 14:11:07,564 [INFO] Client disconnected: 223.185.131.203:22081
+2026-04-01 14:11:07,564 [INFO] [disconnect-flush] Final transcription 3.09 s …
+INFO:     connection closed
+Transcribing: 100%|██████████| 1/1 [00:00<00:00, 18.16it/s]
+2026-04-01 14:11:07,639 [INFO]   → FINAL "Surven the beach!"  [0.07s RTF 0.02x]
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/app/server.py", line 207, in websocket_endpoint
+    raw = await ws.receive_bytes()
+  File "/usr/local/lib/python3.10/dist-packages/starlette/websockets.py", line 126, in receive_bytes
+    self._raise_on_disconnect(message)
+  File "/usr/local/lib/python3.10/dist-packages/starlette/websockets.py", line 113, in _raise_on_disconnect
+    raise WebSocketDisconnect(message["code"], message.get("reason"))
+starlette.websockets.WebSocketDisconnect: (<CloseCode.ABNORMAL_CLOSURE: 1006>, '')
+
+During handling of the above exception, another exception occurred:
     await send(message)
   File "/usr/local/lib/python3.10/dist-packages/uvicorn/protocols/websockets/websockets_impl.py", line 360, in asgi_send
     raise RuntimeError(msg % message_type)
