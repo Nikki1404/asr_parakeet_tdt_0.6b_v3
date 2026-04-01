@@ -358,6 +358,49 @@ if __name__ == "__main__":
         )
     )
 
-curl -s -X POST http://127.0.0.1:9000/v1/realtime/transcription_sessions \
+getting this 
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -s -X POST http://192.168.4.62:9000/v1/realtime/transcription_sessions \
   -H "Content-Type: application/json" \
   -d '{}' | python3 -m json.tool
+{
+    "modalities": [
+        "text"
+    ],
+    "input_audio_format": "pcm16",
+    "input_audio_transcription": {
+        "language": "es-US",
+        "model": "parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer",
+        "prompt": null
+    },
+    "input_audio_params": {
+        "sample_rate_hz": 16000,
+        "num_channels": 1
+    },
+    "recognition_config": {
+        "max_alternatives": 1,
+        "enable_automatic_punctuation": false,
+        "enable_word_time_offsets": false,
+        "enable_profanity_filter": false,
+        "enable_verbatim_transcripts": false,
+        "custom_configuration": ""
+    },
+    "speaker_diarization": {
+        "enable_speaker_diarization": false,
+        "max_speaker_count": 8
+    },
+    "word_boosting": {
+        "enable_word_boosting": false,
+        "word_boosting_list": []
+    },
+    "endpointing_config": {
+        "start_history": 0,
+        "start_threshold": 0.0,
+        "stop_history": 0,
+        "stop_threshold": 0.0,
+        "stop_history_eou": 0,
+        "stop_threshold_eou": 0.0
+    },
+    "id": "sess_e96fd402-4301-490d-bb92-f3b59616fc95",
+    "object": "realtime.transcription_session",
+    "client_secret": null
+}
