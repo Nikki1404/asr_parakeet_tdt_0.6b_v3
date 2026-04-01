@@ -39,3 +39,6 @@ print(json.dumps({
     "result": result
 }, indent=2))
 ```
+curl -X POST http://127.0.0.1:9000/v1/audio/transcriptions \
+  -F "file=@/home/re_nikitav/audio_maria/maria1.mp3" \
+  -F "language=es-US"
