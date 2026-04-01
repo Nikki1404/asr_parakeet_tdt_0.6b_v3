@@ -423,3 +423,27 @@ this is gcp vm hosted docker which i am accesing on this
 
 which was working earlier for exact same code , host and port nothing is changed so why all of sufdden started getting error 
     
+in server logs 
+i am getting this 
+    await send(message)
+  File "/usr/local/lib/python3.10/dist-packages/uvicorn/protocols/websockets/websockets_impl.py", line 360, in asgi_send
+    raise RuntimeError(msg % message_type)
+RuntimeError: Unexpected ASGI message 'websocket.send', after sending 'websocket.close' or response already completed.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
+WARNING:  Invalid HTTP request received.
