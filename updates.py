@@ -1,290 +1,295 @@
-C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\pydub\utils.py:170: RuntimeWarning: Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work
-  warn("Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work", RuntimeWarning)
-================================================================================
-TOTAL FILES = 56
-WORKERS = 2
-SPEED = 4.0x
-================================================================================
-
-[1/56] PROCESSING herring1.mp3
-
-STARTING -> herring1.mp3
-C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\pydub\utils.py:198: RuntimeWarning: Couldn't find ffprobe or avprobe - defaulting to ffprobe, but may not work
-  warn("Couldn't find ffprobe or avprobe - defaulting to ffprobe, but may not work", RuntimeWarning)
-
-[2/56] PROCESSING herring10.mp3
-
-STARTING -> herring10.mp3
-
-[3/56] PROCESSING herring11.mp3
-
-STARTING -> herring11.mp3
-
-[4/56] PROCESSING herring12.mp3
-
-STARTING -> herring12.mp3
-
-[5/56] PROCESSING herring13.mp3
-
-STARTING -> herring13.mp3
-
-[6/56] PROCESSING herring14.mp3
-
-STARTING -> herring14.mp3
-
-[7/56] PROCESSING herring15.mp3
-
-STARTING -> herring15.mp3
-
-[8/56] PROCESSING herring16.mp3
-
-STARTING -> herring16.mp3
-
-[9/56] PROCESSING herring17.mp3
-
-STARTING -> herring17.mp3
-
-[10/56] PROCESSING herring2.mp3
-
-STARTING -> herring2.mp3
-
-[11/56] PROCESSING herring3.mp3
-
-STARTING -> herring3.mp3
-
-[12/56] PROCESSING herring5.mp3
-
-STARTING -> herring5.mp3
-
-[13/56] PROCESSING herring6.mp3
-
-STARTING -> herring6.mp3
-
-[14/56] PROCESSING herring7.mp3
-
-STARTING -> herring7.mp3
-
-[15/56] PROCESSING herring8.mp3
-
-STARTING -> herring8.mp3
-
-[16/56] PROCESSING herring9.mp3
-
-STARTING -> herring9.mp3
-
-[17/56] PROCESSING maria1.mp3
-
-STARTING -> maria1.mp3
-
-[18/56] PROCESSING maria10.mp3
-
-STARTING -> maria10.mp3
-
-[19/56] PROCESSING maria16.mp3
-
-STARTING -> maria16.mp3
-
-[20/56] PROCESSING maria18.mp3
-
-STARTING -> maria18.mp3
-
-[21/56] PROCESSING maria19.mp3
-
-STARTING -> maria19.mp3
-
-[22/56] PROCESSING maria2.mp3
-
-STARTING -> maria2.mp3
-
-[23/56] PROCESSING maria20.mp3
-
-STARTING -> maria20.mp3
-
-[24/56] PROCESSING maria21.mp3
-
-STARTING -> maria21.mp3
-
-[25/56] PROCESSING maria24.mp3
-
-STARTING -> maria24.mp3
-
-[26/56] PROCESSING maria27.mp3
-
-STARTING -> maria27.mp3
-
-[27/56] PROCESSING maria30.mp3
-
-STARTING -> maria30.mp3
-
-[28/56] PROCESSING maria31.mp3
-
-STARTING -> maria31.mp3
-
-[29/56] PROCESSING maria4.mp3
-
-STARTING -> maria4.mp3
-
-[30/56] PROCESSING maria40.mp3
-
-STARTING -> maria40.mp3
-
-[31/56] PROCESSING maria7.mp3
-
-STARTING -> maria7.mp3
-
-[32/56] PROCESSING sastre1.mp3
-
-STARTING -> sastre1.mp3
-
-[33/56] PROCESSING sastre10.mp3
-
-STARTING -> sastre10.mp3
-
-[34/56] PROCESSING sastre11.mp3
-
-STARTING -> sastre11.mp3
-
-[35/56] PROCESSING sastre12.mp3
-
-STARTING -> sastre12.mp3
-
-[36/56] PROCESSING sastre13.mp3
-
-STARTING -> sastre13.mp3
-
-[37/56] PROCESSING sastre2.mp3
-
-STARTING -> sastre2.mp3
-
-[38/56] PROCESSING sastre3.mp3
-
-STARTING -> sastre3.mp3
-
-[39/56] PROCESSING sastre4.mp3
-
-STARTING -> sastre4.mp3
-
-[40/56] PROCESSING sastre5.mp3
-
-STARTING -> sastre5.mp3
-
-[41/56] PROCESSING sastre6.mp3
-
-STARTING -> sastre6.mp3
-
-[42/56] PROCESSING sastre7.mp3
-
-STARTING -> sastre7.mp3
-
-[43/56] PROCESSING sastre8.mp3
-
-STARTING -> sastre8.mp3
-
-[44/56] PROCESSING sastre9.mp3
-
-STARTING -> sastre9.mp3
-
-[45/56] PROCESSING zeledon1.mp3
-
-STARTING -> zeledon1.mp3
-
-[46/56] PROCESSING zeledon11.mp3
-
-STARTING -> zeledon11.mp3
-
-[47/56] PROCESSING zeledon13.mp3
-
-STARTING -> zeledon13.mp3
-
-[48/56] PROCESSING zeledon14.mp3
-
-STARTING -> zeledon14.mp3
-
-[49/56] PROCESSING zeledon2.mp3
-
-STARTING -> zeledon2.mp3
-
-[50/56] PROCESSING zeledon3.mp3
-
-STARTING -> zeledon3.mp3
-
-[51/56] PROCESSING zeledon4.mp3
-
-STARTING -> zeledon4.mp3
-
-[52/56] PROCESSING zeledon5.mp3
-
-STARTING -> zeledon5.mp3
-
-[53/56] PROCESSING zeledon6.mp3
-
-STARTING -> zeledon6.mp3
-
-[54/56] PROCESSING zeledon7.mp3
-
-STARTING -> zeledon7.mp3
-
-[55/56] PROCESSING zeledon8.mp3
-
-STARTING -> zeledon8.mp3
-
-[56/56] PROCESSING zeledon9.mp3
-
-STARTING -> zeledon9.mp3
-Traceback (most recent call last):
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 276, in <module>
-    asyncio.run(
-    ~~~~~~~~~~~^
-        run_batch(
-        ^^^^^^^^^^
-    ...<4 lines>...
-        )
-        ^
+import argparse
+import asyncio
+import json
+import time
+import statistics
+import traceback
+from pathlib import Path
+from datetime import datetime
+
+import numpy as np
+import librosa
+import websockets
+
+
+# =========================
+# CONFIG
+# =========================
+SAMPLE_RATE = 16000
+CHUNK_MS = 30
+CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000
+CHUNK_BYTES = CHUNK_SAMPLES * 2
+
+INPUT_FOLDER = Path("downloads/audios/audios")
+OUTPUT_FOLDER = Path("transcription_results")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
+
+
+# =========================
+# AUDIO LOADER (NO FFMPEG)
+# =========================
+def load_mp3_as_pcm16(filepath):
+    """
+    Load MP3 file as 16k mono PCM16 bytes
+    No ffmpeg required
+    """
+    print(f"Loading audio -> {filepath.name}")
+
+    audio, sr = librosa.load(
+        str(filepath),
+        sr=SAMPLE_RATE,
+        mono=True
     )
-    ^
-  File "C:\Program Files\Python313\Lib\asyncio\runners.py", line 195, in run
-    return runner.run(main)
-           ~~~~~~~~~~^^^^^^
-  File "C:\Program Files\Python313\Lib\asyncio\runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
-  File "C:\Program Files\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
-    return future.result()
-           ~~~~~~~~~~~~~^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 239, in run_batch
-    await asyncio.gather(*tasks)
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 205, in worker
-    await transcribe_file(filepath, host, port, speed)
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 67, in transcribe_file
+
+    duration_sec = len(audio) / SAMPLE_RATE
+
+    pcm16 = (
+        np.clip(audio, -1.0, 1.0) * 32767
+    ).astype(np.int16).tobytes()
+
+    print(f"Loaded {filepath.name} | Duration: {duration_sec/60:.1f} min")
+
+    return pcm16, duration_sec
+
+
+# =========================
+# SAVE RESULTS
+# =========================
+def save_results(filepath, transcript_text, result_json):
+    output_dir = OUTPUT_FOLDER / filepath.stem
+    output_dir.mkdir(exist_ok=True)
+
+    transcript_path = output_dir / f"{filepath.stem}_transcript.txt"
+    latency_path = output_dir / f"{filepath.stem}_latency.json"
+
+    with open(transcript_path, "w", encoding="utf-8") as f:
+        f.write(transcript_text)
+
+    with open(latency_path, "w", encoding="utf-8") as f:
+        json.dump(result_json, f, indent=2)
+
+    print(f"SAVED -> {filepath.name}")
+
+
+# =========================
+# TRANSCRIBE ONE FILE
+# =========================
+async def transcribe_file(filepath, host, port, speed):
+    uri = f"ws://{host}:{port}/ws"
+
+    print(f"\nSTARTING -> {filepath.name}")
+
     pcm, duration_sec = load_mp3_as_pcm16(filepath)
-                        ~~~~~~~~~~~~~~~~~^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 31, in load_mp3_as_pcm16
-    audio = AudioSegment.from_mp3(filepath)
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\pydub\audio_segment.py", line 796, in from_mp3
-    return cls.from_file(file, 'mp3', parameters=parameters)
-           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\pydub\audio_segment.py", line 728, in from_file
-    info = mediainfo_json(orig_file, read_ahead_limit=read_ahead_limit)
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\pydub\utils.py", line 274, in mediainfo_json
-    res = Popen(command, stdin=stdin_parameter, stdout=PIPE, stderr=PIPE)
-  File "C:\Program Files\Python313\Lib\subprocess.py", line 1038, in __init__
-    self._execute_child(args, executable, preexec_fn, close_fds,
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                        pass_fds, cwd, env,
-                        ^^^^^^^^^^^^^^^^^^^
-    ...<5 lines>...
-                        gid, gids, uid, umask,
-                        ^^^^^^^^^^^^^^^^^^^^^^
-                        start_new_session, process_group)
-                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Program Files\Python313\Lib\subprocess.py", line 1550, in _execute_child
-    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
-                       ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-                             # no special security
-                             ^^^^^^^^^^^^^^^^^^^^^
-    ...<4 lines>...
-                             cwd,
-                             ^^^^
-                             startupinfo)
-                             ^^^^^^^^^^^^
-FileNotFoundError: [WinError 2] The system cannot find the file specified
+
+    transcript_parts = []
+    latencies = []
+
+    start_time = time.time()
+
+    first_response_time = None
+    first_final_time = None
+    response_num = 0
+
+    try:
+        async with websockets.connect(
+            uri,
+            ping_interval=20,
+            ping_timeout=20,
+            max_size=2**24
+        ) as ws:
+
+            async def sender():
+                offset = 0
+                chunk_delay = (CHUNK_MS / 1000) / speed
+
+                while offset < len(pcm):
+                    chunk = pcm[offset: offset + CHUNK_BYTES]
+                    offset += CHUNK_BYTES
+
+                    if len(chunk) < CHUNK_BYTES:
+                        chunk += bytes(CHUNK_BYTES - len(chunk))
+
+                    await ws.send(chunk)
+                    await asyncio.sleep(chunk_delay)
+
+                await asyncio.sleep(0.5)
+
+                await ws.send(json.dumps({"cmd": "flush"}))
+
+            async def receiver():
+                nonlocal first_response_time
+                nonlocal first_final_time
+                nonlocal response_num
+
+                while True:
+                    try:
+                        raw = await asyncio.wait_for(
+                            ws.recv(),
+                            timeout=60
+                        )
+
+                        now = time.time()
+
+                        msg = json.loads(raw)
+
+                        text = msg.get("text", "")
+                        msg_type = msg.get("type", "")
+
+                        latency_ms = (now - start_time) * 1000
+
+                        response_num += 1
+
+                        if first_response_time is None:
+                            first_response_time = latency_ms
+
+                        is_final = msg_type == "transcript"
+
+                        if is_final and first_final_time is None:
+                            first_final_time = latency_ms
+
+                        if text:
+                            transcript_parts.append(text)
+
+                        latencies.append({
+                            "response_num": response_num,
+                            "latency_ms": latency_ms,
+                            "is_final": is_final,
+                            "words": len(text.split())
+                        })
+
+                        if is_final:
+                            print(
+                                f"{filepath.name} | "
+                                f"FINAL {response_num} | "
+                                f"TTFT {latency_ms:.0f} ms"
+                            )
+
+                    except asyncio.TimeoutError:
+                        print(f"{filepath.name} | receiver timeout")
+                        break
+
+                    except websockets.exceptions.ConnectionClosed:
+                        print(f"{filepath.name} | connection closed")
+                        break
+
+            await asyncio.gather(sender(), receiver())
+
+    except Exception as e:
+        print(f"FAILED -> {filepath.name}")
+        print(str(e))
+        traceback.print_exc()
+        return
+
+    total_time = time.time() - start_time
+
+    transcript_text = "\n".join(transcript_parts)
+
+    latency_values = [x["latency_ms"] for x in latencies]
+
+    result_json = {
+        "audio_file": str(filepath),
+        "audio_duration_sec": duration_sec,
+        "total_processing_time_sec": total_time,
+        "timestamp": datetime.now().isoformat(),
+        "model": "parakeet-tdt-0.6b-v3",
+        "ttfb_ms": first_response_time,
+        "ttft_ms": first_final_time,
+        "latencies": latencies,
+        "summary": {
+            "total_responses": len(latencies),
+            "final_responses": sum(x["is_final"] for x in latencies),
+            "avg_latency_ms": (
+                statistics.mean(latency_values)
+                if latency_values else 0
+            ),
+            "min_latency_ms": (
+                min(latency_values)
+                if latency_values else 0
+            ),
+            "max_latency_ms": (
+                max(latency_values)
+                if latency_values else 0
+            )
+        }
+    }
+
+    save_results(filepath, transcript_text, result_json)
+
+    print(
+        f"COMPLETED -> {filepath.name} | "
+        f"TTFB: {first_response_time:.0f} ms | "
+        f"TTFT: {first_final_time:.0f} ms"
+    )
+
+
+# =========================
+# BATCH RUNNER
+# =========================
+async def run_batch(host, port, workers, speed):
+    files = sorted(INPUT_FOLDER.glob("*.mp3"))
+
+    total_files = len(files)
+
+    print("=" * 80)
+    print(f"TOTAL FILES = {total_files}")
+    print(f"WORKERS = {workers}")
+    print(f"SPEED = {speed}x")
+    print("=" * 80)
+
+    semaphore = asyncio.Semaphore(workers)
+
+    async def process_file(idx, file):
+        async with semaphore:
+            print(f"\n[{idx}/{total_files}] PROCESSING {file.name}")
+            await transcribe_file(file, host, port, speed)
+
+    tasks = [
+        asyncio.create_task(process_file(idx, file))
+        for idx, file in enumerate(files, start=1)
+    ]
+
+    await asyncio.gather(*tasks)
+
+    print("\nALL FILES COMPLETED")
+
+
+# =========================
+# CLI
+# =========================
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--host", required=True)
+    parser.add_argument("--port", type=int, default=8001)
+
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=2,
+        help="Recommended: 2"
+    )
+
+    parser.add_argument(
+        "--speed",
+        type=float,
+        default=4.0,
+        help="Recommended: 4x"
+    )
+
+    return parser.parse_args()
+
+
+# =========================
+# MAIN
+# =========================
+if __name__ == "__main__":
+    args = parse_args()
+
+    asyncio.run(
+        run_batch(
+            args.host,
+            args.port,
+            args.workers,
+            args.speed
+        )
+    )
