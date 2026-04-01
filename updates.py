@@ -609,3 +609,5 @@ RemotePort       : 8001
 InterfaceAlias   : Ethernet 2
 SourceAddress    : 10.16.7.149
 TcpTestSucceeded : True
+
+python -c "import requests; print(requests.get('http://34.118.200.125:8001/health', timeout=5).text)"
