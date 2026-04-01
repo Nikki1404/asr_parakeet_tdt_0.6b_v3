@@ -597,3 +597,12 @@ WARNING:  Invalid HTTP request received.
 WARNING:  Invalid HTTP request received.
 WARNING:  Invalid HTTP request received.
 WARNING:  Invalid HTTP request received.
+
+
+(venv) PS C:\Users\re_nikitav\Documents> curl http://34.118.200.125:8001/health
+curl : The underlying connection was closed: An unexpected error occurred on a receive.
+At line:1 char:1
++ curl http://34.118.200.125:8001/health
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (System.Net.HttpWebRequest:HttpWebRequest) [Invoke-WebRequest], WebException
+    + FullyQualifiedErrorId : WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
