@@ -183,45 +183,5 @@ if __name__ == "__main__":
         Path(args.output_folder)
     )
 
-getting this 
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python transcribe_parakeet_es_batch.py   --b
-ase-url http://localhost:9000   --input-folder /home/re_nikitav/audio_maria   --output-folder /home/re_nikitav/
-parakeet_es_results
-TOTAL FILES = 15
-STARTING -> maria1.mp3
-STARTING -> maria10.mp3
-STARTING -> maria16.mp3
-STARTING -> maria18.mp3
-STARTING -> maria19.mp3
-STARTING -> maria2.mp3
-STARTING -> maria20.mp3
-STARTING -> maria21.mp3
-STARTING -> maria24.mp3
-STARTING -> maria27.mp3
-STARTING -> maria30.mp3
-STARTING -> maria31.mp3
-STARTING -> maria4.mp3
-STARTING -> maria40.mp3
-STARTING -> maria7.mp3
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 180, in <module>
-    run_batch(
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 151, in run_batch
-    future.result()
-  File "/usr/lib/python3.11/concurrent/futures/_base.py", line 456, in result
-    return self.__get_result()
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
-    raise self._exception
-  File "/usr/lib/python3.11/concurrent/futures/thread.py", line 58, in run
-    result = self.fn(*self.args, **self.kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 84, in transcribe_single_file
-    response.raise_for_status()
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/requests/models.py", line 1028, in raise_for_status
-    raise HTTPError(http_error_msg, response=self)
-requests.exceptions.HTTPError: 404 Client Error: Not Found for url: http://localhost:9000/v1/audio/transcriptions
 
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -X POST http://localhost:9000/v1/audio/transcriptions/
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -X POST http://localhost:9000/v1/audio/transcriptions
-{"error":{"message":"file: Field required","type":"BadRequestError","code":400}}(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
+python transcribe_parakeet_es_batch.py --base-url http://localhost:9000 --input-folder /home/re_nikitav/audio_maria --output-folder /home/re_nikitav/parakeet_es_results
