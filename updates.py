@@ -336,3 +336,11 @@ INFO 2026-03-31 08:51:16.390 http_api.py:201] Readying serving endpoints:
   0.0.0.0:9000/v1/realtime/health (GET)
   0.0.0.0:9000/v1/realtime/transcription_sessions (POST)
   0.0.0.0:9000/v1/realtime/synthesis_sessions (POST)
+
+root@cx-asr-test:/home/re_nikitav# gcloud compute scp /home/re_nikitav/audio_maria.zip re_nikitav@cx-asr-v2:/home/re_nikitav/ --zone=us-central1-a 
+WARNING: The private SSH key file for gcloud does not exist.
+WARNING: The public SSH key file for gcloud does not exist.
+WARNING: You do not have an SSH key for gcloud.
+WARNING: SSH keygen will be executed to generate a key.
+Generating public/private rsa key pair.
+Enter passphrase (empty for no passphrase): 
