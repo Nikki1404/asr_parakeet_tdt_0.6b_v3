@@ -528,3 +528,11 @@ if __name__ == "__main__":
             ping_timeout=args.ping_timeout,
         )
     )
+
+
+python transcribe_realtime_batch.py \
+  --ws-url "ws://localhost:9000/v1/realtime?intent=transcription" \
+  --input-folder "/home/re_nikitav/audio_maria" \
+  --output-folder "/home/re_nikitav/transcription_results" \
+  --model "parakeet-ctc-0.6b-es" \
+  --language "es"
