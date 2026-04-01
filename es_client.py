@@ -35,3 +35,13 @@ print(json.dumps({
     "result": result
 }, indent=2))
 
+getting this 
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 transcribe_test.py 
+STATUS: 400
+TEXT: {"detail":"Bad Request, need model or language"}
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_test.py", line 27, in <module>
+    response.raise_for_status()
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/requests/models.py", line 1028, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 400 Client Error: Bad Request for url: http://127.0.0.1:9000/v1/audio/transcriptions
