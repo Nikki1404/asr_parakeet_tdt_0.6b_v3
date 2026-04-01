@@ -1,7 +1,6 @@
 import argparse
 import json
 import time
-import statistics
 from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -9,19 +8,35 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 
 
+# =========================================================
+# CONFIG
+# =========================================================
 SUPPORTED_EXTENSIONS = {
-    ".mp3", ".wav", ".m4a", ".flac"
+    ".mp3",
+    ".wav",
+    ".m4a",
+    ".flac",
+    ".ogg",
+    ".aac"
 }
 
 MAX_WORKERS = 4
 
 
+# =========================================================
+# SAVE OUTPUTS
+# =========================================================
 def save_results(
     output_folder: Path,
     filepath: Path,
     transcript_text: str,
     latency_json: dict
 ):
+    output_folder.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
     transcript_path = (
         output_folder /
         f"{filepath.stem}_transcript.txt"
@@ -46,6 +61,9 @@ def save_results(
     print(f"SAVED -> {latency_path}")
 
 
+# =========================================================
+# TRANSCRIBE SINGLE FILE
+# =========================================================
 def transcribe_single_file(
     filepath: Path,
     base_url: str,
@@ -53,33 +71,42 @@ def transcribe_single_file(
 ):
     print(f"STARTING -> {filepath.name}")
 
+    base_url = base_url.strip().rstrip("/")
+
     url = f"{base_url}/v1/audio/transcriptions"
 
     start_time = time.time()
 
+    # detect mime type
+    if filepath.suffix.lower() == ".wav":
+        mime_type = "audio/wav"
+    else:
+        mime_type = "audio/mpeg"
+
     with open(filepath, "rb") as f:
-        files = {
-            "file": (
-                filepath.name,
-                f,
-                "application/octet-stream"
-            )
-        }
-
-        data = {
-            "language": "es-US"
-        }
-
         response = requests.post(
             url,
-            files=files,
-            data=data,
-            timeout=3600
+            files={
+                "file": (
+                    filepath.name,
+                    f,
+                    mime_type
+                )
+            },
+            timeout=7200
         )
 
     total_latency_ms = (
         time.time() - start_time
     ) * 1000
+
+    # print debug if failure
+    if response.status_code != 200:
+        print(
+            f"FAILED -> {filepath.name} | "
+            f"STATUS {response.status_code}"
+        )
+        print(response.text)
 
     response.raise_for_status()
 
@@ -116,22 +143,22 @@ def transcribe_single_file(
     )
 
 
+# =========================================================
+# RUN BATCH
+# =========================================================
 def run_batch(
     base_url: str,
     input_folder: Path,
     output_folder: Path
 ):
-    output_folder.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
     files = sorted([
         f for f in input_folder.iterdir()
         if f.suffix.lower() in SUPPORTED_EXTENSIONS
     ])
 
-    print(f"TOTAL FILES = {len(files)}")
+    total_files = len(files)
+
+    print(f"TOTAL FILES = {total_files}")
 
     with ThreadPoolExecutor(
         max_workers=MAX_WORKERS
@@ -153,6 +180,9 @@ def run_batch(
     print("\nALL FILES COMPLETED")
 
 
+# =========================================================
+# CLI
+# =========================================================
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -174,6 +204,9 @@ def parse_args():
     return parser.parse_args()
 
 
+# =========================================================
+# MAIN
+# =========================================================
 if __name__ == "__main__":
     args = parse_args()
 
@@ -183,5 +216,7 @@ if __name__ == "__main__":
         Path(args.output_folder)
     )
 
-
-python transcribe_parakeet_es_batch.py --base-url http://localhost:9000 --input-folder /home/re_nikitav/audio_maria --output-folder /home/re_nikitav/parakeet_es_results
+python3 transcribe_parakeet_es_batch.py \
+  --base-url http://localhost:9000 \
+  --input-folder /home/re_nikitav/audio_maria \
+  --output-folder /home/re_nikitav/parakeet_es_results
