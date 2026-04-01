@@ -344,3 +344,6 @@ WARNING: You do not have an SSH key for gcloud.
 WARNING: SSH keygen will be executed to generate a key.
 Generating public/private rsa key pair.
 Enter passphrase (empty for no passphrase): 
+
+
+                  /v1/realtime?intent=transcription"
