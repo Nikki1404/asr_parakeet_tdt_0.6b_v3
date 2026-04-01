@@ -20,7 +20,7 @@ with open(FILE_PATH, "rb") as f:
             )
         },
         data={
-            "language": "es-US"
+            "model": "parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer"
         },
         timeout=7200
     )
