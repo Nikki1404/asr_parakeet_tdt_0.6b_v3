@@ -32,13 +32,6 @@ SUPPORTED_EXTENSIONS = {
     ".flac"
 }
 
-MODEL_NAME = (
-    "parakeet-0.6b-unified-ml-cs-es-US-"
-    "asr-streaming-silero-vad-sortformer"
-)
-
-LANGUAGE = "es-US"
-
 
 # =========================================================
 # AUDIO CONVERSION
@@ -72,7 +65,7 @@ def convert_to_wav(src_path: Path, wav_path: Path):
 
 
 # =========================================================
-# TRANSCRIBE SINGLE FILE
+# TRANSCRIBE ONE FILE
 # =========================================================
 async def transcribe_file(
     filepath: Path,
@@ -86,7 +79,7 @@ async def transcribe_file(
         .replace("http://", "ws://")
         .replace("https://", "wss://")
         .rstrip("/")
-        + "/v1/realtime"
+        + "/v1/realtime?intent=transcription"
     )
 
     print(f"WS URL -> {ws_url}")
@@ -104,7 +97,6 @@ async def transcribe_file(
 
         transcript_parts = []
         chunk_latencies = []
-
         chunk_send_times = []
 
         start_time = time.time()
@@ -116,17 +108,11 @@ async def transcribe_file(
             max_size=2**26
         ) as ws:
 
-            # SESSION CONFIG
+            # minimal config only
             await ws.send(json.dumps({
-                "event_id": "session_config",
                 "type": "transcription_session.update",
                 "session": {
-                    "modalities": ["text"],
                     "input_audio_format": "pcm16",
-                    "input_audio_transcription": {
-                        "language": LANGUAGE,
-                        "model": MODEL_NAME
-                    },
                     "input_audio_params": {
                         "sample_rate_hz": SAMPLE_RATE,
                         "num_channels": 1
@@ -136,6 +122,7 @@ async def transcribe_file(
 
             async def sender():
                 with open(wav_path, "rb") as fh:
+                    # skip wav header
                     fh.read(44)
 
                     chunk_num = 0
@@ -155,7 +142,6 @@ async def transcribe_file(
                         )
 
                         await ws.send(json.dumps({
-                            "event_id": f"chunk_{chunk_num}",
                             "type": "input_audio_buffer.append",
                             "audio": base64.b64encode(
                                 chunk
@@ -167,7 +153,6 @@ async def transcribe_file(
                             f"SENT CHUNK {chunk_num}"
                         )
 
-                # finalize stream
                 await ws.send(json.dumps({
                     "type": "input_audio_buffer.commit"
                 }))
@@ -292,7 +277,7 @@ async def transcribe_file(
 
 
 # =========================================================
-# BATCH RUNNER
+# BATCH
 # =========================================================
 async def run_batch(
     base_url: str,
@@ -323,20 +308,9 @@ async def run_batch(
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--base-url",
-        required=True
-    )
-
-    parser.add_argument(
-        "--input-folder",
-        required=True
-    )
-
-    parser.add_argument(
-        "--output-folder",
-        required=True
-    )
+    parser.add_argument("--base-url", required=True)
+    parser.add_argument("--input-folder", required=True)
+    parser.add_argument("--output-folder", required=True)
 
     return parser.parse_args()
 
@@ -352,46 +326,7 @@ if __name__ == "__main__":
         )
     )
 
-
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 transcribe_parakeet_es_batch.py --base-url http://192.168.4.62:9000 --input-folder
- /home/re_nikitav/audio_maria --output-folder /home/re_nikitav/parakeet_es_results
-TOTAL FILES = 15
-
-STARTING -> maria1.mp3
-WS URL -> ws://192.168.4.62:9000/v1/realtime
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 347, in <module>
-    asyncio.run(
-  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
-    return future.result()
-           ^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 311, in run_batch
-    await transcribe_file(
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 112, in transcribe_file
-    async with websockets.connect(
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/client.py", line 590, in __aenter__
-    return await self
-           ^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/client.py", line 546, in __await_impl__
-    await self.connection.handshake(
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/client.py", line 115, in handshake
-    raise self.protocol.handshake_exc
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/client.py", line 327, in parse
-    self.process_response(response)
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/client.py", line 144, in process_response
-    raise InvalidStatus(response)
-websockets.exceptions.InvalidStatus: server rejected WebSocket connection: HTTP 403
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
-
-
-INFO:uvicorn.error:('192.168.4.47', 53954) - "WebSocket /v1/realtime?intent=transcription" [accepted]
-INFO:realtime.core.connection_manager:Client 35e54899-6b56-4e91-a381-d430a6ef49da connected at 2026-03-31 12:31:17
-I0331 12:31:17.387586 16895 grpc_riva_asr.cc:341] ASR->RivaSpeechRecognitionConfig::
-INFO:realtime.asr.inference:Updating Riva config with session config: modalities=[<Modality.TEXT: 'text'>] input_audio_format=<AudioFormat.PCM16: 'pcm16'> input_audio_transcription=InputAudioTranscriptionConfig(language='es-US', model='parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer', prompt=None) input_audio_params=InputAudioParams(sample_rate_hz=16000, num_channels=1) recognition_config=RecognitionConfig(max_alternatives=1, enable_automatic_punctuation=False, enable_word_time_offsets=False, enable_profanity_filter=False, enable_verbatim_transcripts=False, custom_configuration='') speaker_diarization=SpeakerDiarizationConfig(enable_speaker_diarization=False, max_speaker_count=8) word_boosting=WordBoostingConfig(enable_word_boosting=False, word_boosting_list=[]) endpointing_config=EndpointingConfig(start_history=0, start_threshold=0, stop_history=0, stop_threshold=0, stop_history_eou=0, stop_threshold_eou=0) input_min_chunk_seconds=0.08 id='sess_8b3754e6-ddc7-4b58-ab1f-76c6833fe75e' object='realtime.transcription_session' client_secret=None
-INFO:uvicorn.error:connection open
+python3 transcribe_ws_minimal_batch.py \
+  --base-url http://192.168.4.62:9000 \
+  --input-folder /home/re_nikitav/audio_maria \
+  --output-folder /home/re_nikitav/parakeet_es_results
