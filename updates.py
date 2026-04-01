@@ -1,3 +1,80 @@
+getting this 
+(venv) PS C:\Users\re_nikitav\Documents\parakeet-asr-multilingual> python benchmarking_client.py --host 34.118.200.125 --port 8001 --speed 3.0
+================================================================================
+TOTAL FILES = 56
+================================================================================
+
+[1/56] STARTING herring1.mp3
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 366, in <module>
+    asyncio.run(
+    ~~~~~~~~~~~^
+        run_batch(
+        ^^^^^^^^^^
+    ...<4 lines>...
+        )
+        ^
+    )
+    ^
+  File "C:\Program Files\Python313\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Program Files\Python313\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Program Files\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 330, in run_batch
+    result = await benchmark_file(uri, file, speed)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 240, in benchmark_file
+    pcm = load_audio_as_16k_pcm(str(filepath))
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\benchmarking_client.py", line 42, in load_audio_as_16k_pcm
+    .run(
+     ~~~^
+        capture_stdout=True,
+        ^^^^^^^^^^^^^^^^^^^^
+        capture_stderr=True,
+        ^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\ffmpeg\_run.py", line 313, in run
+    process = run_async(
+        stream_spec,
+    ...<5 lines>...
+        overwrite_output=overwrite_output,
+    )
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\ffmpeg\_run.py", line 284, in run_async
+    return subprocess.Popen(
+           ~~~~~~~~~~~~~~~~^
+        args, stdin=stdin_stream, stdout=stdout_stream, stderr=stderr_stream
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Program Files\Python313\Lib\subprocess.py", line 1038, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python313\Lib\subprocess.py", line 1550, in _execute_child
+    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,
+                       ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+                             # no special security
+                             ^^^^^^^^^^^^^^^^^^^^^
+    ...<4 lines>...
+                             cwd,
+                             ^^^^
+                             startupinfo)
+                             ^^^^^^^^^^^^
+FileNotFoundError: [WinError 2] The system cannot find the file specified
+
+for this 
 import argparse
 import asyncio
 import json
@@ -16,8 +93,7 @@ SAMPLE_RATE = 16000
 CHUNK_MS = 30
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
-
-DEFAULT_AUDIO_DIR = "downloads/audios/audios"
+DEFAULT_AUDIO_DIR = "c:/Users/re_nikitav/Downloads/audios/audios"
 OUTPUT_BASE_DIR = "benchmark_results"
 MODEL_NAME = "parakeet-tdt-0.6b-v3"
 
