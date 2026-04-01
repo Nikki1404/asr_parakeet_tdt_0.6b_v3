@@ -24,3 +24,8 @@ Traceback (most recent call last):
     raise ValueError(
 ValueError: Could not find websocket url in response: {'modalities': ['text'], 'input_audio_format': 'pcm16', 'input_audio_transcription': {'language': 'es-US', 'model': 'parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer', 'prompt': None}, 'input_audio_params': {'sample_rate_hz': 16000, 'num_channels': 1}, 'recognition_config': {'max_alternatives': 1, 'enable_automatic_punctuation': False, 'enable_word_time_offsets': False, 'enable_profanity_filter': False, 'enable_verbatim_transcripts': False, 'custom_configuration': ''}, 'speaker_diarization': {'enable_speaker_diarization': False, 'max_speaker_count': 8}, 'word_boosting': {'enable_word_boosting': False, 'word_boosting_list': []}, 'endpointing_config': {'start_history': 0, 'start_threshold': 0.0, 'stop_history': 0, 'stop_threshold': 0.0, 'stop_history_eou': 0, 'stop_threshold_eou': 0.0}, 'id': 'sess_216c5d6e-bab3-4b7b-8545-a0af9b76966d', 'object': 'realtime.transcription_session', 'client_secret': None}
 (env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
+
+
+use this 
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -X POST http://localhost:9000/v1/audio/transcriptions
+{"error":{"message":"file: Field required","type":"BadRequestError","code":400}}(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# ^C
