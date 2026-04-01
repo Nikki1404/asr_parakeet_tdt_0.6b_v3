@@ -599,10 +599,13 @@ WARNING:  Invalid HTTP request received.
 WARNING:  Invalid HTTP request received.
 
 
-(venv) PS C:\Users\re_nikitav\Documents> curl http://34.118.200.125:8001/health
-curl : The underlying connection was closed: An unexpected error occurred on a receive.
-At line:1 char:1
-+ curl http://34.118.200.125:8001/health
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidOperation: (System.Net.HttpWebRequest:HttpWebRequest) [Invoke-WebRequest], WebException
-    + FullyQualifiedErrorId : WebCmdletWebResponseException,Microsoft.PowerShell.Commands.InvokeWebRequestCommand
+got this 
+(venv) PS C:\Users\re_nikitav\Documents> Test-NetConnection 34.118.200.125 -Port 8001
+
+
+ComputerName     : 34.118.200.125
+RemoteAddress    : 34.118.200.125
+RemotePort       : 8001
+InterfaceAlias   : Ethernet 2
+SourceAddress    : 10.16.7.149
+TcpTestSucceeded : True
