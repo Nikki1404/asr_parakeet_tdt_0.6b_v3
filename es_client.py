@@ -9,17 +9,21 @@ import subprocess
 import tempfile
 import wave
 
-import requests
 import websockets
 
 
 # =========================================================
 # CONFIG
 # =========================================================
-SAMPLE_RATE = 44100
+SAMPLE_RATE = 16000
 BYTES_PER_SAMPLE = 2
+
 SEND_CHUNK_SEC = 30
-SEND_CHUNK_BYTES = SAMPLE_RATE * BYTES_PER_SAMPLE * SEND_CHUNK_SEC
+SEND_CHUNK_BYTES = (
+    SAMPLE_RATE *
+    BYTES_PER_SAMPLE *
+    SEND_CHUNK_SEC
+)
 
 SUPPORTED_EXTENSIONS = {
     ".mp3",
@@ -60,44 +64,11 @@ def convert_to_wav(src_path: Path, wav_path: Path):
 
     with wave.open(str(wav_path), "rb") as wf:
         duration_sec = (
-            wf.getnframes() / wf.getframerate()
+            wf.getnframes() /
+            wf.getframerate()
         )
 
     return duration_sec
-
-
-# =========================================================
-# CREATE REALTIME SESSION
-# =========================================================
-def create_session(base_url: str):
-    url = (
-        f"{base_url}/v1/realtime/"
-        f"transcription_sessions"
-    )
-
-    response = requests.post(
-        url,
-        headers={
-            "Content-Type": "application/json"
-        },
-        json={}
-    )
-
-    response.raise_for_status()
-
-    result = response.json()
-
-    session_id = result["id"]
-
-    ws_url = (
-        base_url
-        .replace("http://", "ws://")
-        .replace("https://", "wss://")
-        + f"/v1/realtime/transcription_sessions/"
-        + session_id
-    )
-
-    return ws_url
 
 
 # =========================================================
@@ -110,7 +81,15 @@ async def transcribe_file(
 ):
     print(f"\nSTARTING -> {filepath.name}")
 
-    ws_url = create_session(base_url)
+    ws_url = (
+        base_url
+        .replace("http://", "ws://")
+        .replace("https://", "wss://")
+        .rstrip("/")
+        + "/v1/realtime"
+    )
+
+    print(f"WS URL -> {ws_url}")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         wav_path = (
@@ -188,6 +167,7 @@ async def transcribe_file(
                             f"SENT CHUNK {chunk_num}"
                         )
 
+                # finalize stream
                 await ws.send(json.dumps({
                     "type": "input_audio_buffer.commit"
                 }))
@@ -259,6 +239,9 @@ async def transcribe_file(
                                 break
 
                     except asyncio.TimeoutError:
+                        print(
+                            f"{filepath.name} | timeout"
+                        )
                         break
 
             await asyncio.gather(
@@ -268,6 +251,11 @@ async def transcribe_file(
 
         total_time_sec = (
             time.time() - start_time
+        )
+
+        output_folder.mkdir(
+            parents=True,
+            exist_ok=True
         )
 
         transcript_path = (
@@ -311,11 +299,6 @@ async def run_batch(
     input_folder: Path,
     output_folder: Path
 ):
-    output_folder.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
     files = sorted([
         f for f in input_folder.iterdir()
         if f.suffix.lower()
@@ -340,9 +323,20 @@ async def run_batch(
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--base-url", required=True)
-    parser.add_argument("--input-folder", required=True)
-    parser.add_argument("--output-folder", required=True)
+    parser.add_argument(
+        "--base-url",
+        required=True
+    )
+
+    parser.add_argument(
+        "--input-folder",
+        required=True
+    )
+
+    parser.add_argument(
+        "--output-folder",
+        required=True
+    )
 
     return parser.parse_args()
 
@@ -357,50 +351,3 @@ if __name__ == "__main__":
             Path(args.output_folder)
         )
     )
-
-getting this 
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -s -X POST http://192.168.4.62:9000/v1/realtime/transcription_sessions \
-  -H "Content-Type: application/json" \
-  -d '{}' | python3 -m json.tool
-{
-    "modalities": [
-        "text"
-    ],
-    "input_audio_format": "pcm16",
-    "input_audio_transcription": {
-        "language": "es-US",
-        "model": "parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer",
-        "prompt": null
-    },
-    "input_audio_params": {
-        "sample_rate_hz": 16000,
-        "num_channels": 1
-    },
-    "recognition_config": {
-        "max_alternatives": 1,
-        "enable_automatic_punctuation": false,
-        "enable_word_time_offsets": false,
-        "enable_profanity_filter": false,
-        "enable_verbatim_transcripts": false,
-        "custom_configuration": ""
-    },
-    "speaker_diarization": {
-        "enable_speaker_diarization": false,
-        "max_speaker_count": 8
-    },
-    "word_boosting": {
-        "enable_word_boosting": false,
-        "word_boosting_list": []
-    },
-    "endpointing_config": {
-        "start_history": 0,
-        "start_threshold": 0.0,
-        "stop_history": 0,
-        "stop_threshold": 0.0,
-        "stop_history_eou": 0,
-        "stop_threshold_eou": 0.0
-    },
-    "id": "sess_e96fd402-4301-490d-bb92-f3b59616fc95",
-    "object": "realtime.transcription_session",
-    "client_secret": null
-}
