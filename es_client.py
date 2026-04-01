@@ -42,3 +42,14 @@ print(json.dumps({
 curl -X POST http://127.0.0.1:9000/v1/audio/transcriptions \
   -F "file=@/home/re_nikitav/audio_maria/maria1.mp3" \
   -F "language=es-US"
+
+
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 transcribe_test.py 
+STATUS: 404
+TEXT: {"detail":"Model not found for language es-US"}
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_test.py", line 30, in <module>
+    response.raise_for_status()
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/requests/models.py", line 1028, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 404 Client Error: Not Found for url: http://127.0.0.1:9000/v1/audio/transcriptions
