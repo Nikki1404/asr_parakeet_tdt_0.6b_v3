@@ -361,3 +361,100 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     asyncio.run(run_benchmark(args.host, args.port, args.audio_dir, args.speed))
+
+
+
+we need in this way 
+filename_latency.json
+{
+  "audio_file": "audio/spanish-1.wav",
+  "audio_duration_sec": 57.817687074829934,
+  "total_processing_time_sec": 47.64312219619751,
+  "timestamp": "2026-04-01T14:35:27.851017",
+  "model": "nova-3",
+  "language": "es",
+  "latencies": [
+    {
+      "response_num": 1,
+      "latency_ms": 3980.722665786743,
+      "is_final": true,
+      "words": 12
+    },
+    {
+      "response_num": 2,
+      "latency_ms": 6740.095853805542,
+      "is_final": true,
+      "words": 13
+    },
+    {
+      "response_num": 3,
+      "latency_ms": 9951.934337615967,
+      "is_final": true,
+      "words": 16
+    },
+    {
+      "response_num": 4,
+      "latency_ms": 17667.06657409668,
+      "is_final": true,
+      "words": 27
+    },
+    {
+      "response_num": 5,
+      "latency_ms": 20783.82396697998,
+      "is_final": true,
+      "words": 11
+    },
+    {
+      "response_num": 6,
+      "latency_ms": 25372.496843338013,
+      "is_final": true,
+      "words": 29
+    },
+    {
+      "response_num": 7,
+      "latency_ms": 29421.988248825073,
+      "is_final": true,
+      "words": 17
+    },
+    {
+      "response_num": 8,
+      "latency_ms": 32451.578378677368,
+      "is_final": true,
+      "words": 12
+    },
+    {
+      "response_num": 9,
+      "latency_ms": 42714.39003944397,
+      "is_final": true,
+      "words": 19
+    },
+    {
+      "response_num": 10,
+      "latency_ms": 42714.81513977051,
+      "is_final": true,
+      "words": 18
+    },
+    {
+      "response_num": 11,
+      "latency_ms": 43747.33901023865,
+      "is_final": true,
+      "words": 3
+    },
+    {
+      "response_num": 12,
+      "latency_ms": 46270.442485809326,
+      "is_final": true,
+      "words": 13
+    }
+  ],
+  "summary": {
+    "total_responses": 12,
+    "final_responses": 12,
+    "avg_latency_ms": 26818.05779536565,
+    "min_latency_ms": 3980.722665786743,
+    "max_latency_ms": 46270.442485809326
+  }
+}
+
+
+and transcript as filename_transcript.txt
