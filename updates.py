@@ -1,14 +1,14 @@
 import argparse
 import asyncio
 import json
-import time
 import statistics
+import time
 import traceback
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
-import numpy as np
 import librosa
+import numpy as np
 import websockets
 
 
@@ -16,46 +16,62 @@ import websockets
 # CONFIG
 # =========================
 SAMPLE_RATE = 16000
-CHUNK_MS = 30
+
+# Faster than 30 ms:
+# server will split this into 30 ms VAD frames internally
+CHUNK_MS = 1000
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
 
-INPUT_FOLDER = Path("C:/Users/re_nikitav/Downloads/audios/audios")
+INPUT_FOLDER = Path(r"C:/Users/re_nikitav/Downloads/audios/audios")
 OUTPUT_FOLDER = Path("transcription_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
+# Small yield to avoid overflooding socket buffers on very long files
+SEND_YIELD_EVERY_N_CHUNKS = 8
+
 
 # =========================
-# AUDIO LOADER (NO FFMPEG)
+# AUDIO LOADER
 # =========================
-def load_mp3_as_pcm16(filepath):
-    """
-    Load MP3 file as 16k mono PCM16 bytes
-    No ffmpeg required
-    """
+def load_mp3_as_pcm16(filepath: Path):
     print(f"Loading audio -> {filepath.name}")
 
-    audio, sr = librosa.load(
+    audio, _ = librosa.load(
         str(filepath),
         sr=SAMPLE_RATE,
         mono=True
     )
 
     duration_sec = len(audio) / SAMPLE_RATE
-
-    pcm16 = (
-        np.clip(audio, -1.0, 1.0) * 32767
-    ).astype(np.int16).tobytes()
+    pcm16 = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16).tobytes()
 
     print(f"Loaded {filepath.name} | Duration: {duration_sec/60:.1f} min")
-
     return pcm16, duration_sec
+
+
+# =========================
+# FILE SELECTION
+# =========================
+def get_target_files(mode: str):
+    all_files = sorted(INPUT_FOLDER.glob("*.mp3"))
+
+    if mode == "maria":
+        files = sorted(INPUT_FOLDER.glob("maria*.mp3"))
+    elif mode == "rest":
+        files = [f for f in all_files if not f.name.lower().startswith("maria")]
+    elif mode == "all":
+        files = all_files
+    else:
+        raise ValueError(f"Unsupported mode: {mode}")
+
+    return files
 
 
 # =========================
 # SAVE RESULTS
 # =========================
-def save_results(filepath, transcript_text, result_json):
+def save_results(filepath: Path, transcript_text: str, result_json: dict):
     output_dir = OUTPUT_FOLDER / filepath.stem
     output_dir.mkdir(exist_ok=True)
 
@@ -74,7 +90,7 @@ def save_results(filepath, transcript_text, result_json):
 # =========================
 # TRANSCRIBE ONE FILE
 # =========================
-async def transcribe_file(filepath, host, port, speed):
+async def transcribe_file(filepath: Path, host: str, port: int):
     uri = f"ws://{host}:{port}/ws"
 
     print(f"\nSTARTING -> {filepath.name}")
@@ -85,9 +101,9 @@ async def transcribe_file(filepath, host, port, speed):
     latencies = []
 
     start_time = time.time()
-
     first_response_time = None
     first_final_time = None
+    detected_language = None
     response_num = 0
 
     try:
@@ -95,12 +111,13 @@ async def transcribe_file(filepath, host, port, speed):
             uri,
             ping_interval=20,
             ping_timeout=20,
-            max_size=2**24
+            max_size=2**24,
+            close_timeout=30
         ) as ws:
 
             async def sender():
                 offset = 0
-                chunk_delay = (CHUNK_MS / 1000) / speed
+                sent_chunks = 0
 
                 while offset < len(pcm):
                     chunk = pcm[offset: offset + CHUNK_BYTES]
@@ -110,33 +127,37 @@ async def transcribe_file(filepath, host, port, speed):
                         chunk += bytes(CHUNK_BYTES - len(chunk))
 
                     await ws.send(chunk)
-                    await asyncio.sleep(chunk_delay)
+                    sent_chunks += 1
 
-                await asyncio.sleep(0.5)
+                    # Tiny cooperative yield, but no realtime throttling
+                    if sent_chunks % SEND_YIELD_EVERY_N_CHUNKS == 0:
+                        await asyncio.sleep(0)
 
-                await ws.send(json.dumps({"cmd": "flush"}))
+                # Force final flush
+                await asyncio.sleep(0.2)
+                await ws.send(json.dumps({"cmd": "flush"}).encode("utf-8"))
 
             async def receiver():
                 nonlocal first_response_time
                 nonlocal first_final_time
+                nonlocal detected_language
                 nonlocal response_num
 
                 while True:
                     try:
-                        raw = await asyncio.wait_for(
-                            ws.recv(),
-                            timeout=60
-                        )
-
+                        raw = await asyncio.wait_for(ws.recv(), timeout=90)
                         now = time.time()
+
+                        if isinstance(raw, bytes):
+                            raw = raw.decode("utf-8")
 
                         msg = json.loads(raw)
 
                         text = msg.get("text", "")
                         msg_type = msg.get("type", "")
+                        lang = msg.get("language") or msg.get("detected_language")
 
                         latency_ms = (now - start_time) * 1000
-
                         response_num += 1
 
                         if first_response_time is None:
@@ -147,7 +168,10 @@ async def transcribe_file(filepath, host, port, speed):
                         if is_final and first_final_time is None:
                             first_final_time = latency_ms
 
-                        # Save ONLY final transcript
+                        if lang and detected_language is None:
+                            detected_language = lang
+
+                        # Save only final transcript text
                         if text and is_final:
                             transcript_parts.append(text)
 
@@ -160,15 +184,13 @@ async def transcribe_file(filepath, host, port, speed):
 
                         if is_final:
                             print(
-                                f"{filepath.name} | "
-                                f"FINAL {response_num} | "
-                                f"TTFT {latency_ms:.0f} ms"
+                                f"{filepath.name} | FINAL {response_num} | "
+                                f"{latency_ms:.0f} ms | {len(text.split())} words"
                             )
 
                     except asyncio.TimeoutError:
                         print(f"{filepath.name} | receiver timeout")
                         break
-
                     except websockets.exceptions.ConnectionClosed:
                         print(f"{filepath.name} | connection closed")
                         break
@@ -182,7 +204,6 @@ async def transcribe_file(filepath, host, port, speed):
         return
 
     total_time = time.time() - start_time
-
     transcript_text = "\n".join(transcript_parts)
 
     latency_values = [x["latency_ms"] for x in latencies]
@@ -193,56 +214,58 @@ async def transcribe_file(filepath, host, port, speed):
         "total_processing_time_sec": total_time,
         "timestamp": datetime.now().isoformat(),
         "model": "parakeet-tdt-0.6b-v3",
+        "detected_language": detected_language,
         "ttfb_ms": first_response_time,
         "ttft_ms": first_final_time,
         "latencies": latencies,
         "summary": {
             "total_responses": len(latencies),
             "final_responses": sum(x["is_final"] for x in latencies),
-            "avg_latency_ms": (
-                statistics.mean(latency_values)
-                if latency_values else 0
-            ),
-            "min_latency_ms": (
-                min(latency_values)
-                if latency_values else 0
-            ),
-            "max_latency_ms": (
-                max(latency_values)
-                if latency_values else 0
-            )
+            "avg_latency_ms": statistics.mean(latency_values) if latency_values else 0,
+            "min_latency_ms": min(latency_values) if latency_values else 0,
+            "max_latency_ms": max(latency_values) if latency_values else 0,
         }
     }
 
     save_results(filepath, transcript_text, result_json)
 
+    ttfb_str = f"{first_response_time:.0f} ms" if first_response_time is not None else "NA"
+    ttft_str = f"{first_final_time:.0f} ms" if first_final_time is not None else "NA"
+
     print(
         f"COMPLETED -> {filepath.name} | "
-        f"TTFB: {first_response_time:.0f} ms | "
-        f"TTFT: {first_final_time:.0f} ms"
+        f"TTFB: {ttfb_str} | TTFT: {ttft_str}"
     )
 
 
 # =========================
 # BATCH RUNNER
 # =========================
-async def run_batch(host, port, workers, speed):
-    files = sorted(INPUT_FOLDER.glob("*.mp3"))
-
+async def run_batch(host: str, port: int, workers: int, mode: str):
+    files = get_target_files(mode)
     total_files = len(files)
 
     print("=" * 80)
+    print(f"MODE = {mode}")
     print(f"TOTAL FILES = {total_files}")
     print(f"WORKERS = {workers}")
-    print(f"SPEED = {speed}x")
+    print(f"CHUNK_MS = {CHUNK_MS}")
     print("=" * 80)
 
-    semaphore = asyncio.Semaphore(workers)
+    if not files:
+        print("No matching files found.")
+        return
 
-    async def process_file(idx, file):
+    semaphore = asyncio.Semaphore(workers)
+    completed = 0
+
+    async def process_file(idx: int, file: Path):
+        nonlocal completed
         async with semaphore:
             print(f"\n[{idx}/{total_files}] PROCESSING {file.name}")
-            await transcribe_file(file, host, port, speed)
+            await transcribe_file(file, host, port)
+            completed += 1
+            print(f"PROGRESS -> {completed}/{total_files} completed")
 
     tasks = [
         asyncio.create_task(process_file(idx, file))
@@ -250,7 +273,6 @@ async def run_batch(host, port, workers, speed):
     ]
 
     await asyncio.gather(*tasks)
-
     print("\nALL FILES COMPLETED")
 
 
@@ -271,10 +293,10 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--speed",
-        type=float,
-        default=4.0,
-        help="Recommended: 4x"
+        "--mode",
+        choices=["maria", "rest", "all"],
+        default="maria",
+        help="maria = only maria*.mp3, rest = everything except maria*.mp3, all = all mp3s"
     )
 
     return parser.parse_args()
@@ -288,72 +310,9 @@ if __name__ == "__main__":
 
     asyncio.run(
         run_batch(
-            args.host,
-            args.port,
-            args.workers,
-            args.speed
+            host=args.host,
+            port=args.port,
+            workers=args.workers,
+            mode=args.mode
         )
     )
-
-
-give complete fix for this 
-
-and for now first only transcribe 
-maria named audios 
-zeledon7.mp3
-zeledon8.mp3
-zeledon9.mp3
-zeledon2.mp3
-zeledon3.mp3
-zeledon4.mp3
-zeledon5.mp3
-zeledon6.mp3
-→sastre9.mp3
-zeledon1.mp3
-zeledon11.mp3
-zeledon13.mp3
-zeledon14.mp3
-sastre6.mp3
-sastre7.mp3
-sastre8.mp3
-sastre2.mp3
-sastre4.mp3
-sastre 13.mp3
-sastre12.mp3
-maria4.mp3
-maria40.mp3
-herring2.mp3
-maria27.mp3
-herring3.mp3
-maria30.mp3
-herring5.mp3
-maria2.mp3
-herring6.mp3
-sastre3.mp3
-maria18.mp3
-herring7.mp3
-maria19.mp3
-herring14.mp3
-maria20.mp3
-herring15.mp3
-sastre1.mp3
-maria21.mp3
-herring16.mp3
-sastre 10.mp3
-maria24.mp3
-herring17.mp3
-sastre11.mp3
-maria16.mp3
-herring8.mp3
-herring10.mp3
-herring11.mp3
-herring9.mp3
-herring12.mp3
-maria7.mp3
-maria1.mp3
-herring 13.mp3
-sastre5.mp3
-maria31.mp3
-maria10.mp3
-herring1.mp3
-
