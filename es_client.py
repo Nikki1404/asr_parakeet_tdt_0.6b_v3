@@ -221,3 +221,7 @@ Traceback (most recent call last):
   File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/requests/models.py", line 1028, in raise_for_status
     raise HTTPError(http_error_msg, response=self)
 requests.exceptions.HTTPError: 404 Client Error: Not Found for url: http://localhost:9000/v1/audio/transcriptions
+
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -X POST http://localhost:9000/v1/audio/transcriptions/
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -X POST http://localhost:9000/v1/audio/transcriptions
+{"error":{"message":"file: Field required","type":"BadRequestError","code":400}}(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
