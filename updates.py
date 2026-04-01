@@ -5,11 +5,9 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
-import numpy as np
+import ffmpeg
 import websockets
-from pydub import AudioSegment
 
 # =========================
 # CONFIG
@@ -25,14 +23,47 @@ MODEL_NAME = "parakeet-tdt-0.6b-v3"
 
 
 # =========================
-# AUDIO LOADER
+# AUDIO LOADER USING FFMPEG PYTHON
 # =========================
 def load_audio_as_16k_pcm(path: str) -> bytes:
-    seg = AudioSegment.from_file(path)
-    seg = seg.set_channels(1)
-    seg = seg.set_frame_rate(SAMPLE_RATE)
-    seg = seg.set_sample_width(2)
-    return seg.raw_data
+    """
+    Convert any audio file to 16k mono PCM16 LE.
+    """
+    try:
+        out, _ = (
+            ffmpeg
+            .input(path)
+            .output(
+                "pipe:",
+                format="s16le",
+                acodec="pcm_s16le",
+                ac=1,
+                ar=SAMPLE_RATE,
+            )
+            .run(
+                capture_stdout=True,
+                capture_stderr=True,
+            )
+        )
+
+        return out
+
+    except ffmpeg.Error as e:
+        raise RuntimeError(
+            f"FFmpeg failed for {path}\n"
+            f"{e.stderr.decode()}"
+        )
+
+
+# =========================
+# AUDIO DURATION
+# =========================
+def get_audio_duration(path: str) -> float:
+    try:
+        probe = ffmpeg.probe(path)
+        return float(probe["format"]["duration"])
+    except Exception:
+        return 0.0
 
 
 # =========================
@@ -110,14 +141,12 @@ async def receiver(ws, send_start, result):
     first_response = True
     first_text = True
 
-    print("[RECEIVER] Waiting for server responses...")
+    print("[RECEIVER] Waiting for transcripts...")
 
     try:
         async for raw in ws:
             now = time.perf_counter()
             latency_ms = (now - send_start) * 1000
-
-            print(f"[RECEIVER] Message received at {latency_ms:.0f} ms")
 
             if first_response:
                 result.ttfb_ms = latency_ms
@@ -127,10 +156,8 @@ async def receiver(ws, send_start, result):
             try:
                 msg = json.loads(raw)
             except Exception as e:
-                print(f"[RECEIVER] Invalid JSON: {e}")
+                print(f"[JSON ERROR] {e}")
                 continue
-
-            print(f"[RECEIVER] RAW MSG: {msg}")
 
             text = msg.get("text", "").strip()
             msg_type = msg.get("type", "")
@@ -151,9 +178,7 @@ async def receiver(ws, send_start, result):
 
             print(
                 f"[TRANSCRIPT #{response_num}] "
-                f"type={msg_type} "
-                f"latency={latency_ms:.0f}ms "
-                f"text={text[:120]}"
+                f"{latency_ms:.0f} ms | {text[:100]}"
             )
 
             result.latencies.append(
@@ -188,6 +213,7 @@ async def sender(ws, pcm, speed):
 
     while offset < len(pcm):
         chunk = pcm[offset: offset + CHUNK_BYTES]
+
         await ws.send(chunk)
 
         offset += CHUNK_BYTES
@@ -196,15 +222,14 @@ async def sender(ws, pcm, speed):
         if chunk_num % 100 == 0 or chunk_num == total_chunks:
             pct = (chunk_num / total_chunks) * 100
             print(
-                f"[SENDER] Sent {chunk_num}/{total_chunks} "
-                f"chunks ({pct:.1f}%)"
+                f"[SENDER] {chunk_num}/{total_chunks} "
+                f"({pct:.1f}%)"
             )
 
         await asyncio.sleep(chunk_delay)
 
-    print("[SENDER] Sending flush...")
+    print("[SENDER] Sending flush")
     await ws.send(json.dumps({"cmd": "flush"}))
-    print("[SENDER] Flush sent")
 
     return send_start
 
@@ -214,8 +239,8 @@ async def sender(ws, pcm, speed):
 # =========================
 async def benchmark_file(uri, filepath, speed):
     pcm = load_audio_as_16k_pcm(str(filepath))
+    duration_sec = get_audio_duration(str(filepath))
 
-    duration_sec = len(pcm) / 2 / SAMPLE_RATE
     result = BenchmarkResult(str(filepath), duration_sec)
 
     start_wall = time.perf_counter()
@@ -230,13 +255,13 @@ async def benchmark_file(uri, filepath, speed):
             max_size=2**24,
         ) as ws:
 
-            print("[CONNECTED] WebSocket opened")
+            print("[CONNECTED]")
 
             send_start = await sender(ws, pcm, speed)
 
             await asyncio.wait_for(
                 receiver(ws, send_start, result),
-                timeout=duration_sec + 180,
+                timeout=duration_sec + 300,
             )
 
     except Exception as e:
@@ -255,7 +280,6 @@ async def benchmark_file(uri, filepath, speed):
 # =========================
 def save_output(result, output_dir):
     stem = Path(result.file_name).stem
-
     folder = output_dir / stem
     folder.mkdir(parents=True, exist_ok=True)
 
@@ -272,7 +296,7 @@ def save_output(result, output_dir):
 
     with open(transcript_path, "w", encoding="utf-8") as f:
         if result.error:
-            f.write(f"ERROR: {result.error}")
+            f.write(result.error)
         else:
             f.write(result.full_transcript)
 
@@ -297,35 +321,30 @@ async def run_batch(host, port, audio_dir, speed):
 
     total = len(files)
 
-    print("\n" + "=" * 80)
+    print("=" * 80)
     print(f"TOTAL FILES = {total}")
-    print(f"INPUT DIR   = {audio_dir.resolve()}")
-    print(f"OUTPUT DIR  = {output_dir.resolve()}")
-    print("=" * 80 + "\n")
+    print("=" * 80)
 
     for idx, file in enumerate(files, 1):
-        print(f"\n[{idx}/{total}] STARTING: {file.name}")
+        print(f"\n[{idx}/{total}] STARTING {file.name}")
 
         result = await benchmark_file(uri, file, speed)
 
         latency_path, transcript_path = save_output(
-            result, output_dir
+            result,
+            output_dir,
         )
 
-        print(f"\n[{idx}/{total}] COMPLETED: {file.name}")
+        print(f"[{idx}/{total}] DONE")
 
         if result.error:
             print(f"ERROR: {result.error}")
         else:
-            print(f"TTFB : {result.ttfb_ms:.0f} ms")
-            print(f"TTFT : {result.ttft_ms:.0f} ms")
-            print(
-                f"TOTAL PROC TIME : "
-                f"{result.total_processing_time_sec:.1f}s"
-            )
+            print(f"TTFB: {result.ttfb_ms:.0f} ms")
+            print(f"TTFT: {result.ttft_ms:.0f} ms")
 
-        print(f"SAVED JSON : {latency_path}")
-        print(f"SAVED TXT  : {transcript_path}")
+        print(f"SAVED: {latency_path}")
+        print(f"SAVED: {transcript_path}")
         print("-" * 80)
 
 
