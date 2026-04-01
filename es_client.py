@@ -1,31 +1,185 @@
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python transcribe_parakeet_es_bathc.py   --base-url http://localhost:9000   --input-folder /home/re_nikitav/audio_maria   --output-folder /home/re_nikitav/parakeet_es_results
+import argparse
+import json
+import time
+import statistics
+from pathlib import Path
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
-[1/15]
-
-STARTING -> maria1.mp3
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_bathc.py", line 421, in <module>
-    asyncio.run(
-  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
-    return future.result()
-           ^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_bathc.py", line 385, in run_batch
-    await transcribe_file(
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_bathc.py", line 147, in transcribe_file
-    ws_url = create_transcription_session(base_url)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_bathc.py", line 97, in create_transcription_session
-    raise ValueError(
-ValueError: Could not find websocket url in response: {'modalities': ['text'], 'input_audio_format': 'pcm16', 'input_audio_transcription': {'language': 'es-US', 'model': 'parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer', 'prompt': None}, 'input_audio_params': {'sample_rate_hz': 16000, 'num_channels': 1}, 'recognition_config': {'max_alternatives': 1, 'enable_automatic_punctuation': False, 'enable_word_time_offsets': False, 'enable_profanity_filter': False, 'enable_verbatim_transcripts': False, 'custom_configuration': ''}, 'speaker_diarization': {'enable_speaker_diarization': False, 'max_speaker_count': 8}, 'word_boosting': {'enable_word_boosting': False, 'word_boosting_list': []}, 'endpointing_config': {'start_history': 0, 'start_threshold': 0.0, 'stop_history': 0, 'stop_threshold': 0.0, 'stop_history_eou': 0, 'stop_threshold_eou': 0.0}, 'id': 'sess_216c5d6e-bab3-4b7b-8545-a0af9b76966d', 'object': 'realtime.transcription_session', 'client_secret': None}
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
+import requests
 
 
-use this 
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# curl -X POST http://localhost:9000/v1/audio/transcriptions
-{"error":{"message":"file: Field required","type":"BadRequestError","code":400}}(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# ^C
+SUPPORTED_EXTENSIONS = {
+    ".mp3", ".wav", ".m4a", ".flac"
+}
+
+MAX_WORKERS = 4
+
+
+def save_results(
+    output_folder: Path,
+    filepath: Path,
+    transcript_text: str,
+    latency_json: dict
+):
+    transcript_path = (
+        output_folder /
+        f"{filepath.stem}_transcript.txt"
+    )
+
+    latency_path = (
+        output_folder /
+        f"{filepath.stem}_latency.json"
+    )
+
+    transcript_path.write_text(
+        transcript_text,
+        encoding="utf-8"
+    )
+
+    latency_path.write_text(
+        json.dumps(latency_json, indent=2),
+        encoding="utf-8"
+    )
+
+    print(f"SAVED -> {transcript_path}")
+    print(f"SAVED -> {latency_path}")
+
+
+def transcribe_single_file(
+    filepath: Path,
+    base_url: str,
+    output_folder: Path
+):
+    print(f"STARTING -> {filepath.name}")
+
+    url = f"{base_url}/v1/audio/transcriptions"
+
+    start_time = time.time()
+
+    with open(filepath, "rb") as f:
+        files = {
+            "file": (
+                filepath.name,
+                f,
+                "application/octet-stream"
+            )
+        }
+
+        data = {
+            "language": "es-US"
+        }
+
+        response = requests.post(
+            url,
+            files=files,
+            data=data,
+            timeout=3600
+        )
+
+    total_latency_ms = (
+        time.time() - start_time
+    ) * 1000
+
+    response.raise_for_status()
+
+    result = response.json()
+
+    transcript_text = (
+        result.get("text")
+        or result.get("transcript")
+        or ""
+    )
+
+    latency_json = {
+        "audio_file": str(filepath),
+        "timestamp": datetime.now().isoformat(),
+        "total_latency_ms": round(
+            total_latency_ms, 2
+        ),
+        "total_latency_sec": round(
+            total_latency_ms / 1000, 2
+        ),
+        "response": result
+    }
+
+    save_results(
+        output_folder,
+        filepath,
+        transcript_text,
+        latency_json
+    )
+
+    print(
+        f"COMPLETED -> {filepath.name} | "
+        f"{total_latency_ms/1000:.1f}s"
+    )
+
+
+def run_batch(
+    base_url: str,
+    input_folder: Path,
+    output_folder: Path
+):
+    output_folder.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    files = sorted([
+        f for f in input_folder.iterdir()
+        if f.suffix.lower() in SUPPORTED_EXTENSIONS
+    ])
+
+    print(f"TOTAL FILES = {len(files)}")
+
+    with ThreadPoolExecutor(
+        max_workers=MAX_WORKERS
+    ) as executor:
+        futures = []
+
+        for file in files:
+            future = executor.submit(
+                transcribe_single_file,
+                file,
+                base_url,
+                output_folder
+            )
+            futures.append(future)
+
+        for future in futures:
+            future.result()
+
+    print("\nALL FILES COMPLETED")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--base-url",
+        required=True
+    )
+
+    parser.add_argument(
+        "--input-folder",
+        required=True
+    )
+
+    parser.add_argument(
+        "--output-folder",
+        required=True
+    )
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+
+    run_batch(
+        args.base_url,
+        Path(args.input_folder),
+        Path(args.output_folder)
+    )
+
