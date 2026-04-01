@@ -216,4 +216,4 @@ if __name__ == "__main__":
         Path(args.output_folder)
     )
 
-python3 -c "import requests; print(requests.post('http://127.0.0.1:9000/v1/audio/transcriptions').text)"
+python3 -c "import requests; print(requests.post('http://192.168.4.62:9000/v1/audio/transcriptions').text)"
