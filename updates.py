@@ -6,7 +6,6 @@ import statistics
 import traceback
 from pathlib import Path
 from datetime import datetime
-from collections import deque
 
 import numpy as np
 import librosa
@@ -21,7 +20,7 @@ CHUNK_MS = 500
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
 
-INPUT_FOLDER = Path("/home/re_nikitav/parakeet-asr-multilingual/audio_maria")
+INPUT_FOLDER = Path("C:/Users/re_nikitav/Downloads/audios/audios")
 OUTPUT_FOLDER = Path("transcription_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
@@ -90,8 +89,8 @@ async def transcribe_file(filepath, host, port, speed):
     first_final_time = None
     response_num = 0
 
-    # Queue to track chunk send timestamps
-    chunk_send_times = deque()
+    # latest chunk timestamp
+    last_chunk_sent_time = None
 
     try:
         async with websockets.connect(
@@ -102,6 +101,8 @@ async def transcribe_file(filepath, host, port, speed):
         ) as ws:
 
             async def sender():
+                nonlocal last_chunk_sent_time
+
                 offset = 0
                 chunk_delay = (CHUNK_MS / 1000) / speed
 
@@ -112,15 +113,14 @@ async def transcribe_file(filepath, host, port, speed):
                     if len(chunk) < CHUNK_BYTES:
                         chunk += bytes(CHUNK_BYTES - len(chunk))
 
-                    send_ts = time.time()
+                    # update latest send timestamp
+                    last_chunk_sent_time = time.time()
 
                     await ws.send(chunk)
 
-                    chunk_send_times.append(send_ts)
-
                     await asyncio.sleep(chunk_delay)
 
-                # allow server to finish decoding
+                # allow decoder to finish
                 await asyncio.sleep(1.0)
 
                 await ws.send(json.dumps({"cmd": "flush"}))
@@ -129,6 +129,7 @@ async def transcribe_file(filepath, host, port, speed):
                 nonlocal first_response_time
                 nonlocal first_final_time
                 nonlocal response_num
+                nonlocal last_chunk_sent_time
 
                 while True:
                     try:
@@ -144,17 +145,18 @@ async def transcribe_file(filepath, host, port, speed):
                         text = msg.get("text", "")
                         msg_type = msg.get("type", "")
 
-                        # elapsed from start of file
-                        elapsed_ms = (now - start_time) * 1000
+                        # file-level elapsed time
+                        elapsed_ms = (
+                            now - start_time
+                        ) * 1000
 
-                        # true chunk latency
-                        if chunk_send_times:
-                            send_ts = chunk_send_times.popleft()
-                            chunk_latency_ms = (
-                                now - send_ts
+                        # per-response fresh latency
+                        if last_chunk_sent_time is not None:
+                            response_latency_ms = (
+                                now - last_chunk_sent_time
                             ) * 1000
                         else:
-                            chunk_latency_ms = 0
+                            response_latency_ms = 0
 
                         response_num += 1
 
@@ -171,8 +173,12 @@ async def transcribe_file(filepath, host, port, speed):
 
                         latencies.append({
                             "response_num": response_num,
-                            "elapsed_ms": round(elapsed_ms, 2),
-                            "chunk_latency_ms": round(chunk_latency_ms, 2),
+                            "response_latency_ms": round(
+                                response_latency_ms, 2
+                            ),
+                            "elapsed_ms": round(
+                                elapsed_ms, 2
+                            ),
                             "is_final": is_final,
                             "words": len(text.split())
                         })
@@ -180,8 +186,7 @@ async def transcribe_file(filepath, host, port, speed):
                         print(
                             f"{filepath.name} | "
                             f"RESP {response_num} | "
-                            f"CHUNK LAT {chunk_latency_ms:.0f} ms | "
-                            f"ELAPSED {elapsed_ms:.0f} ms"
+                            f"LATENCY {response_latency_ms:.0f} ms"
                         )
 
                     except asyncio.TimeoutError:
@@ -192,7 +197,10 @@ async def transcribe_file(filepath, host, port, speed):
                         print(f"{filepath.name} | connection closed")
                         break
 
-            await asyncio.gather(sender(), receiver())
+            await asyncio.gather(
+                sender(),
+                receiver()
+            )
 
     except Exception as e:
         print(f"FAILED -> {filepath.name}")
@@ -205,38 +213,47 @@ async def transcribe_file(filepath, host, port, speed):
     transcript_text = "\n".join(transcript_parts)
 
     latency_values = [
-        x["chunk_latency_ms"] for x in latencies
+        x["response_latency_ms"]
+        for x in latencies
     ]
 
     result_json = {
         "audio_file": str(filepath),
         "audio_duration_sec": duration_sec,
-        "total_processing_time_sec": round(total_time, 2),
+        "total_processing_time_sec": round(
+            total_time, 2
+        ),
         "timestamp": datetime.now().isoformat(),
         "model": "parakeet-tdt-0.6b-v3",
-        "ttfb_ms": round(first_response_time, 2)
-        if first_response_time else None,
-        "ttft_ms": round(first_final_time, 2)
-        if first_final_time else None,
+        "ttfb_ms": round(
+            first_response_time, 2
+        ) if first_response_time else None,
+        "ttft_ms": round(
+            first_final_time, 2
+        ) if first_final_time else None,
         "latencies": latencies,
         "summary": {
             "total_responses": len(latencies),
             "final_responses": sum(
                 x["is_final"] for x in latencies
             ),
-            "avg_chunk_latency_ms": round(
+            "avg_latency_ms": round(
                 statistics.mean(latency_values), 2
             ) if latency_values else 0,
-            "min_chunk_latency_ms": round(
+            "min_latency_ms": round(
                 min(latency_values), 2
             ) if latency_values else 0,
-            "max_chunk_latency_ms": round(
+            "max_latency_ms": round(
                 max(latency_values), 2
             ) if latency_values else 0
         }
     }
 
-    save_results(filepath, transcript_text, result_json)
+    save_results(
+        filepath,
+        transcript_text,
+        result_json
+    )
 
     print(
         f"COMPLETED -> {filepath.name} | "
