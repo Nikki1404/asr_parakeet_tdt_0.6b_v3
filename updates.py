@@ -1,6 +1,5 @@
 I want to write a client script to get transcriptions from audio files(approx 56 file of 30mb and 1 file is of 150 mb ) uploaded here 
-https://console.cloud.google.com/storage/browser/cx-asr-test-data/audios;tab=objects?project=emr-dgt-autonomous-uctr1-snbx&pageState=(%22StorageObjectListTable%22:(%22f%22:%22%255B%255D%22))&prefix=&forceOnObjectsSortingFiltering=false
-so get the files from this location and  upload to get final transcription of that audio file and get ttfb , ttft as latecy per audio file
+so get the files from this location downloads/audios/audios in local in mp3 format and  upload to generate final transcription of that audio file and get ttfb , ttft as latecy per audio file
 
 this is the client currently i am using 
 client.py-
