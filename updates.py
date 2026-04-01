@@ -1,17 +1,18 @@
 """
 Parakeet ASR – Batch Benchmark Client
 Streams all MP3 files from downloads/audios/audios/ to the WebSocket server,
-collects full transcriptions, and records TTFB / TTFT latency per file.
+collects full transcriptions and per-response latencies.
 
-Output CSVs:
-    transcriptions.csv  →  file_name | transcription
-    latency.csv         →  file_name | ttfb_ms | ttft_ms
+Output (per file):
+    results/<stem>/
+        <stem>_latency.json
+        <stem>_transcript.txt
 
 Usage:
     python benchmark_client.py
     python benchmark_client.py --host 34.118.200.125 --port 8001
-    python benchmark_client.py --host 34.118.200.125 --port 8001 --speed 10.0
-    python benchmark_client.py --audio-dir path/to/audios --speed 5.0
+    python benchmark_client.py --host 34.118.200.125 --port 8001 --speed 2.0
+    python benchmark_client.py --audio-dir path/to/audios --speed 2.0
 
 Dependencies:
     pip install websockets soundfile numpy pydub
@@ -20,18 +21,18 @@ Dependencies:
 
 import argparse
 import asyncio
-import csv
 import json
 import logging
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 import websockets
 
-# ── Audio config
+# ── Audio config ───────────────────────────────────────────────────────────────
 SAMPLE_RATE   = 16_000
 CHUNK_MS      = 30
 CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000   # 480 samples
@@ -40,9 +41,8 @@ CHUNK_BYTES   = CHUNK_SAMPLES * 2                 # int16 → 2 bytes/sample
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
 
-DEFAULT_AUDIO_DIR   = "downloads/audios/audios"
-TRANSCRIPTIONS_CSV  = "transcriptions.csv"
-LATENCY_CSV         = "latency.csv"
+DEFAULT_AUDIO_DIR = "downloads/audios/audios"
+OUTPUT_ROOT       = "results"
 
 
 # ── Audio loading ──────────────────────────────────────────────────────────────
@@ -85,7 +85,6 @@ def _resample(data: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
         return resample_poly(data, target_sr // g, orig_sr // g).astype(np.float32)
     except ImportError:
         pass
-    # Numpy linear interpolation fallback
     duration  = len(data) / orig_sr
     old_times = np.linspace(0, duration, len(data))
     new_times = np.linspace(0, duration, int(duration * target_sr))
@@ -96,76 +95,72 @@ def _float32_to_pcm16(data: np.ndarray) -> bytes:
     return (np.clip(data, -1.0, 1.0) * 32767).astype(np.int16).tobytes()
 
 
-# ── Per-file benchmark ─────────────────────────────────────────────────────────
+# ── Result container ───────────────────────────────────────────────────────────
 
-class BenchmarkResult:
-    def __init__(self, file_name: str):
-        self.file_name      = file_name
-        self.ttfb_ms: Optional[float] = None   # time to first byte (any server response)
-        self.ttft_ms: Optional[float] = None   # time to first transcript (partial text)
-        self.transcription  = ""
-        self.error: Optional[str]     = None
+class FileResult:
+    def __init__(self, filepath: Path, audio_duration_sec: float):
+        self.filepath                    = filepath
+        self.audio_duration_sec          = audio_duration_sec
+        self.timestamp                   = datetime.now().isoformat()
+        self.detected_language           = "unknown"
+        self.transcript_parts: List[str] = []
+        self.latency_events: List[dict]  = []  # one entry per transcript response
+        self.send_start: float           = 0.0
+        self.total_processing_time_sec   = 0.0
+        self.error: Optional[str]        = None
 
 
-async def _benchmark_receiver(
-    ws,
-    send_start_time: float,
-    result: BenchmarkResult,
-) -> None:
+# ── WebSocket receiver ─────────────────────────────────────────────────────────
+
+async def _receiver(ws, result: FileResult) -> None:
     """
-    Receive messages from the server and record:
-      TTFB – wall-clock ms from send_start until first message of any kind arrives.
-      TTFT – wall-clock ms from send_start until first message with non-empty text.
-    Collects the final transcript text (type == "transcript").
+    Collect every response from the server.
+    Each 'transcript' message (is_final=True) is one latency event.
+    Latency is measured from the moment the first chunk was sent.
     """
-    transcript_parts: List[str] = []
+    response_num = 0
 
     try:
         async for raw in ws:
-            now = time.perf_counter()
-            elapsed_ms = (now - send_start_time) * 1000
-
-            # TTFB: first byte / message received
-            if result.ttfb_ms is None:
-                result.ttfb_ms = elapsed_ms
+            now_ms = (time.perf_counter() - result.send_start) * 1000
 
             try:
                 msg = json.loads(raw)
             except (json.JSONDecodeError, UnicodeDecodeError):
-                # Raw binary ack or unknown — still counts as TTFB
                 continue
 
             msg_type = msg.get("type", "")
             text     = msg.get("text", "").strip()
 
-            # TTFT: first message that carries actual text
-            if result.ttft_ms is None and text:
-                result.ttft_ms = elapsed_ms
+            # Capture detected language if the server sends it
+            if "language" in msg:
+                result.detected_language = msg["language"]
 
-            if msg_type == "partial":
-                pass  # already captured TTFT above
+            if msg_type == "transcript" and text:
+                response_num += 1
+                result.transcript_parts.append(text)
+                result.latency_events.append({
+                    "response_num": response_num,
+                    "latency_ms":   now_ms,
+                    "is_final":     True,
+                    "words":        len(text.split()),
+                })
 
-            elif msg_type == "transcript":
-                if text:
-                    transcript_parts.append(text)
+            elif msg_type == "partial":
+                # partials noted but not stored as latency events
+                pass
 
     except websockets.exceptions.ConnectionClosed:
         pass
 
-    result.transcription = " ".join(transcript_parts)
 
+# ── WebSocket sender ───────────────────────────────────────────────────────────
 
-async def _benchmark_sender(ws, pcm: bytes, speed: float) -> float:
-    """
-    Stream PCM to the server at `speed`× real-time.
-    Returns the perf_counter timestamp just before the first chunk is sent
-    (used as the reference t=0 for latency measurements).
-    """
-    chunk_delay = (CHUNK_MS / 1000) / speed
-    offset = 0
-
-    # Record start time right before first send
-    send_start = time.perf_counter()
+async def _sender(ws, pcm: bytes, speed: float, result: FileResult) -> None:
+    """Stream PCM to server; stamps result.send_start before the first chunk."""
+    chunk_delay     = (CHUNK_MS / 1000) / speed
+    offset          = 0
+    result.send_start = time.perf_counter()
 
     while offset + CHUNK_BYTES <= len(pcm):
         chunk   = pcm[offset: offset + CHUNK_BYTES]
@@ -173,70 +168,105 @@ async def _benchmark_sender(ws, pcm: bytes, speed: float) -> float:
         await ws.send(chunk)
         await asyncio.sleep(chunk_delay)
 
-    # Pad and send any leftover bytes
+    # Send any leftover bytes (padded to full chunk)
     leftover = pcm[offset:]
     if leftover:
         await ws.send(leftover + bytes(CHUNK_BYTES - len(leftover)))
 
-    # Flush to force the final transcript
+    # Force final transcript flush
     await asyncio.sleep(0.3)
     await ws.send(json.dumps({"cmd": "flush"}).encode())
 
-    return send_start
+    # Wait for server to finish all responses
+    await asyncio.sleep(15)
 
 
-async def benchmark_file(
-    uri: str,
-    filepath: Path,
-    pcm: bytes,
-    speed: float,
-) -> BenchmarkResult:
-    result = BenchmarkResult(file_name=filepath.name)
+# ── Per-file benchmark ─────────────────────────────────────────────────────────
+
+async def benchmark_file(uri: str, filepath: Path, pcm: bytes, speed: float) -> FileResult:
+    duration_sec = len(pcm) / 2 / SAMPLE_RATE
+    result       = FileResult(filepath, duration_sec)
+    wall_start   = time.time()
 
     try:
         async with websockets.connect(
             uri,
             ping_interval=20,
             ping_timeout=60,
-            max_size=2 ** 24,   # 16 MB – handles the 150 MB file's chunked frames
+            max_size=2 ** 24,   # 16 MB per frame — fine for 30ms PCM chunks
             open_timeout=30,
         ) as ws:
-            # We need the sender to return its start-time to the receiver.
-            # Use a shared list as a mutable container.
-            start_time_holder: List[float] = []
-
-            async def sender_wrapper():
-                t = await _benchmark_sender(ws, pcm, speed)
-                start_time_holder.append(t)
-                # Give the receiver some extra time to collect the final transcript
-                await asyncio.sleep(15)
-                await ws.close()
-
-            # Receiver needs the start time; we approximate it as "now" and refine
-            # once the sender fires. Use a simple shared float via list.
-            approx_start = time.perf_counter()
-
-            async def receiver_wrapper():
-                # Wait briefly so sender can record its precise start
-                await asyncio.sleep(0.01)
-                actual_start = start_time_holder[0] if start_time_holder else approx_start
-                await _benchmark_receiver(ws, actual_start, result)
-
-            recv_task = asyncio.create_task(receiver_wrapper())
-            send_task = asyncio.create_task(sender_wrapper())
-
+            send_task = asyncio.create_task(_sender(ws, pcm, speed, result))
+            recv_task = asyncio.create_task(_receiver(ws, result))
             await asyncio.gather(send_task, recv_task, return_exceptions=True)
 
     except Exception as exc:
         result.error = str(exc)
 
+    result.total_processing_time_sec = time.time() - wall_start
     return result
+
+
+# ── Output writers ─────────────────────────────────────────────────────────────
+
+def save_results(result: FileResult, output_root: str) -> Path:
+    """
+    Saves:
+        results/<stem>/<stem>_latency.json
+        results/<stem>/<stem>_transcript.txt
+    Returns the folder path.
+    """
+    stem   = result.filepath.stem          # e.g. "spanish-1"  from  spanish-1.mp3
+    folder = Path(output_root) / stem
+    folder.mkdir(parents=True, exist_ok=True)
+
+    # ── latency JSON ──────────────────────────────────────────────────────────
+    latencies = result.latency_events
+    if latencies:
+        lat_values = [e["latency_ms"] for e in latencies]
+        summary = {
+            "total_responses": len(latencies),
+            "final_responses": sum(1 for e in latencies if e["is_final"]),
+            "avg_latency_ms":  sum(lat_values) / len(lat_values),
+            "min_latency_ms":  min(lat_values),
+            "max_latency_ms":  max(lat_values),
+        }
+    else:
+        summary = {
+            "total_responses": 0,
+            "final_responses": 0,
+            "avg_latency_ms":  None,
+            "min_latency_ms":  None,
+            "max_latency_ms":  None,
+        }
+
+    latency_payload = {
+        "audio_file":                str(result.filepath),
+        "audio_duration_sec":        result.audio_duration_sec,
+        "total_processing_time_sec": result.total_processing_time_sec,
+        "timestamp":                 result.timestamp,
+        "model":                     "parakeet-tdt-0.6b-v3",
+        "detected_language":         result.detected_language,
+        "latencies":                 latencies,
+        "summary":                   summary,
+    }
+
+    latency_path = folder / f"{stem}_latency.json"
+    with open(latency_path, "w", encoding="utf-8") as f:
+        json.dump(latency_payload, f, indent=2)
+
+    # ── transcript TXT ────────────────────────────────────────────────────────
+    transcript_path = folder / f"{stem}_transcript.txt"
+    with open(transcript_path, "w", encoding="utf-8") as f:
+        f.write(" ".join(result.transcript_parts))
+
+    return folder
 
 
 # ── Batch runner ───────────────────────────────────────────────────────────────
 
 async def run_benchmark(host: str, port: int, audio_dir: str, speed: float):
-    uri       = f"ws://{host}:{port}/ws"
+    uri        = f"ws://{host}:{port}/ws"
     audio_path = Path(audio_dir)
 
     if not audio_path.exists():
@@ -249,212 +279,71 @@ async def run_benchmark(host: str, port: int, audio_dir: str, speed: float):
         sys.exit(1)
 
     total = len(mp3_files)
-    print(f"\n{'═' * 64}")
+    print(f"\n{'═' * 66}")
     print(f"  Parakeet ASR Benchmark Client")
-    print(f"  Server  : {uri}")
-    print(f"  Dir     : {audio_path.resolve()}")
-    print(f"  Files   : {total}")
-    print(f"  Speed   : {speed:.1f}× real-time")
-    print(f"{'═' * 64}\n")
-
-    results: List[BenchmarkResult] = []
+    print(f"  Server     : {uri}")
+    print(f"  Audio dir  : {audio_path.resolve()}")
+    print(f"  Output dir : {Path(OUTPUT_ROOT).resolve()}/")
+    print(f"  Files      : {total}")
+    print(f"  Speed      : {speed:.1f}×")
+    print(f"{'═' * 66}\n")
 
     for idx, filepath in enumerate(mp3_files, 1):
         size_mb = filepath.stat().st_size / (1024 ** 2)
         print(f"[{idx:>3}/{total}] {filepath.name}  ({size_mb:.1f} MB)", end="  ", flush=True)
 
-        # Load audio
         try:
             pcm = load_audio_as_16k_pcm(str(filepath))
         except RuntimeError as exc:
             print(f"LOAD FAILED ✗\n         {exc}\n")
-            r = BenchmarkResult(filepath.name)
+            r = FileResult(filepath, 0)
             r.error = str(exc)
-            results.append(r)
+            save_results(r, OUTPUT_ROOT)
             continue
 
         duration_sec = len(pcm) / 2 / SAMPLE_RATE
-        print(f"({duration_sec:.1f}s audio)", end="  ", flush=True)
+        print(f"({duration_sec:.1f}s)", end="  ", flush=True)
 
-        # Benchmark
-        wall_start = time.time()
-        result     = await benchmark_file(uri, filepath, pcm, speed)
-        wall_elapsed = time.time() - wall_start
-
-        results.append(result)
+        result = await benchmark_file(uri, filepath, pcm, speed)
+        folder = save_results(result, OUTPUT_ROOT)
 
         if result.error:
             print(f"ERROR ✗  →  {result.error}")
         else:
-            ttfb = f"{result.ttfb_ms:.0f}ms" if result.ttfb_ms is not None else "N/A"
-            ttft = f"{result.ttft_ms:.0f}ms" if result.ttft_ms is not None else "N/A"
-            preview = (result.transcription[:60] + "…") if len(result.transcription) > 60 else result.transcription
-            print(f"TTFB={ttfb}  TTFT={ttft}  wall={wall_elapsed:.1f}s")
-            print(f"         ✅  {preview}")
+            n       = len(result.latency_events)
+            avg_lat = (
+                sum(e["latency_ms"] for e in result.latency_events) / n if n else 0
+            )
+            preview = " ".join(result.transcript_parts)
+            preview = (preview[:65] + "…") if len(preview) > 65 else preview
+            print(
+                f"✅  {n} responses | "
+                f"avg={avg_lat:.0f}ms | "
+                f"wall={result.total_processing_time_sec:.1f}s"
+            )
+            print(f"         📁 {folder}/")
+            print(f"         ✏️  {preview}")
 
         print()
 
-    # ── Write CSVs ────────────────────────────────────────────────────────────
-    _write_transcriptions_csv(results)
-    _write_latency_csv(results)
-
-    print(f"\n{'═' * 64}")
-    print(f"  Done! Results saved to:")
-    print(f"    {Path(TRANSCRIPTIONS_CSV).resolve()}")
-    print(f"    {Path(LATENCY_CSV).resolve()}")
-    print(f"{'═' * 64}\n")
-
-    # ── Summary stats ─────────────────────────────────────────────────────────
-    successful = [r for r in results if r.error is None]
-    ttfb_vals  = [r.ttfb_ms for r in successful if r.ttfb_ms is not None]
-    ttft_vals  = [r.ttft_ms for r in successful if r.ttft_ms is not None]
-
-    if ttfb_vals:
-        print(f"  TTFB  avg={_avg(ttfb_vals):.0f}ms  "
-              f"min={min(ttfb_vals):.0f}ms  max={max(ttfb_vals):.0f}ms")
-    if ttft_vals:
-        print(f"  TTFT  avg={_avg(ttft_vals):.0f}ms  "
-              f"min={min(ttft_vals):.0f}ms  max={max(ttft_vals):.0f}ms")
-    print(f"  Success: {len(successful)}/{total}\n")
-
-
-def _avg(vals):
-    return sum(vals) / len(vals)
-
-
-# ── CSV writers ────────────────────────────────────────────────────────────────
-
-def _write_transcriptions_csv(results: List[BenchmarkResult]):
-    with open(TRANSCRIPTIONS_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["file_name", "transcription"])
-        for r in results:
-            writer.writerow([r.file_name, r.transcription if not r.error else f"ERROR: {r.error}"])
-
-
-def _write_latency_csv(results: List[BenchmarkResult]):
-    with open(LATENCY_CSV, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["file_name", "ttfb_ms", "ttft_ms"])
-        for r in results:
-            writer.writerow([
-                r.file_name,
-                f"{r.ttfb_ms:.2f}" if r.ttfb_ms is not None else "N/A",
-                f"{r.ttft_ms:.2f}" if r.ttft_ms is not None else "N/A",
-            ])
+    print(f"{'═' * 66}")
+    print(f"  All done! Results saved under: {Path(OUTPUT_ROOT).resolve()}/")
+    print(f"{'═' * 66}\n")
 
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Parakeet ASR batch benchmark – streams MP3 files and records latency"
+        description="Parakeet ASR batch benchmark – per-file latency JSON + transcript TXT"
     )
-    p.add_argument("--host",      default="localhost",         help="Server host (default: localhost)")
-    p.add_argument("--port",      type=int, default=8001,      help="Server port (default: 8001)")
-    p.add_argument("--audio-dir", default=DEFAULT_AUDIO_DIR,   help=f"Directory with MP3 files (default: {DEFAULT_AUDIO_DIR})")
-    p.add_argument("--speed",     type=float, default=10.0,
-                   help="Streaming speed multiplier (default: 10.0 = 10× faster than real-time, good for benchmarking)")
+    p.add_argument("--host",      default="localhost",       help="Server host (default: localhost)")
+    p.add_argument("--port",      type=int, default=8001,    help="Server port (default: 8001)")
+    p.add_argument("--audio-dir", default=DEFAULT_AUDIO_DIR, help=f"Directory with MP3 files (default: {DEFAULT_AUDIO_DIR})")
+    p.add_argument("--speed",     type=float, default=2.0,   help="Streaming speed multiplier (default: 2.0)")
     return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
     asyncio.run(run_benchmark(args.host, args.port, args.audio_dir, args.speed))
-
-
-
-we need in this way 
-filename_latency.json
-{
-  "audio_file": "audio/spanish-1.wav",
-  "audio_duration_sec": 57.817687074829934,
-  "total_processing_time_sec": 47.64312219619751,
-  "timestamp": "2026-04-01T14:35:27.851017",
-  "model": "nova-3",
-  "language": "es",
-  "latencies": [
-    {
-      "response_num": 1,
-      "latency_ms": 3980.722665786743,
-      "is_final": true,
-      "words": 12
-    },
-    {
-      "response_num": 2,
-      "latency_ms": 6740.095853805542,
-      "is_final": true,
-      "words": 13
-    },
-    {
-      "response_num": 3,
-      "latency_ms": 9951.934337615967,
-      "is_final": true,
-      "words": 16
-    },
-    {
-      "response_num": 4,
-      "latency_ms": 17667.06657409668,
-      "is_final": true,
-      "words": 27
-    },
-    {
-      "response_num": 5,
-      "latency_ms": 20783.82396697998,
-      "is_final": true,
-      "words": 11
-    },
-    {
-      "response_num": 6,
-      "latency_ms": 25372.496843338013,
-      "is_final": true,
-      "words": 29
-    },
-    {
-      "response_num": 7,
-      "latency_ms": 29421.988248825073,
-      "is_final": true,
-      "words": 17
-    },
-    {
-      "response_num": 8,
-      "latency_ms": 32451.578378677368,
-      "is_final": true,
-      "words": 12
-    },
-    {
-      "response_num": 9,
-      "latency_ms": 42714.39003944397,
-      "is_final": true,
-      "words": 19
-    },
-    {
-      "response_num": 10,
-      "latency_ms": 42714.81513977051,
-      "is_final": true,
-      "words": 18
-    },
-    {
-      "response_num": 11,
-      "latency_ms": 43747.33901023865,
-      "is_final": true,
-      "words": 3
-    },
-    {
-      "response_num": 12,
-      "latency_ms": 46270.442485809326,
-      "is_final": true,
-      "words": 13
-    }
-  ],
-  "summary": {
-    "total_responses": 12,
-    "final_responses": 12,
-    "avg_latency_ms": 26818.05779536565,
-    "min_latency_ms": 3980.722665786743,
-    "max_latency_ms": 46270.442485809326
-  }
-}
-
-
-and transcript as filename_transcript.txt
