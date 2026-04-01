@@ -388,3 +388,10 @@ Traceback (most recent call last):
     raise InvalidStatus(response)
 websockets.exceptions.InvalidStatus: server rejected WebSocket connection: HTTP 403
 (env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# 
+
+
+INFO:uvicorn.error:('192.168.4.47', 53954) - "WebSocket /v1/realtime?intent=transcription" [accepted]
+INFO:realtime.core.connection_manager:Client 35e54899-6b56-4e91-a381-d430a6ef49da connected at 2026-03-31 12:31:17
+I0331 12:31:17.387586 16895 grpc_riva_asr.cc:341] ASR->RivaSpeechRecognitionConfig::
+INFO:realtime.asr.inference:Updating Riva config with session config: modalities=[<Modality.TEXT: 'text'>] input_audio_format=<AudioFormat.PCM16: 'pcm16'> input_audio_transcription=InputAudioTranscriptionConfig(language='es-US', model='parakeet-0.6b-unified-ml-cs-es-US-asr-streaming-silero-vad-sortformer', prompt=None) input_audio_params=InputAudioParams(sample_rate_hz=16000, num_channels=1) recognition_config=RecognitionConfig(max_alternatives=1, enable_automatic_punctuation=False, enable_word_time_offsets=False, enable_profanity_filter=False, enable_verbatim_transcripts=False, custom_configuration='') speaker_diarization=SpeakerDiarizationConfig(enable_speaker_diarization=False, max_speaker_count=8) word_boosting=WordBoostingConfig(enable_word_boosting=False, word_boosting_list=[]) endpointing_config=EndpointingConfig(start_history=0, start_threshold=0, stop_history=0, stop_threshold=0, stop_history_eou=0, stop_threshold_eou=0) input_min_chunk_seconds=0.08 id='sess_8b3754e6-ddc7-4b58-ab1f-76c6833fe75e' object='realtime.transcription_session' client_secret=None
+INFO:uvicorn.error:connection open
