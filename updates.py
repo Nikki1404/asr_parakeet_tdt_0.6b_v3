@@ -316,3 +316,23 @@ if __name__ == "__main__":
             args.port
         )
     )
+
+
+these are all the endpoints 
+
+INFO 2026-03-31 08:51:16.390 http_api.py:201] Readying serving endpoints:
+  0.0.0.0:9000/v1/audio/list_voices (GET)
+  0.0.0.0:9000/v1/audio/synthesize (POST)
+  0.0.0.0:9000/v1/audio/synthesize_online (POST)
+  0.0.0.0:9000/v1/audio/transcriptions (POST)
+  0.0.0.0:9000/v1/audio/translations (POST)
+  0.0.0.0:9000/v1/health/live (GET)
+  0.0.0.0:9000/v1/health/ready (GET)
+  0.0.0.0:9000/v1/metrics (GET)
+  0.0.0.0:9000/v1/license (GET)
+  0.0.0.0:9000/v1/metadata (GET)
+  0.0.0.0:9000/v1/version (GET)
+  0.0.0.0:9000/v1/manifest (GET)
+  0.0.0.0:9000/v1/realtime/health (GET)
+  0.0.0.0:9000/v1/realtime/transcription_sessions (POST)
+  0.0.0.0:9000/v1/realtime/synthesis_sessions (POST)
