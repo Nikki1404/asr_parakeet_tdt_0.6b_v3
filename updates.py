@@ -167,12 +167,18 @@ INPUT_FILE = "/home/re_nikitav/audio_maria/maria1.mp3"
 
 SAMPLE_RATE = 16000
 
-# 80 ms audio chunk
+# 80 ms chunk
 CHUNK_MS = 80
 CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_MS // 1000
 
-# SAFE FAST STREAMING (2x realtime)
+# safe 2x speed
 SEND_DELAY_MS = 40
+
+MODEL_NAME = (
+    "parakeet-rnnt-1.1b-unified-ml-cs-"
+    "universal-multi-asr-streaming-"
+    "silero-vad-sortformer"
+)
 
 
 def convert_to_wav(src_path: str, out_path: str):
@@ -209,13 +215,14 @@ async def main():
 
             print("CONNECTED")
 
-            # IMPORTANT FIX
+            # FINAL FIX
             await ws.send(json.dumps({
                 "type": "transcription_session.update",
                 "session": {
                     "input_audio_format": "pcm16",
                     "input_audio_transcription": {
-                        "language": "es-US"
+                        "language": "es-US",
+                        "model": MODEL_NAME
                     },
                     "input_audio_params": {
                         "sample_rate_hz": 16000,
@@ -252,7 +259,7 @@ async def main():
                             f"SENT CHUNK {chunk_num}"
                         )
 
-                        # SAFE 2x SPEED
+                        # 2x realtime
                         await asyncio.sleep(
                             SEND_DELAY_MS / 1000
                         )
@@ -316,56 +323,3 @@ async def main():
 
 
 asyncio.run(main())
-
-
-this i am getting after 11279 chunk
-
-SENT CHUNK 11272
-SENT CHUNK 11273
-SENT CHUNK 11274
-SENT CHUNK 11275
-SENT CHUNK 11276
-SENT CHUNK 11277
-SENT CHUNK 11278
-SENT CHUNK 11279
-STREAM COMPLETED
-
-RAW RESPONSE:
-{
-  "event_id": "event_0000",
-  "type": "input_audio_buffer.committed",
-  "previous_item_id": "msg_0000",
-  "item_id": "msg_0001"
-}
-
-RAW RESPONSE:
-{
-  "event_id": "event_f19fa416-de19-4f76-ada1-7adb5836e0a0",
-  "type": "error",
-  "error": {
-    "type": "transcription_error",
-    "code": "StatusCode.INVALID_ARGUMENT",
-    "message": "Error: Model conformer is not available on server",
-    "param": null,
-    "event_id": "3acda2d2-f307-47f9-bf20-e0f9f4d3f874"
-  }
-}
-
-RAW RESPONSE:
-{
-  "event_id": "event_0000",
-  "type": "conversation.item.input_audio_transcription.completed",
-  "item_id": "msg_0000",
-  "content_index": 0,
-  "transcript": "",
-  "words_info": {
-    "words": []
-  },
-  "vad_states": {
-    "vad_states": []
-  },
-  "is_last_result": true
-}
-
-FINAL RESULT RECEIVED
-
