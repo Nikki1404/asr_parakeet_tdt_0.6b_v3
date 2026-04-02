@@ -414,3 +414,40 @@ nohup python3 transcribe_selected_maria_files.py \
   --input-folder /home/re_nikitav/audio_maria \
   --output-folder /home/re_nikitav/parakeet_es_results \
   > maria_selected.log 2>&1 &
+
+
+gettign this 
+maria1.mp3 | SENT CHUNK 16
+maria1.mp3 | SENT CHUNK 17
+maria1.mp3 | SENT CHUNK 18
+maria1.mp3 | SENT CHUNK 19
+maria1.mp3 | SENT CHUNK 20
+maria1.mp3 | SENT CHUNK 21
+maria1.mp3 | SENT CHUNK 22
+maria1.mp3 | SENT CHUNK 23
+maria1.mp3 | SENT CHUNK 24
+maria1.mp3 | SENT CHUNK 25
+maria1.mp3 | SENT CHUNK 26
+maria1.mp3 | SENT CHUNK 27
+maria1.mp3 | SENT CHUNK 28
+maria1.mp3 | SENT CHUNK 29
+maria1.mp3 | SENT CHUNK 30
+maria1.mp3 | SENT CHUNK 31
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 404, in <module>
+    asyncio.run(
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 381, in run_batch
+    await transcribe_file(
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_parakeet_es_batch.py", line 346, in transcribe_file
+    "avg_latency_from_send_start_ms": round(sum(latency_values_start) / len(latency_values_start), 4),
+                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~~~~~~~~
+ZeroDivisionError: division by zero
