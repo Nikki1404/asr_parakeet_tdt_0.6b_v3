@@ -327,27 +327,74 @@ asyncio.run(main())
 
 
 
+
 import riva.client
 import time
+import json
+import subprocess
+from pathlib import Path
 
-AUDIO_FILE = "/home/re_nikitav/audio_maria/maria1.wav"
+# =========================
+# CONFIG
+# =========================
+INPUT_FOLDER = Path("/home/re_nikitav/audio_maria")
+OUTPUT_FOLDER = Path("/home/re_nikitav/parakeet_1.1b_multilingual_results")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
 
-# gRPC endpoint from your logs
 SERVER = "192.168.4.38:50051"
-
-# Spanish language
 LANGUAGE = "es-US"
 
+SAMPLE_RATE = 16000
+CHUNK_MS = 80
+CHUNK_SIZE = SAMPLE_RATE * 2 * CHUNK_MS // 1000
 
-def main():
-    auth = riva.client.Auth(uri=SERVER)
+SUPPORTED_EXTENSIONS = {".mp3", ".wav", ".m4a", ".flac"}
 
-    asr_service = riva.client.ASRService(auth)
+
+# =========================
+# CONVERT TO WAV
+# =========================
+def convert_to_wav(input_file: Path, output_file: Path):
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_file),
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-sample_fmt",
+            "s16",
+            str(output_file)
+        ],
+        check=True
+    )
+
+
+# =========================
+# TRANSCRIBE ONE FILE
+# =========================
+def transcribe_file(asr_service, file_path: Path):
+    print(f"\nSTARTING -> {file_path.name}")
+
+    wav_path = OUTPUT_FOLDER / f"{file_path.stem}.wav"
+
+    convert_to_wav(file_path, wav_path)
+
+    with open(wav_path, "rb") as f:
+        audio_data = f.read()
+
+    chunks = [
+        audio_data[i:i + CHUNK_SIZE]
+        for i in range(0, len(audio_data), CHUNK_SIZE)
+    ]
 
     config = riva.client.StreamingRecognitionConfig(
         config=riva.client.RecognitionConfig(
             encoding=riva.client.AudioEncoding.LINEAR_PCM,
-            sample_rate_hertz=16000,
+            sample_rate_hertz=SAMPLE_RATE,
             language_code=LANGUAGE,
             max_alternatives=1,
             enable_automatic_punctuation=True
@@ -355,47 +402,117 @@ def main():
         interim_results=True
     )
 
+    chunk_latency = []
+    final_parts = []
+
     start_time = time.time()
-
-    with open(AUDIO_FILE, "rb") as f:
-        audio_data = f.read()
-
-    # chunk size = 80 ms
-    chunk_size = 16000 * 2 * 80 // 1000
-
-    chunks = [
-        audio_data[i:i + chunk_size]
-        for i in range(0, len(audio_data), chunk_size)
-    ]
-
-    print("STARTING STREAM")
+    first_transcript_time = None
 
     responses = asr_service.streaming_response_generator(
         audio_chunks=chunks,
         streaming_config=config
     )
 
-    final_transcript = []
+    chunk_num = 0
 
     for response in responses:
+        recv_time = time.time()
+
         for result in response.results:
             transcript = result.alternatives[0].transcript
 
-            if transcript:
-                print("TRANSCRIPT:", transcript)
+            chunk_num += 1
 
-            if result.is_final:
-                final_transcript.append(transcript)
+            latency_ms = (
+                recv_time - start_time
+            ) * 1000
+
+            chunk_latency.append({
+                "chunk_num": chunk_num,
+                "latency_ms": round(latency_ms, 2),
+                "is_final": result.is_final,
+                "text": transcript
+            })
+
+            if transcript:
+                print(
+                    f"{file_path.name} | "
+                    f"CHUNK {chunk_num} | "
+                    f"{transcript}"
+                )
+
+            if transcript and first_transcript_time is None:
+                first_transcript_time = latency_ms
+
+            if result.is_final and transcript:
+                final_parts.append(transcript)
 
     total_time = time.time() - start_time
 
-    print("\nFINAL TRANSCRIPT:")
-    print(" ".join(final_transcript))
+    # =========================
+    # SAVE TRANSCRIPT
+    # =========================
+    transcript_file = (
+        OUTPUT_FOLDER /
+        f"{file_path.stem}_transcription.txt"
+    )
 
-    print(f"\nTOTAL TIME: {total_time:.2f} sec")
+    transcript_text = "\n".join(final_parts)
+
+    transcript_file.write_text(
+        transcript_text,
+        encoding="utf-8"
+    )
+
+    # =========================
+    # SAVE LATENCY
+    # =========================
+    latency_file = (
+        OUTPUT_FOLDER /
+        f"{file_path.stem}_latency.json"
+    )
+
+    latency_json = {
+        "audio_file": str(file_path),
+        "total_time_sec": round(total_time, 2),
+        "ttft_ms": round(first_transcript_time, 2)
+        if first_transcript_time
+        else None,
+        "total_chunks": len(chunk_latency),
+        "chunk_latency": chunk_latency
+    }
+
+    latency_file.write_text(
+        json.dumps(latency_json, indent=2),
+        encoding="utf-8"
+    )
+
+    print(f"COMPLETED -> {file_path.name}")
+
+
+# =========================
+# MAIN
+# =========================
+def main():
+    auth = riva.client.Auth(uri=SERVER)
+    asr_service = riva.client.ASRService(auth)
+
+    files = sorted([
+        f for f in INPUT_FOLDER.iterdir()
+        if f.suffix.lower() in SUPPORTED_EXTENSIONS
+    ])
+
+    print(f"TOTAL FILES = {len(files)}")
+
+    for file in files:
+        transcribe_file(asr_service, file)
+
+    print("\nALL FILES COMPLETED")
 
 
 if __name__ == "__main__":
     main()
+
+
 
 python3 -c "import socket; s=socket.socket(); print(s.connect_ex(('127.0.0.1',50051)))"
