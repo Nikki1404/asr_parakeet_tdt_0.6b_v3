@@ -2166,3 +2166,191 @@ if __name__ == "__main__":
     "max_latency_from_send_end_ms": 719556.5052032471
   }
 }
+
+
+i am getting like this 
+{
+  "audio_file": "/home/re_nikitav/audio_maria/maria1.wav",
+  "total_time_sec": 123.5,
+  "ttft_ms": 260.1,
+  "total_chunks": 1434,
+  "chunk_latency": [
+    {
+      "chunk_num": 1,
+      "latency_ms": 260.1,
+      "is_final": false,
+      "text": "My"
+    },
+    {
+      "chunk_num": 2,
+      "latency_ms": 308.49,
+      "is_final": false,
+      "text": "My sister in law"
+    },
+    {
+      "chunk_num": 3,
+      "latency_ms": 357.07,
+      "is_final": false,
+      "text": "My sister in law . "
+    },
+    {
+      "chunk_num": 4,
+      "latency_ms": 406.72,
+      "is_final": false,
+      "text": "My sister in law . "
+    },
+    {
+      "chunk_num": 5,
+      "latency_ms": 457.86,
+      "is_final": false,
+      "text": "My sister in law , kate . "
+    },
+    {
+      "chunk_num": 6,
+      "latency_ms": 510.06,
+      "is_final": false,
+      "text": "My sister in law , keri gaga . "
+    },
+    {
+      "chunk_num": 7,
+      "latency_ms": 562.57,
+      "is_final": false,
+      "text": "My sister in law , keri gaga , you know . "
+    },
+    {
+      "chunk_num": 8,
+      "latency_ms": 614.96,
+      "is_final": false,
+      "text": "My sister in law , kate gaga , you know , she . "
+    },
+    {
+      "chunk_num": 9,
+      "latency_ms": 668.48,
+      "is_final": false,
+      "text": "My sister in law , kate gaga , you know , she she's . "
+    },
+    {
+      "chunk_num": 10,
+      "latency_ms": 722.02,
+      "is_final": false,
+      "text": "My sister in law , keida gaga , you know , she's a linguist . "
+    },
+    {
+      "chunk_num": 11,
+      "latency_ms": 775.17,
+      "is_final": false,
+      "text": "My sister in law , keri gaga , you know , she's a linguist . "
+    },
+    {
+      "chunk_num": 12,
+      "latency_ms": 828.81,
+      "is_final": false,
+      "text": "My sister in law , keita gaga , you know , she's a linguist . "
+    },
+    {
+      "chunk_num": 13,
+      "latency_ms": 889.19,
+      "is_final": false,
+      "text": "My sister in law , keta gaga , you know , she she's a linguist . "
+    },
+    {
+      "chunk_num": 14,
+      "latency_ms": 947.59,
+      "is_final": false,
+      "text": "My sister in law , key gaga , you know , she's a linguist and so she . "
+    },
+    {
+      "chunk_num": 15,
+      "latency_ms": 1007.11,
+      "is_final": false,
+      "text": "My sister in law , keri gaga , you know , she's a linguist and so she wants . "
+    },
+    {
+      "chunk_num": 16,
+      "latency_ms": 1062.29,
+      "is_final": false,
+      "text": "My sister in law , keida gaga , you know , she's a linguist and so she wants to . "
+    },
+    {
+      "chunk_num": 17,
+      "latency_ms": 1119.11,
+      "is_final": false,
+      "text": "My sister in law , keida gaga , you know , she's a linguist and so she wants to sort of . "
+    },
+    {
+      "chunk_num": 18,
+      "latency_ms": 1173.65,
+      "is_final": false,
+      "text": "My sister in law , keida gaga , you know , she's a linguist and so she wants to sort of track . "
+    },
+    {
+      "chunk_num": 19,
+      "latency_ms": 1227.74,
+      "is_final": false,
+      "text": "My sister in law , keida gaga , you know , she's a linguist and so she wants to sort of track . "
+    },
+    {
+      "chunk_num": 20,
+      "latency_ms": 1281.01,
+      "is_final": false,
+      "text": "My sister in law , keida ga , you know , she's a linguist and so she wants to sort of track , you know . "
+    },
+    {
+      "chunk_num": 21,
+      "latency_ms": 1329.71,
+      "is_final": false,
+      "text": "My sister in law , keida ga , you know , she's a linguist and so she wants to sort of track , you know . "
+    },
+    {
+      "chunk_num": 22,
+      "latency_ms": 1378.83,
+      "is_final": false,
+      "text": "My sister in law , keida ga , you know , she's a linguist and so she wants to sort of track , you know spanglish . "
+    },
+    {
+      "chunk_num": 23,
+      "latency_ms": 1427.45,
+      "is_final": false,
+      "text": "My sister in law , keida ga , you know , she's a linguist and so she wants to sort of track , you know spanglish . "
+    },
+    {
+      "chunk_num": 24,
+      "latency_ms": 1476.83,
+      "is_final": false,
+      "text": "My sister in law , keida ga , you know , she's a linguist and so she wants to sort of track , you know spanglish . "
+    },
+    {
+      "chunk_num": 25,
+      "latency_ms": 1524.28,
+      "is_final": false,
+      "text": "My sister in law , keida ga , you know , she's a linguist and so she wants to sort of track , you know spanglish . "
+    },
+    {
+      "chunk_num": 26,
+      "latency_ms": 1571.82,
+      "is_final": true,
+      "text": "My sister in law, keida ga, you know, she's a linguist and so she wants to sort of track, you know spanglish. "
+    },
+    {
+      "chunk_num": 27,
+      "latency_ms": 1619.47,
+      "is_final": false,
+      "text": "she has . "
+    },
+    {
+      "chunk_num": 28,
+      "latency_ms": 1666.81,
+      "is_final": false,
+      "text": "she asked me about . "
+    },
+    {
+      "chunk_num": 29,
+      "latency_ms": 1715.64,
+      "is_final": false,
+      "text": "she asked me if I would wait . "
+    },
+
+
+
+      text i don't want in latencies.json 
+    
