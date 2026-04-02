@@ -318,246 +318,54 @@ async def main():
 asyncio.run(main())
 
 
-this i am getting after 1 chunk
-SENT CHUNK 1
+this i am getting after 11279 chunk
+
+SENT CHUNK 11272
+SENT CHUNK 11273
+SENT CHUNK 11274
+SENT CHUNK 11275
+SENT CHUNK 11276
+SENT CHUNK 11277
+SENT CHUNK 11278
+SENT CHUNK 11279
+STREAM COMPLETED
 
 RAW RESPONSE:
 {
-  "event_id": "event_67c4125b-0c33-4736-b3d6-fbb8fa28d5e1",
-  "type": "conversation.created",
-  "conversation": {
-    "event_id": "event_1f2919ce-d6dd-4620-afba-9d1fffb8f7da",
-    "id": "conv_ddb2998e-faf2-4bf1-a0f5-a58ce658eb4b",
-    "object": "realtime.conversation"
+  "event_id": "event_0000",
+  "type": "input_audio_buffer.committed",
+  "previous_item_id": "msg_0000",
+  "item_id": "msg_0001"
+}
+
+RAW RESPONSE:
+{
+  "event_id": "event_f19fa416-de19-4f76-ada1-7adb5836e0a0",
+  "type": "error",
+  "error": {
+    "type": "transcription_error",
+    "code": "StatusCode.INVALID_ARGUMENT",
+    "message": "Error: Model conformer is not available on server",
+    "param": null,
+    "event_id": "3acda2d2-f307-47f9-bf20-e0f9f4d3f874"
   }
 }
 
 RAW RESPONSE:
 {
-  "event_id": "event_881ba0db-5627-48da-a508-ac001f510ad9",
-  "type": "transcription_session.updated",
-  "session": {
-    "modalities": [
-      "text"
-    ],
-    "input_audio_format": "pcm16",
-    "input_audio_transcription": {
-      "language": "es-US",
-      "model": "conformer",
-      "prompt": null
-    },
-    "input_audio_params": {
-      "sample_rate_hz": 16000,
-      "num_channels": 1
-    },
-    "recognition_config": {
-      "max_alternatives": 1,
-      "enable_automatic_punctuation": false,
-      "enable_word_time_offsets": false,
-      "enable_profanity_filter": false,
-      "enable_verbatim_transcripts": false,
-      "custom_configuration": ""
-    },
-    "speaker_diarization": {
-      "enable_speaker_diarization": false,
-      "max_speaker_count": 8
-    },
-    "word_boosting": {
-      "enable_word_boosting": false,
-      "word_boosting_list": []
-    },
-    "endpointing_config": {
-      "start_history": 0,
-      "start_threshold": 0.0,
-      "stop_history": 0,
-      "stop_threshold": 0.0,
-      "stop_history_eou": 0,
-      "stop_threshold_eou": 0.0
-    }
-  }
+  "event_id": "event_0000",
+  "type": "conversation.item.input_audio_transcription.completed",
+  "item_id": "msg_0000",
+  "content_index": 0,
+  "transcript": "",
+  "words_info": {
+    "words": []
+  },
+  "vad_states": {
+    "vad_states": []
+  },
+  "is_last_result": true
 }
 
+FINAL RESULT RECEIVED
 
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# python3 transcribe_test.py 
-ffmpeg version 5.1.8-0+deb12u1 Copyright (c) 2000-2025 the FFmpeg developers
-  built with gcc 12 (Debian 12.2.0-14+deb12u1)
-  configuration: --prefix=/usr --extra-version=0+deb12u1 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --enable-gnutls --enable-ladspa --enable-libaom --enable-libass --enable-libbluray --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libjack --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-libpulse --enable-librabbitmq --enable-librist --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-libzmq --enable-libzvbi --enable-lv2 --enable-omx --enable-openal --enable-opencl --enable-opengl --enable-sdl2 --disable-sndio --enable-libjxl --enable-pocketsphinx --enable-librsvg --enable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-libx264 --enable-libplacebo --enable-librav1e --enable-shared
-  libavutil      57. 28.100 / 57. 28.100
-  libavcodec     59. 37.100 / 59. 37.100
-  libavformat    59. 27.100 / 59. 27.100
-  libavdevice    59.  7.100 / 59.  7.100
-  libavfilter     8. 44.100 /  8. 44.100
-  libswscale      6.  7.100 /  6.  7.100
-  libswresample   4.  7.100 /  4.  7.100
-  libpostproc    56.  6.100 / 56.  6.100
-[mp3 @ 0x55cf0a318840] Estimating duration from bitrate, this may be inaccurate
-Input #0, mp3, from '/home/re_nikitav/audio_maria/maria1.mp3':
-  Duration: 00:15:02.24, start: 0.000000, bitrate: 128 kb/s
-  Stream #0:0: Audio: mp3, 44100 Hz, stereo, fltp, 128 kb/s
-Stream mapping:
-  Stream #0:0 -> #0:0 (mp3 (mp3float) -> pcm_s16le (native))
-Press [q] to stop, [?] for help
-Output #0, wav, to '/tmp/tmpev3nbv46/test.wav':
-  Metadata:
-    ISFT            : Lavf59.27.100
-  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 16000 Hz, mono, s16, 256 kb/s
-    Metadata:
-      encoder         : Lavc59.37.100 pcm_s16le
-size=   28195kB time=00:15:02.24 bitrate= 256.0kbits/s speed= 577x    
-video:0kB audio:28195kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000270%
-CONNECTED
-SESSION CONFIG SENT
-SENT CHUNK 1 (80 ms)
-
-RAW RESPONSE:
-{
-  "event_id": "event_2a7fda37-8cb7-47f1-b437-db83357a10b5",
-  "type": "conversation.created",
-  "conversation": {
-    "event_id": "event_05c76299-56a3-4fef-bd2e-0c09ffa36f92",
-    "id": "conv_4a57ca66-c46a-45c3-8192-39b1ff2f8aac",
-    "object": "realtime.conversation"
-  }
-}
-
-RAW RESPONSE:
-{
-  "event_id": "event_4fc5d831-7c1c-4ffe-b724-65b8ebf7defc",
-  "type": "transcription_session.updated",
-  "session": {
-    "modalities": [
-      "text"
-    ],
-    "input_audio_format": "pcm16",
-    "input_audio_transcription": {
-      "language": "en-US",
-      "model": "conformer",
-      "prompt": null
-    },
-    "input_audio_params": {
-      "sample_rate_hz": 16000,
-      "num_channels": 1
-    },
-    "recognition_config": {
-      "max_alternatives": 1,
-      "enable_automatic_punctuation": false,
-      "enable_word_time_offsets": false,
-      "enable_profanity_filter": false,
-      "enable_verbatim_transcripts": false,
-      "custom_configuration": ""
-    },
-    "speaker_diarization": {
-      "enable_speaker_diarization": false,
-      "max_speaker_count": 8
-    },
-    "word_boosting": {
-      "enable_word_boosting": false,
-      "word_boosting_list": []
-    },
-    "endpointing_config": {
-      "start_history": 0,
-      "start_threshold": 0.0,
-      "stop_history": 0,
-      "stop_threshold": 0.0,
-      "stop_history_eou": 0,
-      "stop_threshold_eou": 0.0
-    }
-  }
-}
-SENT CHUNK 2 (80 ms)
-SENT CHUNK 3 (80 ms)
-SENT CHUNK 4 (80 ms)
-SENT CHUNK 5 (80 ms)
-SENT CHUNK 6 (80 ms)
-SENT CHUNK 7 (80 ms)
-SENT CHUNK 8 (80 ms)
-SENT CHUNK 9 (80 ms)
-SENT CHUNK 10 (80 ms)
-SENT CHUNK 11 (80 ms)
-SENT CHUNK 12 (80 ms)
-SENT CHUNK 13 (80 ms)
-SENT CHUNK 14 (80 ms)
-SENT CHUNK 15 (80 ms)
-SENT CHUNK 16 (80 ms)
-SENT CHUNK 17 (80 ms)
-SENT CHUNK 18 (80 ms)
-SENT CHUNK 19 (80 ms)
-SENT CHUNK 20 (80 ms)
-SENT CHUNK 21 (80 ms)
-SENT CHUNK 22 (80 ms)
-SENT CHUNK 23 (80 ms)
-SENT CHUNK 24 (80 ms)
-SENT CHUNK 25 (80 ms)
-SENT CHUNK 26 (80 ms)
-SENT CHUNK 27 (80 ms)
-SENT CHUNK 28 (80 ms)
-SENT CHUNK 29 (80 ms)
-SENT CHUNK 30 (80 ms)
-SENT CHUNK 31 (80 ms)
-SENT CHUNK 32 (80 ms)
-SENT CHUNK 33 (80 ms)
-SENT CHUNK 34 (80 ms)
-SENT CHUNK 35 (80 ms)
-SENT CHUNK 36 (80 ms)
-SENT CHUNK 37 (80 ms)
-SENT CHUNK 38 (80 ms)
-SENT CHUNK 39 (80 ms)
-SENT CHUNK 40 (80 ms)
-SENT CHUNK 41 (80 ms)
-SENT CHUNK 42 (80 ms)
-SENT CHUNK 43 (80 ms)
-SENT CHUNK 44 (80 ms)
-SENT CHUNK 45 (80 ms)
-SENT CHUNK 46 (80 ms)
-SENT CHUNK 47 (80 ms)
-SENT CHUNK 48 (80 ms)
-SENT CHUNK 49 (80 ms)
-SENT CHUNK 50 (80 ms)
-SENT CHUNK 51 (80 ms)
-SENT CHUNK 52 (80 ms)
-SENT CHUNK 53 (80 ms)
-SENT CHUNK 54 (80 ms)
-SENT CHUNK 55 (80 ms)
-SENT CHUNK 56 (80 ms)
-SENT CHUNK 57 (80 ms)
-SENT CHUNK 58 (80 ms)
-SENT CHUNK 59 (80 ms)
-SENT CHUNK 60 (80 ms)
-SENT CHUNK 61 (80 ms)
-SENT CHUNK 62 (80 ms)
-SENT CHUNK 63 (80 ms)
-SENT CHUNK 64 (80 ms)
-SENT CHUNK 65 (80 ms)
-SENT CHUNK 66 (80 ms)
-SENT CHUNK 67 (80 ms)
-SENT CHUNK 68 (80 ms)
-SENT CHUNK 69 (80 ms)
-SENT CHUNK 70 (80 ms)
-SENT CHUNK 71 (80 ms)
-SENT CHUNK 72 (80 ms)
-SENT CHUNK 73 (80 ms)
-SENT CHUNK 74 (80 ms)
-SENT CHUNK 75 (80 ms)
-SENT CHUNK 76 (80 ms)
-SENT CHUNK 77 (80 ms)
-SENT CHUNK 78 (80 ms)
-SENT CHUNK 79 (80 ms)
-SENT CHUNK 80 (80 ms)
-SENT CHUNK 81 (80 ms)
-SENT CHUNK 82 (80 ms)
-SENT CHUNK 83 (80 ms)
-SENT CHUNK 84 (80 ms)
-SENT CHUNK 85 (80 ms)
-SENT CHUNK 86 (80 ms)
-SENT CHUNK 87 (80 ms)
-SENT CHUNK 88 (80 ms)
-SENT CHUNK 89 (80 ms)
-SENT CHUNK 90 (80 ms)
-SENT CHUNK 91 (80 ms)
-SENT CHUNK 92 (80 ms)
-SENT CHUNK 93 (80 ms)
-SENT CHUNK 94 (80 ms)
-SENT CHUNK 95 (80 ms)
-SENT CHUNK 96 (80 ms)
-SENT CHUNK 97 (80 ms)
-SENT CHUNK 98 (80 ms)
