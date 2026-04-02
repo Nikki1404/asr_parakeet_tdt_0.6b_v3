@@ -162,7 +162,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-WS_URL = "ws://127.0.0.1:9000/v1/realtime?intent=transcription"
+WS_URL = "ws://192.168.4.38:9000/v1/realtime?intent=transcription"
 INPUT_FILE = "/home/re_nikitav/audio_maria/maria1.mp3"
 
 SAMPLE_RATE = 16000
