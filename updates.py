@@ -1,305 +1,212 @@
-
 import argparse
 import asyncio
-import base64
 import json
 import time
+import statistics
+import traceback
 from pathlib import Path
 from datetime import datetime
-import subprocess
-import tempfile
-import wave
 
+import numpy as np
+import librosa
 import websockets
 
 
-# =========================================================
+# =========================
 # CONFIG
-# =========================================================
+# =========================
 SAMPLE_RATE = 16000
-BYTES_PER_SAMPLE = 2
 
+# SEND 30 SEC AUDIO BLOCKS
 SEND_CHUNK_SEC = 30
-SEND_CHUNK_BYTES = (
-    SAMPLE_RATE *
-    BYTES_PER_SAMPLE *
-    SEND_CHUNK_SEC
-)
+SEND_CHUNK_SAMPLES = SAMPLE_RATE * SEND_CHUNK_SEC
+SEND_CHUNK_BYTES = SEND_CHUNK_SAMPLES * 2
 
-SUPPORTED_EXTENSIONS = {
-    ".mp3",
-    ".wav",
-    ".m4a",
-    ".flac"
-}
+# STREAMING DELAY BETWEEN SENDS
+SEND_DELAY_MS = 250
+
+INPUT_FOLDER = Path("/home/re_nikitav/parakeet-asr-multilingual/audio_maria")
+OUTPUT_FOLDER = Path("transcription_results")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 
-# =========================================================
-# AUDIO CONVERSION
-# =========================================================
-def convert_to_wav(src_path: Path, wav_path: Path):
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(src_path),
-            "-ar",
-            str(SAMPLE_RATE),
-            "-ac",
-            "1",
-            "-sample_fmt",
-            "s16",
-            str(wav_path)
-        ],
-        check=True,
-        capture_output=True
+# =========================
+# AUDIO LOADER
+# =========================
+def load_mp3_as_pcm16(filepath):
+    print(f"Loading audio -> {filepath.name}")
+
+    audio, sr = librosa.load(
+        str(filepath),
+        sr=SAMPLE_RATE,
+        mono=True
     )
 
-    with wave.open(str(wav_path), "rb") as wf:
-        duration_sec = (
-            wf.getnframes() /
-            wf.getframerate()
-        )
+    duration_sec = len(audio) / SAMPLE_RATE
 
-    return duration_sec
+    pcm16 = (
+        np.clip(audio, -1.0, 1.0) * 32767
+    ).astype(np.int16).tobytes()
+
+    print(
+        f"Loaded {filepath.name} | "
+        f"Duration: {duration_sec:.1f} sec"
+    )
+
+    return pcm16, duration_sec
 
 
-# =========================================================
+# =========================
+# SAVE RESULTS
+# =========================
+def save_results(filepath, transcript_text, result_json):
+    output_dir = OUTPUT_FOLDER / filepath.stem
+    output_dir.mkdir(exist_ok=True)
+
+    transcript_path = output_dir / f"{filepath.stem}_transcript.txt"
+    latency_path = output_dir / f"{filepath.stem}_latency.json"
+
+    with open(transcript_path, "w", encoding="utf-8") as f:
+        f.write(transcript_text)
+
+    with open(latency_path, "w", encoding="utf-8") as f:
+        json.dump(result_json, f, indent=2)
+
+    print(f"SAVED -> {filepath.name}")
+
+
+# =========================
 # TRANSCRIBE ONE FILE
-# =========================================================
-async def transcribe_file(
-    filepath: Path,
-    base_url: str,
-    output_folder: Path
-):
+# =========================
+async def transcribe_file(filepath, host, port):
+    uri = f"ws://{host}:{port}/ws"
+
     print(f"\nSTARTING -> {filepath.name}")
 
-    ws_url = (
-        base_url
-        .replace("http://", "ws://")
-        .replace("https://", "wss://")
-        .rstrip("/")
-        + "/v1/realtime?intent=transcription"
-    )
+    pcm, duration_sec = load_mp3_as_pcm16(filepath)
 
-    print(f"WS URL -> {ws_url}")
+    final_transcript_parts = []
+    latencies = []
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        wav_path = (
-            Path(tmpdir) /
-            f"{filepath.stem}.wav"
-        )
+    start_time = time.time()
 
-        duration_sec = convert_to_wav(
-            filepath,
-            wav_path
-        )
+    first_response_time = None
+    first_final_time = None
+    response_num = 0
 
-        transcript_parts = []
-        chunk_latencies = []
+    last_chunk_sent_time = None
 
-        start_time = time.time()
-
-        connection_start_time = start_time
-        send_start_time = None
-        send_end_time = None
-        first_chunk_time = None
-        first_byte_time = None
-        first_response_time = None
-        first_final_time = None
-
+    try:
         async with websockets.connect(
-            ws_url,
+            uri,
             ping_interval=20,
-            ping_timeout=60,
-            max_size=2**26
+            ping_timeout=20,
+            max_size=2**24
         ) as ws:
 
-            await ws.send(json.dumps({
-                "type": "transcription_session.update",
-                "session": {
-                    "input_audio_format": "pcm16",
-                    "input_audio_params": {
-                        "sample_rate_hz": SAMPLE_RATE,
-                        "num_channels": 1
-                    }
-                }
-            }))
-
             async def sender():
-                nonlocal send_start_time
-                nonlocal send_end_time
-                nonlocal first_chunk_time
+                nonlocal last_chunk_sent_time
 
-                send_start_time = time.time()
+                offset = 0
 
-                with open(wav_path, "rb") as fh:
-                    fh.read(44)
+                while offset < len(pcm):
+                    chunk = pcm[
+                        offset: offset + SEND_CHUNK_BYTES
+                    ]
+                    offset += SEND_CHUNK_BYTES
 
-                    chunk_num = 0
+                    last_chunk_sent_time = time.time()
 
-                    while True:
-                        chunk = fh.read(
-                            SEND_CHUNK_BYTES
-                        )
+                    await ws.send(chunk)
 
-                        if not chunk:
-                            break
+                    # fixed 250 ms pacing
+                    await asyncio.sleep(
+                        SEND_DELAY_MS / 1000
+                    )
 
-                        chunk_num += 1
+                # allow decoder to finalize
+                await asyncio.sleep(1.0)
 
-                        now = time.time()
-
-                        if first_chunk_time is None:
-                            first_chunk_time = now
-
-                        await ws.send(json.dumps({
-                            "type":
-                                "input_audio_buffer.append",
-                            "audio":
-                                base64.b64encode(
-                                    chunk
-                                ).decode("utf-8")
-                        }))
-
-                        print(
-                            f"{filepath.name} | "
-                            f"SENT CHUNK {chunk_num}"
-                        )
-
-                send_end_time = time.time()
-
-                await ws.send(json.dumps({
-                    "type":
-                        "input_audio_buffer.commit"
-                }))
-
-                await ws.send(json.dumps({
-                    "type":
-                        "input_audio_buffer.done"
-                }))
+                await ws.send(
+                    json.dumps({"cmd": "flush"})
+                )
 
             async def receiver():
-                nonlocal first_byte_time
                 nonlocal first_response_time
                 nonlocal first_final_time
-
-                response_num = 0
+                nonlocal response_num
+                nonlocal last_chunk_sent_time
 
                 while True:
                     try:
                         raw = await asyncio.wait_for(
                             ws.recv(),
-                            timeout=1800
+                            timeout=120
                         )
 
                         now = time.time()
 
-                        if first_byte_time is None:
-                            first_byte_time = now
-
-                        print(f"\nRAW RESPONSE:\n{raw}")
-
                         msg = json.loads(raw)
 
-                        msg_type = msg.get(
-                            "type",
-                            ""
+                        text = msg.get("text", "")
+                        msg_type = msg.get("type", "")
+
+                        elapsed_ms = (
+                            now - start_time
+                        ) * 1000
+
+                        if last_chunk_sent_time is not None:
+                            response_latency_ms = (
+                                now - last_chunk_sent_time
+                            ) * 1000
+                        else:
+                            response_latency_ms = 0
+
+                        response_num += 1
+
+                        if first_response_time is None:
+                            first_response_time = elapsed_ms
+
+                        is_final = (
+                            msg_type == "transcript"
                         )
 
-                        transcript = msg.get(
-                            "transcript",
-                            ""
-                        ).strip()
+                        if is_final and first_final_time is None:
+                            first_final_time = elapsed_ms
 
-                        is_final = msg_type.endswith(
-                            ".completed"
-                        )
-
-                        if transcript:
-                            response_num += 1
-
-                            if first_response_time is None:
-                                first_response_time = now
-
-                            if (
-                                is_final and
-                                first_final_time is None
-                            ):
-                                first_final_time = now
-
-                            latency_entry = {
-                                "response_num":
-                                    response_num,
-                                "latency_from_start_ms":
-                                    round(
-                                        (
-                                            now
-                                            - start_time
-                                        ) * 1000,
-                                        4
-                                    ),
-                                "latency_from_send_start_ms":
-                                    round(
-                                        (
-                                            now
-                                            - send_start_time
-                                        ) * 1000,
-                                        4
-                                    ),
-                                "latency_from_first_chunk_ms":
-                                    round(
-                                        (
-                                            now
-                                            - first_chunk_time
-                                        ) * 1000,
-                                        4
-                                    ),
-                                "latency_from_send_end_ms":
-                                    round(
-                                        (
-                                            now
-                                            - send_end_time
-                                        ) * 1000,
-                                        4
-                                    )
-                                    if send_end_time
-                                    else None,
-                                "is_final":
-                                    is_final,
-                                "words":
-                                    len(
-                                        transcript.split()
-                                    ),
-                                "char_count":
-                                    len(transcript)
-                            }
-
-                            chunk_latencies.append(
-                                latency_entry
+                        # SAVE ONLY FINAL
+                        if text and is_final:
+                            final_transcript_parts.append(
+                                text
                             )
 
-                            if is_final:
-                                transcript_parts.append(
-                                    transcript
-                                )
+                        latencies.append({
+                            "response_num": response_num,
+                            "latency_ms": round(
+                                response_latency_ms, 2
+                            ),
+                            "elapsed_ms": round(
+                                elapsed_ms, 2
+                            ),
+                            "is_final": is_final
+                        })
 
-                                print(
-                                    f"{filepath.name} | "
-                                    f"FINAL "
-                                    f"{response_num}"
-                                )
-
-                        if msg.get(
-                            "is_last_result",
-                            False
-                        ):
-                            break
+                        if is_final:
+                            print(
+                                f"{filepath.name} | "
+                                f"FINAL {response_num} | "
+                                f"LATENCY {response_latency_ms:.0f} ms"
+                            )
 
                     except asyncio.TimeoutError:
                         print(
                             f"{filepath.name} | timeout"
+                        )
+                        break
+
+                    except websockets.exceptions.ConnectionClosed:
+                        print(
+                            f"{filepath.name} | closed"
                         )
                         break
 
@@ -308,205 +215,104 @@ async def transcribe_file(
                 receiver()
             )
 
-        total_time_sec = (
-            time.time() - start_time
-        )
+    except Exception as e:
+        print(f"FAILED -> {filepath.name}")
+        print(str(e))
+        traceback.print_exc()
+        return
 
-        output_folder.mkdir(
-            parents=True,
-            exist_ok=True
-        )
+    total_time = time.time() - start_time
 
-        transcript_path = (
-            output_folder /
-            f"{filepath.stem}_transcript.txt"
-        )
+    # FINAL COMPLETE TRANSCRIPT ONLY
+    transcript_text = "\n".join(
+        final_transcript_parts
+    )
 
-        latency_path = (
-            output_folder /
-            f"{filepath.stem}_latency.json"
-        )
+    latency_values = [
+        x["latency_ms"] for x in latencies
+    ]
 
-        transcript_path.write_text(
-            "\n".join(transcript_parts),
-            encoding="utf-8"
-        )
-
-        latency_values_start = [
-            x["latency_from_send_start_ms"]
-            for x in chunk_latencies
-        ]
-
-        latency_values_end = [
-            x["latency_from_send_end_ms"]
-            for x in chunk_latencies
-            if x["latency_from_send_end_ms"]
-            is not None
-        ]
-
-        latency_json = {
-            "audio_file": str(filepath),
-            "audio_duration_sec": duration_sec,
-            "total_processing_time_sec": total_time_sec,
-            "timestamp": datetime.now().isoformat(),
-            "model": "parakeet-rnnt-1.1b",
-            "language": "es-US",
-            "timing_metrics": {
-                "connection_time_sec":
-                    round(
-                        connection_start_time
-                        - start_time,
-                        4
-                    ),
-                "send_duration_sec":
-                    round(
-                        send_end_time
-                        - send_start_time,
-                        4
-                    ) if send_end_time else None,
-                "first_byte_latency_sec":
-                    round(
-                        first_byte_time
-                        - start_time,
-                        4
-                    ) if first_byte_time else None,
-                "first_response_latency_sec":
-                    round(
-                        first_response_time
-                        - start_time,
-                        4
-                    ) if first_response_time else None,
-                "first_final_latency_sec":
-                    round(
-                        first_final_time
-                        - start_time,
-                        4
-                    ) if first_final_time else None,
-                "time_to_first_chunk_sec":
-                    round(
-                        first_chunk_time
-                        - start_time,
-                        4
-                    ) if first_chunk_time else None
-            },
-            "latencies": chunk_latencies,
-            "summary": {
-                "total_responses":
-                    len(chunk_latencies),
-                "final_responses":
-                    sum(
-                        1 for x in chunk_latencies
-                        if x["is_final"]
-                    ),
-                "interim_responses":
-                    sum(
-                        1 for x in chunk_latencies
-                        if not x["is_final"]
-                    ),
-                "total_words":
-                    sum(
-                        x["words"]
-                        for x in chunk_latencies
-                    ),
-                "total_characters":
-                    sum(
-                        x["char_count"]
-                        for x in chunk_latencies
-                    )
-            }
+    result_json = {
+        "audio_file": str(filepath),
+        "audio_duration_sec": duration_sec,
+        "total_processing_time_sec": round(
+            total_time, 2
+        ),
+        "timestamp": datetime.now().isoformat(),
+        "model": "parakeet-tdt-0.6b-v3",
+        "ttfb_ms": round(
+            first_response_time, 2
+        ) if first_response_time else None,
+        "ttft_ms": round(
+            first_final_time, 2
+        ) if first_final_time else None,
+        "summary": {
+            "avg_latency_ms": round(
+                statistics.mean(latency_values), 2
+            ) if latency_values else 0
         }
-
-        latency_path.write_text(
-            json.dumps(
-                latency_json,
-                indent=2
-            ),
-            encoding="utf-8"
-        )
-
-        print(f"SAVED -> {filepath.name}")
-
-
-# =========================================================
-# BATCH
-# =========================================================
-async def run_batch(
-    base_url: str,
-    input_folder: Path,
-    output_folder: Path
-):
-    target_files = {
-        "maria1",
-        "maria2",
-        "maria4",
-        "maria7",
-        "maria10",
-        "maria20",
-        "maria21",
-        "maria24"
     }
 
-    files = sorted([
-        f for f in input_folder.iterdir()
-        if (
-            f.suffix.lower()
-            in SUPPORTED_EXTENSIONS
-            and f.stem in target_files
-        )
-    ])
+    save_results(
+        filepath,
+        transcript_text,
+        result_json
+    )
 
-    print(f"TOTAL FILES = {len(files)}")
-    print("FILES TO PROCESS:")
+    print(
+        f"COMPLETED -> {filepath.name} | "
+        f"TOTAL {total_time:.1f} sec"
+    )
 
-    for f in files:
-        print(f" - {f.name}")
 
-    for file in files:
+# =========================
+# BATCH RUNNER
+# =========================
+async def run_batch(host, port):
+    files = sorted(INPUT_FOLDER.glob("*.mp3"))
+
+    total_files = len(files)
+
+    print("=" * 80)
+    print(f"TOTAL FILES = {total_files}")
+    print("MODE = SEQUENTIAL")
+    print("SEND = 30 sec")
+    print("DELAY = 250 ms")
+    print("=" * 80)
+
+    for idx, file in enumerate(files, start=1):
+        print(f"\n[{idx}/{total_files}] {file.name}")
+
         await transcribe_file(
-            file,
-            base_url,
-            output_folder
+            filepath=file,
+            host=host,
+            port=port
         )
 
     print("\nALL FILES COMPLETED")
 
 
-# =========================================================
-# MAIN
-# =========================================================
+# =========================
+# CLI
+# =========================
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument(
-        "--base-url",
-        required=True
-    )
-    parser.add_argument(
-        "--input-folder",
-        required=True
-    )
-    parser.add_argument(
-        "--output-folder",
-        required=True
-    )
+    parser.add_argument("--host", required=True)
+    parser.add_argument("--port", type=int, default=8001)
 
     return parser.parse_args()
 
 
+# =========================
+# MAIN
+# =========================
 if __name__ == "__main__":
     args = parse_args()
 
     asyncio.run(
         run_batch(
-            args.base_url,
-            Path(args.input_folder),
-            Path(args.output_folder)
+            args.host,
+            args.port
         )
     )
-
-
-nohup python3 transcribe_parakeet_es_batch.py \
-  --base-url http://192.168.4.62:9000 \
-  --input-folder /home/re_nikitav/audio_maria \
-  --output-folder /home/re_nikitav/parakeet_es_results \
-  > batch_riva.log 2>&1 &
