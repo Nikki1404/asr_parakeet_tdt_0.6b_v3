@@ -398,3 +398,4 @@ def main():
 if __name__ == "__main__":
     main()
 
+python3 -c "import socket; s=socket.socket(); print(s.connect_ex(('127.0.0.1',50051)))"
