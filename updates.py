@@ -515,4 +515,19 @@ if __name__ == "__main__":
 
 
 
-python3 -c "import socket; s=socket.socket(); print(s.connect_ex(('127.0.0.1',50051)))"
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# vi transcribe_batch_parakeet_1.1b_rnnt.py
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# nohup transcribe_batch_parakeet_1.1b_rnnt.py > batch_riva.log 2>&1 &
+[1] 540004
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# tail -f batch_riva.log 
+nohup: ignoring input
+nohup: failed to run command 'transcribe_batch_parakeet_1.1b_rnnt.py': No such file or directory
+^C
+[1]+  Exit 127                nohup transcribe_batch_parakeet_1.1b_rnnt.py > batch_riva.log 2>&1
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# ^C
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# ^C
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# vi transcribe_batch_parakeet_1.1b_rnnt.py
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# nohup transcribe_batch_parakeet_1.1b_rnnt.py > batch_riva.log 2>&1 &
+[1] 540101
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# tail -f batch_riva.log 
+nohup: ignoring input
+nohup: failed to run command 'transcribe_batch_parakeet_1.1b_rnnt.py': No such file or directory
