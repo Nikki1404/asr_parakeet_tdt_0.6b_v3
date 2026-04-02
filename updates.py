@@ -323,3 +323,68 @@ async def main():
 
 
 asyncio.run(main())
+
+
+got this after first chunk 
+CONNECTED
+SESSION CONFIG SENT
+SENT CHUNK 1
+
+RAW RESPONSE:
+{
+  "event_id": "event_9d3df453-f7a7-4c51-93e1-d48695c019bb",
+  "type": "conversation.created",
+  "conversation": {
+    "event_id": "event_cead3058-3c5a-404d-81b2-766a27951142",
+    "id": "conv_76f8c201-2e30-4ab9-ad77-d4237df3de37",
+    "object": "realtime.conversation"
+  }
+}
+
+RAW RESPONSE:
+{
+  "event_id": "event_11a0eb35-e240-4938-b628-7a9e4ffc2c73",
+  "type": "transcription_session.updated",
+  "session": {
+    "modalities": [
+      "text"
+    ],
+    "input_audio_format": "pcm16",
+    "input_audio_transcription": {
+      "language": "es-US",
+      "model": "conformer",
+      "prompt": null
+    },
+    "input_audio_params": {
+      "sample_rate_hz": 16000,
+      "num_channels": 1
+    },
+    "recognition_config": {
+      "max_alternatives": 1,
+      "enable_automatic_punctuation": false,
+      "enable_word_time_offsets": false,
+      "enable_profanity_filter": false,
+      "enable_verbatim_transcripts": false,
+      "custom_configuration": ""
+    },
+    "speaker_diarization": {
+      "enable_speaker_diarization": false,
+      "max_speaker_count": 8
+    },
+    "word_boosting": {
+      "enable_word_boosting": false,
+      "word_boosting_list": []
+    },
+    "endpointing_config": {
+      "start_history": 0,
+      "start_threshold": 0.0,
+      "stop_history": 0,
+      "stop_threshold": 0.0,
+      "stop_history_eou": 0,
+      "stop_threshold_eou": 0.0
+    }
+  }
+}
+SENT CHUNK 2
+SENT CHUNK 3
+SENT CHUNK 4
