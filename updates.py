@@ -2,7 +2,6 @@ import asyncio
 import json
 import time
 import warnings
-import wave
 from pathlib import Path
 
 import librosa
@@ -29,8 +28,12 @@ WS_RECV_TIMEOUT_SEC = 2
 
 AUDIO_EXTENSIONS = {".ogg", ".wav", ".flac", ".mp3", ".m4a"}
 
-# Try these language codes for Riva
-RIVA_LANGUAGE_CODES = ["es-US", "es-ES", "es"]
+# Riva / CTC model settings
+RIVA_LANGUAGE_CODE = "es-ES"
+RIVA_MODEL_NAME = "parakeet-ctc-0.6b-es"
+
+# 100 ms of 16k mono PCM16 = 1600 samples = 3200 bytes
+RIVA_STREAM_CHUNK_BYTES = 3200
 
 
 # =====================================================
@@ -172,7 +175,6 @@ async def benchmark_tdt(wav_file: Path) -> dict:
                 break
 
     total_time = round(time.time() - overall_start, 3)
-
     transcript = " ".join([t for t in transcript_parts if t]).strip()
 
     return {
@@ -184,97 +186,61 @@ async def benchmark_tdt(wav_file: Path) -> dict:
 
 
 # =====================================================
-# RIVA HELPERS
+# RIVA STREAMING BENCHMARK (parakeet-ctc-0.6b-es)
 # =====================================================
-def read_wav_bytes(wav_file: Path):
-    with wave.open(str(wav_file), "rb") as wf:
-        sample_rate = wf.getframerate()
-        num_channels = wf.getnchannels()
-        sampwidth = wf.getsampwidth()
-        audio_bytes = wf.readframes(wf.getnframes())
+def benchmark_ctc_riva(wav_file: Path) -> dict:
+    import riva.client
+    from riva.client import RecognitionConfig, StreamingRecognitionConfig, AudioEncoding
 
-    if sample_rate != 16000:
-        raise ValueError(f"Expected 16k WAV, got {sample_rate} Hz in {wav_file}")
-    if num_channels != 1:
-        raise ValueError(f"Expected mono WAV, got {num_channels} channels in {wav_file}")
-    if sampwidth != 2:
-        raise ValueError(f"Expected 16-bit PCM WAV, got sample width {sampwidth} in {wav_file}")
+    audio, sr = sf.read(str(wav_file), dtype="int16")
 
-    return audio_bytes
+    if sr != TARGET_SR:
+        raise ValueError(f"Expected {TARGET_SR} Hz WAV, got {sr} Hz in {wav_file}")
 
+    if audio.ndim == 2:
+        audio = audio.mean(axis=1).astype(np.int16)
 
-def benchmark_ctc_riva_offline(asr_service, RecognitionConfig, AudioEncoding, audio_bytes, language_code):
-    config = RecognitionConfig(
-        encoding=AudioEncoding.LINEAR_PCM,
-        sample_rate_hertz=16000,
-        audio_channel_count=1,
-        language_code=language_code,
-        enable_automatic_punctuation=True,
-        max_alternatives=1,
-        verbatim_transcripts=False,
+    audio_bytes = audio.tobytes()
+
+    def audio_chunks():
+        for i in range(0, len(audio_bytes), RIVA_STREAM_CHUNK_BYTES):
+            yield audio_bytes[i:i + RIVA_STREAM_CHUNK_BYTES]
+
+    auth = riva.client.Auth(uri=RIVA_URI)
+    asr_service = riva.client.ASRService(auth)
+
+    streaming_config = StreamingRecognitionConfig(
+        config=RecognitionConfig(
+            encoding=AudioEncoding.LINEAR_PCM,
+            sample_rate_hertz=TARGET_SR,
+            audio_channel_count=1,
+            language_code=RIVA_LANGUAGE_CODE,
+            model=RIVA_MODEL_NAME,
+            max_alternatives=1,
+            enable_automatic_punctuation=True,
+            verbatim_transcripts=False,
+        ),
+        interim_results=True,
     )
-
-    start = time.time()
-
-    response = asr_service.offline_recognize(
-        audio_bytes=audio_bytes,
-        config=config
-    )
-
-    total_time = round(time.time() - start, 3)
-
-    transcript_parts = []
-    for result in response.results:
-        if result.alternatives:
-            transcript_parts.append(result.alternatives[0].transcript.strip())
-
-    transcript = " ".join([x for x in transcript_parts if x]).strip()
-
-    return {
-        "ttft": total_time,
-        "ttfb": total_time,
-        "total_time": total_time,
-        "transcript": transcript,
-        "mode": "offline",
-        "language_code": language_code
-    }
-
-
-def benchmark_ctc_riva_streaming(asr_service, RecognitionConfig, AudioEncoding, audio_bytes, language_code):
-    config = RecognitionConfig(
-        encoding=AudioEncoding.LINEAR_PCM,
-        sample_rate_hertz=16000,
-        audio_channel_count=1,
-        language_code=language_code,
-        enable_automatic_punctuation=True,
-        max_alternatives=1,
-        verbatim_transcripts=False,
-    )
-
-    chunk_size = 3200  # 100 ms @ 16kHz mono PCM16 = 1600 samples = 3200 bytes
 
     ttft = None
     ttfb = None
     transcript_parts = []
 
-    start = time.time()
-
-    def audio_chunks():
-        for i in range(0, len(audio_bytes), chunk_size):
-            yield audio_bytes[i:i + chunk_size]
+    start_time = time.time()
 
     responses = asr_service.streaming_response_generator(
         audio_chunks=audio_chunks(),
-        streaming_config=config,
+        streaming_config=streaming_config
     )
 
-    for resp in responses:
+    for response in responses:
         now = time.time()
 
-        if not hasattr(resp, "results"):
+        if not getattr(response, "results", None):
             continue
 
-        for result in resp.results:
+        for result in response.results:
             if not result.alternatives:
                 continue
 
@@ -285,72 +251,20 @@ def benchmark_ctc_riva_streaming(asr_service, RecognitionConfig, AudioEncoding, 
             transcript_parts.append(text)
 
             if ttft is None:
-                ttft = round(now - start, 3)
+                ttft = round(now - start_time, 3)
 
-            # In streaming APIs, final can be indicated by is_final
-            is_final = getattr(result, "is_final", False)
-            if is_final and ttfb is None:
-                ttfb = round(now - start, 3)
+            if getattr(result, "is_final", False) and ttfb is None:
+                ttfb = round(now - start_time, 3)
 
-    total_time = round(time.time() - start, 3)
+    total_time = round(time.time() - start_time, 3)
     transcript = " ".join([x for x in transcript_parts if x]).strip()
 
     return {
         "ttft": ttft if ttft is not None else total_time,
         "ttfb": ttfb if ttfb is not None else total_time,
         "total_time": total_time,
-        "transcript": transcript,
-        "mode": "streaming",
-        "language_code": language_code
+        "transcript": transcript
     }
-
-
-# =====================================================
-# RIVA BENCHMARK WITH FALLBACK
-# =====================================================
-def benchmark_ctc_riva(wav_file: Path) -> dict:
-    import grpc
-    import riva.client
-    from riva.client import RecognitionConfig, AudioEncoding
-
-    audio_bytes = read_wav_bytes(wav_file)
-
-    auth = riva.client.Auth(uri=RIVA_URI)
-    asr_service = riva.client.ASRService(auth)
-
-    last_error = None
-
-    # First try OFFLINE for each language code
-    for lang in RIVA_LANGUAGE_CODES:
-        try:
-            print(f"Trying Riva offline with language_code={lang}", flush=True)
-            return benchmark_ctc_riva_offline(
-                asr_service,
-                RecognitionConfig,
-                AudioEncoding,
-                audio_bytes,
-                lang
-            )
-        except grpc.RpcError as e:
-            last_error = e
-            print(f"Offline failed for language_code={lang}: {e}", flush=True)
-
-    # Then try STREAMING for each language code
-    for lang in RIVA_LANGUAGE_CODES:
-        try:
-            print(f"Trying Riva streaming with language_code={lang}", flush=True)
-            return benchmark_ctc_riva_streaming(
-                asr_service,
-                RecognitionConfig,
-                AudioEncoding,
-                audio_bytes,
-                lang
-            )
-        except grpc.RpcError as e:
-            last_error = e
-            print(f"Streaming failed for language_code={lang}: {e}", flush=True)
-
-    raise RuntimeError(f"Riva ASR failed for all modes/language codes. Last error: {last_error}")
 
 
 # =====================================================
