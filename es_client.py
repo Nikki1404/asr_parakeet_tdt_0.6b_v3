@@ -421,4 +421,14 @@ but getting this way
   ]
 }
 
-
+only transcribe these files and get latency in given format now 
+TARGET_FILES = {
+    "maria1.mp3",
+    "maria2.mp3",
+    "maria4.mp3",
+    "maria7.mp3",
+    "maria10.mp3",
+    "maria20.mp3",
+    "maria21.mp3",
+    "maria24.mp3"
+}
