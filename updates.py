@@ -11,7 +11,15 @@ import numpy as np
 import librosa
 import websockets
 import pandas as pd
-from jiwer import wer
+
+from jiwer import wer, Compose
+from jiwer import (
+    ToLowerCase,
+    RemovePunctuation,
+    RemoveMultipleSpaces,
+    Strip,
+    ReduceToListOfListOfWords
+)
 
 
 # =========================
@@ -110,6 +118,36 @@ def generate_excel_report(rows):
 
 
 # =========================
+# NORMALIZED WER
+# =========================
+def calculate_wer(reference_text, transcript_text):
+    if not reference_text or not transcript_text:
+        return None
+
+    try:
+        transform = Compose([
+            ToLowerCase(),
+            RemovePunctuation(),
+            RemoveMultipleSpaces(),
+            Strip(),
+            ReduceToListOfListOfWords()
+        ])
+
+        score = wer(
+            reference_text,
+            transcript_text,
+            reference_transform=transform,
+            hypothesis_transform=transform
+        )
+
+        return round(score * 100, 2)
+
+    except Exception as e:
+        print(f"WER ERROR: {e}")
+        return None
+
+
+# =========================
 # TRANSCRIBE ONE FILE
 # =========================
 async def transcribe_file(filepath, host, port):
@@ -119,7 +157,7 @@ async def transcribe_file(filepath, host, port):
 
     pcm, duration_sec = load_wav_as_pcm16(filepath)
 
-    final_transcript_parts = []
+    final_transcript = ""
     latencies = []
 
     start_time = time.time()
@@ -185,6 +223,7 @@ async def transcribe_file(filepath, host, port):
                 nonlocal first_response_time
                 nonlocal first_final_time
                 nonlocal response_num
+                nonlocal final_transcript
 
                 while True:
                     try:
@@ -245,8 +284,9 @@ async def transcribe_file(filepath, host, port):
                             "char_count": chars
                         })
 
+                        # FIXED TRANSCRIPT LOGIC
                         if text and is_final:
-                            final_transcript_parts.append(text)
+                            final_transcript = text
 
                             print(
                                 f"{filepath.name} | "
@@ -278,10 +318,6 @@ async def transcribe_file(filepath, host, port):
 
     total_time = time.time() - start_time
 
-    transcript_text = "\n".join(
-        final_transcript_parts
-    )
-
     latency_values_start = [
         x["latency_from_send_start_ms"]
         for x in latencies
@@ -302,68 +338,35 @@ async def transcribe_file(filepath, host, port):
         "model": "parakeet-tdt-0.6b-v3",
         "language": "multi",
         "timing_metrics": {
-            "connection_time_sec": 0.0,
-            "send_duration_sec": round(
-                send_end_time - send_start_time, 4
-            ) if send_end_time else None,
-            "first_byte_latency_sec": round(
-                first_response_time / 1000, 4
-            ) if first_response_time else None,
             "first_response_latency_sec": round(
                 first_response_time / 1000, 4
             ) if first_response_time else None,
             "first_final_latency_sec": round(
                 first_final_time / 1000, 4
-            ) if first_final_time else None,
-            "time_to_first_chunk_sec": round(
-                first_chunk_time - start_time, 4
-            ) if first_chunk_time else None
+            ) if first_final_time else None
         },
         "latencies": latencies,
         "summary": {
-            "total_responses": len(latencies),
-            "final_responses": sum(
-                1 for x in latencies if x["is_final"]
-            ),
-            "interim_responses": sum(
-                1 for x in latencies if not x["is_final"]
-            ),
-            "total_words": sum(
-                x["words"] for x in latencies
-            ),
-            "total_characters": sum(
-                x["char_count"] for x in latencies
-            ),
             "avg_latency_from_send_start_ms": round(
                 statistics.mean(latency_values_start), 4
-            ) if latency_values_start else None,
-            "avg_latency_from_send_end_ms": round(
-                statistics.mean(latency_values_end), 4
-            ) if latency_values_end else None
+            ) if latency_values_start else None
         }
     }
 
     save_results(
         filepath,
-        transcript_text,
+        final_transcript,
         result_json
     )
 
     reference_text = load_reference_text(filepath)
 
-    calculated_wer = None
+    calculated_wer = calculate_wer(
+        reference_text,
+        final_transcript
+    )
 
-    if reference_text and transcript_text:
-        try:
-            calculated_wer = round(
-                wer(
-                    reference_text.lower(),
-                    transcript_text.lower()
-                ) * 100,
-                2
-            )
-        except Exception:
-            calculated_wer = None
+    print(f"WER -> {calculated_wer}")
 
     return {
         "file_name": filepath.name,
@@ -381,7 +384,7 @@ async def transcribe_file(filepath, host, port):
         "avg_latency_ms": result_json["summary"]["avg_latency_from_send_start_ms"],
         "wer": calculated_wer,
         "total_time_sec": total_time,
-        "transcription": transcript_text
+        "transcription": final_transcript
     }
 
 
@@ -391,17 +394,9 @@ async def transcribe_file(filepath, host, port):
 async def run_batch(host, port):
     files = sorted(INPUT_FOLDER.glob("*.wav"))
 
-    total_files = len(files)
-
-    print("=" * 80)
-    print(f"TOTAL FILES = {total_files}")
-    print("=" * 80)
-
     report_rows = []
 
-    for idx, file in enumerate(files, start=1):
-        print(f"\n[{idx}/{total_files}] {file.name}")
-
+    for file in files:
         row = await transcribe_file(
             filepath=file,
             host=host,
