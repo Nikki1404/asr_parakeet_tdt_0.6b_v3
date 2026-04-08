@@ -270,4 +270,6 @@ if __name__ == "__main__":
     main()
 
 
-for %f in (*.flac *.ogg) do ffmpeg -y -i "%f" -ar 16000 -ac 1 "%~nf.wav"
+for f in *.flac *.ogg; do
+    ffmpeg -y -i "$f" -ar 16000 -ac 1 -sample_fmt s16 "${f%.*}.wav"
+done
