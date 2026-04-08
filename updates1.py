@@ -1,4 +1,5 @@
 import time
+import wave
 from pathlib import Path
 
 import pandas as pd
@@ -73,9 +74,29 @@ def benchmark_ctc(wav_file):
 
     start_time = time.time()
 
-    # Read WAV file bytes directly
-    with open(wav_file, "rb") as f:
-        audio_data = f.read()
+    # IMPORTANT FIX:
+    # Read ONLY PCM frames, no WAV header
+    with wave.open(wav_file, "rb") as wf:
+        sample_rate = wf.getframerate()
+        channels = wf.getnchannels()
+        sample_width = wf.getsampwidth()
+
+        if sample_rate != TARGET_SR:
+            raise ValueError(
+                f"Expected {TARGET_SR} Hz, got {sample_rate}"
+            )
+
+        if channels != 1:
+            raise ValueError(
+                f"Expected mono audio, got {channels} channels"
+            )
+
+        if sample_width != 2:
+            raise ValueError(
+                f"Expected 16-bit PCM, got {sample_width * 8}-bit"
+            )
+
+        audio_data = wf.readframes(wf.getnframes())
 
     # 80 ms chunking
     chunk_size = TARGET_SR * 2 * 80 // 1000
@@ -98,6 +119,9 @@ def benchmark_ctc(wav_file):
         current_time = time.time()
 
         for result in response.results:
+            if not result.alternatives:
+                continue
+
             transcript = (
                 result.alternatives[0]
                 .transcript
@@ -183,30 +207,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-getting this 
-(venv) PS C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing> python .\quick_test.py
-Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
-Traceback (most recent call last):
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 185, in <module>
-    main()
-    ~~~~^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 159, in main
-    result = benchmark_ctc(str(file))
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 97, in benchmark_ctc
-    for response in responses:
-                    ^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\riva\client\asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 538, in __next__
-    return self._next()
-           ~~~~~~~~~~^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INTERNAL
-        details = "Received RST_STREAM with error code 0"
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Received RST_STREAM with error code 0", grpc_status:13}"
->
