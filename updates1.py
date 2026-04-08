@@ -268,3 +268,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+for %f in (*.flac *.ogg) do ffmpeg -y -i "%f" -ar 16000 -ac 1 "%~nf.wav"
