@@ -25,29 +25,18 @@ SEND_CHUNK_BYTES = SEND_CHUNK_SAMPLES * 2
 
 SEND_DELAY_MS = 250
 
-INPUT_FOLDER = Path("/home/re_nikitav/parakeet-asr-multilingual/audio_maria")
+INPUT_FOLDER = Path(
+    "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
+)
+
 OUTPUT_FOLDER = Path("transcription_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
-
-# PROCESS ONLY THESE FILES
-TARGET_FILES = {
-    "maria1.wav",
-    "maria2.wav",
-    "maria4.wav",
-    "maria7.wav",
-    "maria10.wav",
-    "maria20.wav",
-    "maria21.wav",
-    "maria24.wav"
-}
-
-EXCEL_ROWS = []
 
 
 # =========================
 # AUDIO LOADER
 # =========================
-def load_audio_as_pcm16(filepath):
+def load_wav_as_pcm16(filepath):
     print(f"Loading audio -> {filepath.name}")
 
     audio, sr = librosa.load(
@@ -90,6 +79,37 @@ def save_results(filepath, transcript_text, result_json):
 
 
 # =========================
+# REFERENCE TEXT
+# =========================
+def load_reference_text(filepath):
+    txt_path = filepath.with_suffix(".txt")
+
+    if txt_path.exists():
+        return txt_path.read_text(
+            encoding="utf-8"
+        ).strip()
+
+    return ""
+
+
+# =========================
+# EXCEL REPORT
+# =========================
+def generate_excel_report(rows):
+    excel_path = OUTPUT_FOLDER / "final_report.xlsx"
+
+    df = pd.DataFrame(rows)
+
+    df.to_excel(
+        excel_path,
+        index=False,
+        engine="openpyxl"
+    )
+
+    print(f"EXCEL SAVED -> {excel_path}")
+
+
+# =========================
 # TRANSCRIBE ONE FILE
 # =========================
 async def transcribe_file(filepath, host, port):
@@ -97,7 +117,7 @@ async def transcribe_file(filepath, host, port):
 
     print(f"\nSTARTING -> {filepath.name}")
 
-    pcm, duration_sec = load_audio_as_pcm16(filepath)
+    pcm, duration_sec = load_wav_as_pcm16(filepath)
 
     final_transcript_parts = []
     latencies = []
@@ -111,7 +131,6 @@ async def transcribe_file(filepath, host, port):
     send_end_time = None
 
     response_num = 0
-    last_chunk_sent_time = None
 
     try:
         async with websockets.connect(
@@ -122,7 +141,6 @@ async def transcribe_file(filepath, host, port):
         ) as ws:
 
             async def sender():
-                nonlocal last_chunk_sent_time
                 nonlocal first_chunk_time
                 nonlocal send_start_time
                 nonlocal send_end_time
@@ -143,8 +161,6 @@ async def transcribe_file(filepath, host, port):
 
                     if first_chunk_time is None:
                         first_chunk_time = now
-
-                    last_chunk_sent_time = now
 
                     await ws.send(chunk)
 
@@ -195,16 +211,19 @@ async def transcribe_file(filepath, host, port):
                         ) * 1000
 
                         latency_from_send_start = (
-                            now - send_start_time
-                        ) * 1000 if send_start_time else None
+                            (now - send_start_time) * 1000
+                            if send_start_time else None
+                        )
 
                         latency_from_first_chunk = (
-                            now - first_chunk_time
-                        ) * 1000 if first_chunk_time else None
+                            (now - first_chunk_time) * 1000
+                            if first_chunk_time else None
+                        )
 
                         latency_from_send_end = (
-                            now - send_end_time
-                        ) * 1000 if send_end_time else None
+                            (now - send_end_time) * 1000
+                            if send_end_time else None
+                        )
 
                         if first_response_time is None:
                             first_response_time = elapsed_ms
@@ -255,33 +274,13 @@ async def transcribe_file(filepath, host, port):
         print(f"FAILED -> {filepath.name}")
         print(str(e))
         traceback.print_exc()
-        return
+        return None
 
     total_time = time.time() - start_time
 
     transcript_text = "\n".join(
         final_transcript_parts
     )
-
-    # =========================
-    # REFERENCE TXT + WER
-    # =========================
-    ref_path = filepath.with_suffix(".txt")
-
-    if ref_path.exists():
-        reference_text = ref_path.read_text(
-            encoding="utf-8"
-        ).strip()
-    else:
-        reference_text = ""
-
-    try:
-        wer_score = (
-            wer(reference_text, transcript_text)
-            if reference_text else None
-        )
-    except Exception:
-        wer_score = None
 
     latency_values_start = [
         x["latency_from_send_start_ms"]
@@ -340,8 +339,7 @@ async def transcribe_file(filepath, host, port):
             ) if latency_values_start else None,
             "avg_latency_from_send_end_ms": round(
                 statistics.mean(latency_values_end), 4
-            ) if latency_values_end else None,
-            "wer": round(wer_score, 4) if wer_score is not None else None
+            ) if latency_values_end else None
         }
     }
 
@@ -351,35 +349,47 @@ async def transcribe_file(filepath, host, port):
         result_json
     )
 
-    # =========================
-    # EXCEL ROW
-    # =========================
-    EXCEL_ROWS.append({
+    reference_text = load_reference_text(filepath)
+
+    calculated_wer = None
+
+    if reference_text and transcript_text:
+        try:
+            calculated_wer = round(
+                wer(
+                    reference_text.lower(),
+                    transcript_text.lower()
+                ) * 100,
+                2
+            )
+        except Exception:
+            calculated_wer = None
+
+    return {
         "file_name": filepath.name,
         "reference_txt": reference_text,
-        "ttft_ms": round(first_final_time, 2) if first_final_time else None,
-        "ttfb_ms": round(first_response_time, 2) if first_response_time else None,
-        "avg_latency_ms": round(statistics.mean(latency_values_start), 2) if latency_values_start else None,
-        "wer": round(wer_score, 4) if wer_score is not None else None,
-        "total_time_sec": round(total_time, 2),
+        "ttft_ms": (
+            result_json["timing_metrics"]["first_final_latency_sec"] * 1000
+            if result_json["timing_metrics"]["first_final_latency_sec"]
+            else None
+        ),
+        "ttfb_ms": (
+            result_json["timing_metrics"]["first_response_latency_sec"] * 1000
+            if result_json["timing_metrics"]["first_response_latency_sec"]
+            else None
+        ),
+        "avg_latency_ms": result_json["summary"]["avg_latency_from_send_start_ms"],
+        "wer": calculated_wer,
+        "total_time_sec": total_time,
         "transcription": transcript_text
-    })
-
-    print(
-        f"COMPLETED -> {filepath.name} | "
-        f"TOTAL {total_time:.1f} sec"
-    )
+    }
 
 
 # =========================
 # BATCH RUNNER
 # =========================
 async def run_batch(host, port):
-    files = sorted([
-        f for f in INPUT_FOLDER.iterdir()
-        if f.suffix.lower() in {".wav", ".mp3"}
-        and f.name in TARGET_FILES
-    ])
+    files = sorted(INPUT_FOLDER.glob("*.wav"))
 
     total_files = len(files)
 
@@ -387,23 +397,22 @@ async def run_batch(host, port):
     print(f"TOTAL FILES = {total_files}")
     print("=" * 80)
 
+    report_rows = []
+
     for idx, file in enumerate(files, start=1):
         print(f"\n[{idx}/{total_files}] {file.name}")
 
-        await transcribe_file(
+        row = await transcribe_file(
             filepath=file,
             host=host,
             port=port
         )
 
-    # =========================
-    # SAVE EXCEL
-    # =========================
-    df = pd.DataFrame(EXCEL_ROWS)
-    excel_path = OUTPUT_FOLDER / "summary.xlsx"
-    df.to_excel(excel_path, index=False)
+        if row:
+            report_rows.append(row)
 
-    print(f"\nEXCEL SAVED -> {excel_path}")
+    generate_excel_report(report_rows)
+
     print("\nALL FILES COMPLETED")
 
 
