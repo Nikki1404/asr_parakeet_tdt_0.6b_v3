@@ -29,7 +29,7 @@ INPUT_FOLDER = Path(
     "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
 )
 
-OUTPUT_FOLDER = Path("transcription_results")
+OUTPUT_FOLDER = Path("transcription_results_new")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 
