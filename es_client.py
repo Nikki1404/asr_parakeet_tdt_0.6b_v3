@@ -194,4 +194,6 @@ I0408 14:25:23.556370 996197 stats_builder.h:100] {"specversion":"1.0","type":"r
 I0408 14:25:23.639611 996197 grpc_riva_asr.cc:244] ASRService.Recognize called.
 E0408 14:25:23.639964 996197 grpc_riva_asr.cc:264] Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; 
 
- 
+ Transcribing: 100%|██████████| 1/1 [00:00<00:00,  1.36it/s]
+2026-04-08 15:30:19,801 [INFO]   → FINAL "postura, pues yo creo que es algo de vocación, o sea hay artistas que sí tienen esa vocación política y otros que no, yo no, yo no tengo o sea sí yo puedo hacer una canción como Safra Negra que hablaba de"  [1.03s RTF 0.08x]
+WARNING:  Invalid HTTP request received.
