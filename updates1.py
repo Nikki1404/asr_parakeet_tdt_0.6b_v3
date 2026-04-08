@@ -395,3 +395,154 @@ if __name__ == "__main__":
 
 
 nohup python -u transcribe_grpc.py --server 192.168.4.62:50051 --language en-US > transcription_results_grpc/nohup.out 2>&1 &
+getting this 
+[2] 2193131
+(env) root@cx-asr-test:/home/re_nikitav/parakeet_test# tail -f transcription_results_grpc/nohup.out
+nohup: ignoring input
+[2026-04-08 22:47:41] === RUN START | pid=2193131 ===
+[2026-04-08 22:47:41] Found 6 files | server=192.168.4.62:50051 | lang=en-US
+[2026-04-08 22:47:41] [1/6] 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
+[2026-04-08 22:47:41] STARTING -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
+[2026-04-08 22:47:41] Loading audio -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
+[2026-04-08 22:52:32] Loaded 0a12a9ea-af37-41ec-905f-3babb9580e97.wav | Duration: 14.0 sec
+[2026-04-08 22:52:40] FAILED -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav | <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 182, in transcribe_file
+    for response in responses:
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
+>
+[2026-04-08 22:52:40] [2/6] 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
+[2026-04-08 22:52:40] STARTING -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
+[2026-04-08 22:52:40] Loading audio -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
+[2026-04-08 22:52:41] Loaded 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | Duration: 14.0 sec
+[2026-04-08 22:52:41] FAILED -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 182, in transcribe_file
+    for response in responses:
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+[2026-04-08 22:52:41] [3/6] 0aa66680-65d0-4af1-9527-9837df2c7c44.wav
+[2026-04-08 22:52:41] STARTING -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav
+[2026-04-08 22:52:41] Loading audio -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav
+[2026-04-08 22:52:41] Loaded 0aa66680-65d0-4af1-9527-9837df2c7c44.wav | Duration: 14.9 sec
+[2026-04-08 22:52:41] FAILED -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav | <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 182, in transcribe_file
+    for response in responses:
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+[2026-04-08 22:52:41] [4/6] DIALOGUE.wav
+[2026-04-08 22:52:41] STARTING -> DIALOGUE.wav
+[2026-04-08 22:52:41] Loading audio -> DIALOGUE.wav
+[2026-04-08 22:52:44] Loaded DIALOGUE.wav | Duration: 245.0 sec
+[2026-04-08 22:52:44] FAILED -> DIALOGUE.wav | <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 182, in transcribe_file
+    for response in responses:
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
+>
+[2026-04-08 22:52:44] [5/6] Monologue.wav
+[2026-04-08 22:52:44] STARTING -> Monologue.wav
+[2026-04-08 22:52:44] Loading audio -> Monologue.wav
+[2026-04-08 22:52:45] Loaded Monologue.wav | Duration: 124.7 sec
+[2026-04-08 22:52:45] FAILED -> Monologue.wav | <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 182, in transcribe_file
+    for response in responses:
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+[2026-04-08 22:52:45] [6/6] poor-audio.wav
+[2026-04-08 22:52:45] STARTING -> poor-audio.wav
+[2026-04-08 22:52:45] Loading audio -> poor-audio.wav
+[2026-04-08 22:52:46] Loaded poor-audio.wav | Duration: 105.0 sec
+[2026-04-08 22:52:46] FAILED -> poor-audio.wav | <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 182, in transcribe_file
+    for response in responses:
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
+    return self._next()
+           ^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
+>
+
