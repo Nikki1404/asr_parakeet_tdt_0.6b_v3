@@ -170,3 +170,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 172, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 139, in main
+    for file in AUDIO_FOLDER.iterdir():
+                ~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Program Files\Python313\Lib\pathlib\_local.py", line 575, in iterdir
+    with os.scandir(root_dir) as scandir_it:
+         ~~~~~~~~~~^^^^^^^^^^
+FileNotFoundError: [WinError 3] The system cannot find the path specified: 'audio_samples'
