@@ -29,15 +29,14 @@ WS_RECV_TIMEOUT_SEC = 2
 
 AUDIO_EXTENSIONS = {".ogg", ".wav", ".flac", ".mp3", ".m4a"}
 
+# Try these language codes for Riva
+RIVA_LANGUAGE_CODES = ["es-US", "es-ES", "es"]
+
 
 # =====================================================
 # AUDIO CONVERSION
 # =====================================================
 def convert_to_wav(filepath: Path) -> Path:
-    """
-    Convert input audio to 16kHz mono 16-bit PCM WAV.
-    If the file is already .wav, it will still be normalized and rewritten.
-    """
     audio, _ = librosa.load(
         str(filepath),
         sr=TARGET_SR,
@@ -91,12 +90,6 @@ def calculate_wer(reference: str, prediction: str) -> float:
 # WEBSOCKET BENCHMARK (parakeet_tdt_0.6b_v3)
 # =====================================================
 async def benchmark_tdt(wav_file: Path) -> dict:
-    """
-    Measures:
-      - TTFT: first response containing text
-      - TTFB: first final response containing text
-      - Total time: end-to-end time for the file
-    """
     audio, _ = sf.read(str(wav_file))
 
     if audio.ndim == 2:
@@ -120,16 +113,13 @@ async def benchmark_tdt(wav_file: Path) -> dict:
         ping_timeout=120,
         max_size=None
     ) as ws:
-        # Initial config
         await ws.send(json.dumps({"sample_rate": TARGET_SR}))
         send_start = time.time()
 
-        # Stream audio
         for i in range(0, len(pcm_bytes), chunk_bytes):
             chunk = pcm_bytes[i:i + chunk_bytes]
             await ws.send(chunk)
 
-            # Try receiving any immediate partial/final response
             try:
                 response = await asyncio.wait_for(
                     ws.recv(),
@@ -153,10 +143,8 @@ async def benchmark_tdt(wav_file: Path) -> dict:
             except asyncio.TimeoutError:
                 pass
 
-        # End of stream
         await ws.send(json.dumps({"eof": True}))
 
-        # Drain remaining responses
         while True:
             try:
                 response = await asyncio.wait_for(
@@ -185,8 +173,6 @@ async def benchmark_tdt(wav_file: Path) -> dict:
 
     total_time = round(time.time() - overall_start, 3)
 
-    # Join all text responses. Depending on server behavior this may contain
-    # repeated partials; left as-is to preserve raw model output behavior.
     transcript = " ".join([t for t in transcript_parts if t]).strip()
 
     return {
@@ -198,16 +184,9 @@ async def benchmark_tdt(wav_file: Path) -> dict:
 
 
 # =====================================================
-# RIVA BENCHMARK (parakeet_ctc_0.6b_es)
+# RIVA HELPERS
 # =====================================================
-def benchmark_ctc_riva(wav_file: Path) -> dict:
-    """
-    Offline Riva ASR:
-      TTFT = TTFB = total_time
-    """
-    import riva.client
-    from riva.client import RecognitionConfig, AudioEncoding
-
+def read_wav_bytes(wav_file: Path):
     with wave.open(str(wav_file), "rb") as wf:
         sample_rate = wf.getframerate()
         num_channels = wf.getnchannels()
@@ -221,14 +200,15 @@ def benchmark_ctc_riva(wav_file: Path) -> dict:
     if sampwidth != 2:
         raise ValueError(f"Expected 16-bit PCM WAV, got sample width {sampwidth} in {wav_file}")
 
-    auth = riva.client.Auth(uri=RIVA_URI)
-    asr_service = riva.client.ASRService(auth)
+    return audio_bytes
 
+
+def benchmark_ctc_riva_offline(asr_service, RecognitionConfig, AudioEncoding, audio_bytes, language_code):
     config = RecognitionConfig(
         encoding=AudioEncoding.LINEAR_PCM,
         sample_rate_hertz=16000,
         audio_channel_count=1,
-        language_code="es-US",
+        language_code=language_code,
         enable_automatic_punctuation=True,
         max_alternatives=1,
         verbatim_transcripts=False,
@@ -254,14 +234,129 @@ def benchmark_ctc_riva(wav_file: Path) -> dict:
         "ttft": total_time,
         "ttfb": total_time,
         "total_time": total_time,
-        "transcript": transcript
+        "transcript": transcript,
+        "mode": "offline",
+        "language_code": language_code
     }
+
+
+def benchmark_ctc_riva_streaming(asr_service, RecognitionConfig, AudioEncoding, audio_bytes, language_code):
+    config = RecognitionConfig(
+        encoding=AudioEncoding.LINEAR_PCM,
+        sample_rate_hertz=16000,
+        audio_channel_count=1,
+        language_code=language_code,
+        enable_automatic_punctuation=True,
+        max_alternatives=1,
+        verbatim_transcripts=False,
+    )
+
+    chunk_size = 3200  # 100 ms @ 16kHz mono PCM16 = 1600 samples = 3200 bytes
+
+    ttft = None
+    ttfb = None
+    transcript_parts = []
+
+    start = time.time()
+
+    def audio_chunks():
+        for i in range(0, len(audio_bytes), chunk_size):
+            yield audio_bytes[i:i + chunk_size]
+
+    responses = asr_service.streaming_response_generator(
+        audio_chunks=audio_chunks(),
+        streaming_config=config,
+    )
+
+    for resp in responses:
+        now = time.time()
+
+        if not hasattr(resp, "results"):
+            continue
+
+        for result in resp.results:
+            if not result.alternatives:
+                continue
+
+            text = result.alternatives[0].transcript.strip()
+            if not text:
+                continue
+
+            transcript_parts.append(text)
+
+            if ttft is None:
+                ttft = round(now - start, 3)
+
+            # In streaming APIs, final can be indicated by is_final
+            is_final = getattr(result, "is_final", False)
+            if is_final and ttfb is None:
+                ttfb = round(now - start, 3)
+
+    total_time = round(time.time() - start, 3)
+    transcript = " ".join([x for x in transcript_parts if x]).strip()
+
+    return {
+        "ttft": ttft if ttft is not None else total_time,
+        "ttfb": ttfb if ttfb is not None else total_time,
+        "total_time": total_time,
+        "transcript": transcript,
+        "mode": "streaming",
+        "language_code": language_code
+    }
+
+
+# =====================================================
+# RIVA BENCHMARK WITH FALLBACK
+# =====================================================
+def benchmark_ctc_riva(wav_file: Path) -> dict:
+    import grpc
+    import riva.client
+    from riva.client import RecognitionConfig, AudioEncoding
+
+    audio_bytes = read_wav_bytes(wav_file)
+
+    auth = riva.client.Auth(uri=RIVA_URI)
+    asr_service = riva.client.ASRService(auth)
+
+    last_error = None
+
+    # First try OFFLINE for each language code
+    for lang in RIVA_LANGUAGE_CODES:
+        try:
+            print(f"Trying Riva offline with language_code={lang}", flush=True)
+            return benchmark_ctc_riva_offline(
+                asr_service,
+                RecognitionConfig,
+                AudioEncoding,
+                audio_bytes,
+                lang
+            )
+        except grpc.RpcError as e:
+            last_error = e
+            print(f"Offline failed for language_code={lang}: {e}", flush=True)
+
+    # Then try STREAMING for each language code
+    for lang in RIVA_LANGUAGE_CODES:
+        try:
+            print(f"Trying Riva streaming with language_code={lang}", flush=True)
+            return benchmark_ctc_riva_streaming(
+                asr_service,
+                RecognitionConfig,
+                AudioEncoding,
+                audio_bytes,
+                lang
+            )
+        except grpc.RpcError as e:
+            last_error = e
+            print(f"Streaming failed for language_code={lang}: {e}", flush=True)
+
+    raise RuntimeError(f"Riva ASR failed for all modes/language codes. Last error: {last_error}")
 
 
 # =====================================================
 # EXCEL EXPORT
 # =====================================================
-def save_grouped_excel(rows: list[dict]) -> None:
+def save_grouped_excel(rows):
     df = pd.DataFrame(rows)
     df.columns = pd.MultiIndex.from_tuples(df.columns)
 
@@ -272,7 +367,7 @@ def save_grouped_excel(rows: list[dict]) -> None:
 # =====================================================
 # MAIN
 # =====================================================
-async def main() -> None:
+async def main():
     if not AUDIO_FOLDER.exists():
         raise FileNotFoundError(f"Audio folder not found: {AUDIO_FOLDER.resolve()}")
 
@@ -294,10 +389,7 @@ async def main() -> None:
         ref_text = load_reference_text(file)
         wav_file = convert_to_wav(file)
 
-        # TDT benchmark
         tdt = await benchmark_tdt(wav_file)
-
-        # CTC benchmark
         ctc = benchmark_ctc_riva(wav_file)
 
         row = {
@@ -325,39 +417,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# tail -f benchmark_run.log
-nohup: ignoring input
-Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.flac
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 327, in <module>
-    asyncio.run(main())
-  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
-    return future.result()
-           ^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 301, in main
-    ctc = benchmark_ctc_riva(wav_file)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 239, in benchmark_ctc_riva
-    response = asr_service.offline_recognize(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/riva/client/asr.py", line 485, in offline_recognize
-    return func(request, metadata=self.auth.get_auth_metadata())
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/grpc/_channel.py", line 1159, in __call__
-    return _end_unary_response_blocking(state, call, False, None)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/grpc/_channel.py", line 990, in _end_unary_response_blocking
-    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "
-        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_message:"Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; ", grpc_status:3}"
