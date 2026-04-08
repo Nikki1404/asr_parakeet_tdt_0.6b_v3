@@ -3,7 +3,7 @@ import librosa
 import numpy as np
 
 SERVER = "192.168.4.62:50051"
-AUDIO_FILE = "/home/re_nikitav/parakeet-asr-multilingual/audio_maria/maria1.mp3"
+AUDIO_FILE = "/home/re_nikitav/audio_maria/maria1.mp3"
 SAMPLE_RATE = 16000
 CHUNK_SEC = 30
 CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_SEC
