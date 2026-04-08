@@ -15,7 +15,7 @@ from riva.client import (
 
 RIVA_URI = "34.118.200.125:50051"
 
-AUDIO_FOLDER = Path("./audio_samples")
+AUDIO_FOLDER = Path(r"C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\audio_samples")
 OUTPUT_FILE = "parakeet_ctc_benchmark.xlsx"
 
 TARGET_SR = 16000
@@ -171,14 +171,27 @@ def main():
 if __name__ == "__main__":
     main()
 
+(venv) PS C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing> python .\quick_test.py
+Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.flac
 Traceback (most recent call last):
   File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 172, in <module>
     main()
     ~~~~^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 139, in main
-    for file in AUDIO_FOLDER.iterdir():
-                ~~~~~~~~~~~~~~~~~~~~^^
-  File "C:\Program Files\Python313\Lib\pathlib\_local.py", line 575, in iterdir
-    with os.scandir(root_dir) as scandir_it:
-         ~~~~~~~~~~^^^^^^^^^^
-FileNotFoundError: [WinError 3] The system cannot find the path specified: 'audio_samples'
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 148, in main
+    result = benchmark_ctc(wav_file)
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 108, in benchmark_ctc
+    for response in responses:
+                    ^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\riva\client\asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 538, in __next__
+    return self._next()
+           ~~~~~~~~~~^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INTERNAL
+        details = "Received RST_STREAM with error code 0"
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:13, grpc_message:"Received RST_STREAM with error code 0"}"
+>
