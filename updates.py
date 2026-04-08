@@ -325,3 +325,39 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# tail -f benchmark_run.log
+nohup: ignoring input
+Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.flac
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 327, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 301, in main
+    ctc = benchmark_ctc_riva(wav_file)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 239, in benchmark_ctc_riva
+    response = asr_service.offline_recognize(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/riva/client/asr.py", line 485, in offline_recognize
+    return func(request, metadata=self.auth.get_auth_metadata())
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/grpc/_channel.py", line 1159, in __call__
+    return _end_unary_response_blocking(state, call, False, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/env/lib/python3.11/site-packages/grpc/_channel.py", line 990, in _end_unary_response_blocking
+    raise _InactiveRpcError(state)  # pytype: disable=not-instantiable
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+grpc._channel._InactiveRpcError: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "
+        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_message:"Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; ", grpc_status:3}"
