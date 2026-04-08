@@ -11,7 +11,7 @@ import wave
 # CONFIG
 # =========================
 INPUT_FOLDER = Path("/home/re_nikitav/audio_maria")
-OUTPUT_FOLDER = Path("/home/re_nikitav/parakeet_0.6_es_results")
+OUTPUT_FOLDER = Path("/home/re_nikitav/parakeet_0.6b_es_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 SERVER = "192.168.4.62:50051"
