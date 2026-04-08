@@ -3,6 +3,7 @@ import time
 import statistics
 import traceback
 import json
+import wave
 from pathlib import Path
 from datetime import datetime
 
@@ -16,11 +17,9 @@ from jiwer import wer
 # =========================
 SAMPLE_RATE = 16000
 
-SEND_CHUNK_SEC = 30
-SEND_CHUNK_SAMPLES = SAMPLE_RATE * SEND_CHUNK_SEC
-SEND_CHUNK_BYTES = SEND_CHUNK_SAMPLES * 2
-
-SEND_DELAY_MS = 50
+# FIXED: 250 ms chunks instead of 30 sec
+CHUNK_MS = 250
+SEND_CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_MS // 1000
 
 INPUT_FOLDER = Path(
     "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
@@ -118,10 +117,7 @@ def transcribe_file(filepath, host, port):
             interim_results=True
         )
 
-        # IMPORTANT:
-        # PCM FRAMES ONLY (NO WAV HEADER)
-        import wave
-
+        # PCM ONLY
         with wave.open(str(filepath), "rb") as wf:
             duration_sec = (
                 wf.getnframes() / SAMPLE_RATE
@@ -152,12 +148,9 @@ def transcribe_file(filepath, host, port):
 
             chunks.append(chunk)
 
-            print(
-                f"{filepath.name} | "
-                f"PREPARED CHUNK {chunk_num}"
-            )
-
         send_end_time = time.time()
+
+        print(f"TOTAL CHUNKS -> {len(chunks)}")
 
         responses = asr_service.streaming_response_generator(
             audio_chunks=chunks,
@@ -168,6 +161,9 @@ def transcribe_file(filepath, host, port):
             now = time.time()
 
             for result in response.results:
+                if not result.alternatives:
+                    continue
+
                 text = (
                     result.alternatives[0]
                     .transcript
@@ -222,101 +218,101 @@ def transcribe_file(filepath, host, port):
                         f"FINAL {response_num}"
                     )
 
+        total_time = time.time() - start_time
+
+        transcript_text = "\n".join(
+            final_transcript_parts
+        )
+
+        latency_values_start = [
+            x["latency_from_send_start_ms"]
+            for x in latencies
+        ]
+
+        latency_values_end = [
+            x["latency_from_send_end_ms"]
+            for x in latencies
+        ]
+
+        result_json = {
+            "audio_file": str(filepath),
+            "audio_duration_sec": duration_sec,
+            "total_processing_time_sec": round(total_time, 4),
+            "timestamp": datetime.now().isoformat(),
+            "model": "parakeet-ctc-0.6b-es",
+            "language": LANGUAGE,
+            "timing_metrics": {
+                "send_duration_sec": round(
+                    send_end_time - send_start_time, 4
+                ),
+                "first_byte_latency_sec": round(
+                    first_response_time / 1000, 4
+                ) if first_response_time else None,
+                "first_response_latency_sec": round(
+                    first_response_time / 1000, 4
+                ) if first_response_time else None,
+                "first_final_latency_sec": round(
+                    first_final_time / 1000, 4
+                ) if first_final_time else None
+            },
+            "latencies": latencies,
+            "summary": {
+                "total_responses": len(latencies),
+                "final_responses": sum(
+                    1 for x in latencies if x["is_final"]
+                ),
+                "avg_latency_from_send_start_ms": round(
+                    statistics.mean(latency_values_start), 4
+                ) if latency_values_start else None,
+                "avg_latency_from_send_end_ms": round(
+                    statistics.mean(latency_values_end), 4
+                ) if latency_values_end else None
+            }
+        }
+
+        save_results(
+            filepath,
+            transcript_text,
+            result_json
+        )
+
+        reference_text = load_reference_text(filepath)
+
+        calculated_wer = None
+
+        if reference_text and transcript_text:
+            calculated_wer = round(
+                wer(
+                    reference_text.lower(),
+                    transcript_text.lower()
+                ) * 100,
+                2
+            )
+
+        return {
+            "file_name": filepath.name,
+            "reference_txt": reference_text,
+            "ttft_ms": (
+                result_json["timing_metrics"]["first_final_latency_sec"] * 1000
+                if result_json["timing_metrics"]["first_final_latency_sec"]
+                else None
+            ),
+            "ttfb_ms": (
+                result_json["timing_metrics"]["first_response_latency_sec"] * 1000
+                if result_json["timing_metrics"]["first_response_latency_sec"]
+                else None
+            ),
+            "avg_latency_ms": result_json["summary"]["avg_latency_from_send_start_ms"],
+            "wer": calculated_wer,
+            "total_time_sec": total_time,
+            "transcription": transcript_text
+        }
+
     except Exception as e:
         print(f"FAILED -> {filepath.name}")
         print(str(e))
         traceback.print_exc()
         return None
-
-    total_time = time.time() - start_time
-
-    transcript_text = "\n".join(
-        final_transcript_parts
-    )
-
-    latency_values_start = [
-        x["latency_from_send_start_ms"]
-        for x in latencies
-    ]
-
-    latency_values_end = [
-        x["latency_from_send_end_ms"]
-        for x in latencies
-    ]
-
-    result_json = {
-        "audio_file": str(filepath),
-        "audio_duration_sec": duration_sec,
-        "total_processing_time_sec": round(total_time, 4),
-        "timestamp": datetime.now().isoformat(),
-        "model": "parakeet-ctc-0.6b-es",
-        "language": LANGUAGE,
-        "timing_metrics": {
-            "send_duration_sec": round(
-                send_end_time - send_start_time, 4
-            ),
-            "first_byte_latency_sec": round(
-                first_response_time / 1000, 4
-            ) if first_response_time else None,
-            "first_response_latency_sec": round(
-                first_response_time / 1000, 4
-            ) if first_response_time else None,
-            "first_final_latency_sec": round(
-                first_final_time / 1000, 4
-            ) if first_final_time else None
-        },
-        "latencies": latencies,
-        "summary": {
-            "total_responses": len(latencies),
-            "final_responses": sum(
-                1 for x in latencies if x["is_final"]
-            ),
-            "avg_latency_from_send_start_ms": round(
-                statistics.mean(latency_values_start), 4
-            ) if latency_values_start else None,
-            "avg_latency_from_send_end_ms": round(
-                statistics.mean(latency_values_end), 4
-            ) if latency_values_end else None
-        }
-    }
-
-    save_results(
-        filepath,
-        transcript_text,
-        result_json
-    )
-
-    reference_text = load_reference_text(filepath)
-
-    calculated_wer = None
-
-    if reference_text and transcript_text:
-        calculated_wer = round(
-            wer(
-                reference_text.lower(),
-                transcript_text.lower()
-            ) * 100,
-            2
-        )
-
-    return {
-        "file_name": filepath.name,
-        "reference_txt": reference_text,
-        "ttft_ms": (
-            result_json["timing_metrics"]["first_final_latency_sec"] * 1000
-            if result_json["timing_metrics"]["first_final_latency_sec"]
-            else None
-        ),
-        "ttfb_ms": (
-            result_json["timing_metrics"]["first_response_latency_sec"] * 1000
-            if result_json["timing_metrics"]["first_response_latency_sec"]
-            else None
-        ),
-        "avg_latency_ms": result_json["summary"]["avg_latency_from_send_start_ms"],
-        "wer": calculated_wer,
-        "total_time_sec": total_time,
-        "transcription": transcript_text
-    }
 
 
 # =========================
