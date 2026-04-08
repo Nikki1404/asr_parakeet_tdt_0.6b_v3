@@ -3,6 +3,7 @@ import json
 import time
 import statistics
 import traceback
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -19,10 +20,9 @@ import riva.client
 # =========================
 SAMPLE_RATE = 16000
 
-# 80 ms chunks — smaller = lower latency over gRPC streaming
 SEND_CHUNK_MS = 80
 SEND_CHUNK_SAMPLES = SAMPLE_RATE * SEND_CHUNK_MS // 1000
-SEND_CHUNK_BYTES = SEND_CHUNK_SAMPLES * 2  # int16 → 2 bytes/sample
+SEND_CHUNK_BYTES = SEND_CHUNK_SAMPLES * 2
 
 INPUT_FOLDER = Path(
     "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
@@ -31,29 +31,46 @@ INPUT_FOLDER = Path(
 OUTPUT_FOLDER = Path("transcription_results_grpc")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
+LOG_FILE = OUTPUT_FOLDER / "run.log"
+
+
+# =========================
+# LOGGER
+# Writes to both stdout AND a log file.
+# buffering=1 means line-buffered — every line is flushed immediately,
+# so nohup captures it in real time without waiting for the process to end.
+# =========================
+class Logger:
+    def __init__(self, log_path):
+        self.file = open(log_path, "a", encoding="utf-8", buffering=1)
+
+    def log(self, msg):
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        line = f"[{ts}] {msg}"
+        print(line, flush=True)   # flush=True keeps stdout live under nohup
+        self.file.write(line + "\n")
+
+    def close(self):
+        self.file.close()
+
+
+logger = Logger(LOG_FILE)
+
 
 # =========================
 # AUDIO LOADER
 # =========================
 def load_wav_as_pcm16(filepath):
-    print(f"Loading audio -> {filepath.name}")
+    logger.log(f"Loading audio -> {filepath.name}")
 
-    audio, sr = librosa.load(
-        str(filepath),
-        sr=SAMPLE_RATE,
-        mono=True
-    )
-
+    audio, sr = librosa.load(str(filepath), sr=SAMPLE_RATE, mono=True)
     duration_sec = len(audio) / SAMPLE_RATE
 
     pcm16 = (
         np.clip(audio, -1.0, 1.0) * 32767
     ).astype(np.int16).tobytes()
 
-    print(
-        f"Loaded {filepath.name} | "
-        f"Duration: {duration_sec:.1f} sec"
-    )
+    logger.log(f"Loaded {filepath.name} | Duration: {duration_sec:.1f} sec")
 
     return pcm16, duration_sec
 
@@ -74,7 +91,7 @@ def save_results(filepath, transcript_text, result_json):
     with open(latency_path, "w", encoding="utf-8") as f:
         json.dump(result_json, f, indent=2)
 
-    print(f"SAVED -> {filepath.name}")
+    logger.log(f"SAVED -> {filepath.name}")
 
 
 # =========================
@@ -82,10 +99,8 @@ def save_results(filepath, transcript_text, result_json):
 # =========================
 def load_reference_text(filepath):
     txt_path = filepath.with_suffix(".txt")
-
     if txt_path.exists():
         return txt_path.read_text(encoding="utf-8").strip()
-
     return ""
 
 
@@ -94,34 +109,21 @@ def load_reference_text(filepath):
 # =========================
 def generate_excel_report(rows):
     excel_path = OUTPUT_FOLDER / "final_report.xlsx"
-
     df = pd.DataFrame(rows)
     df.to_excel(excel_path, index=False, engine="openpyxl")
-
-    print(f"EXCEL SAVED -> {excel_path}")
+    logger.log(f"EXCEL SAVED -> {excel_path}")
 
 
 # =========================
 # CHUNK GENERATOR
-# Yields PCM bytes in small chunks; timestamps first-chunk send time.
 # =========================
 def chunk_generator(pcm, chunk_size, timing):
-    """
-    Generator that yields audio chunks and records timing.
-    timing is a dict mutated in place:
-      - send_start_time
-      - first_chunk_time
-      - send_end_time
-    """
     offset = 0
-    chunk_num = 0
-
     timing["send_start_time"] = time.time()
 
     while offset < len(pcm):
         chunk = pcm[offset: offset + chunk_size]
         offset += chunk_size
-        chunk_num += 1
 
         now = time.time()
         if timing.get("first_chunk_time") is None:
@@ -136,11 +138,10 @@ def chunk_generator(pcm, chunk_size, timing):
 # TRANSCRIBE ONE FILE
 # =========================
 def transcribe_file(filepath, server, language):
-    print(f"\nSTARTING -> {filepath.name}")
+    logger.log(f"STARTING -> {filepath.name}")
 
     pcm, duration_sec = load_wav_as_pcm16(filepath)
 
-    # riva.client setup
     auth = riva.client.Auth(uri=server)
     asr_service = riva.client.ASRService(auth)
 
@@ -164,7 +165,6 @@ def transcribe_file(filepath, server, language):
     first_final_time = None
     response_num = 0
 
-    # timing is mutated by chunk_generator
     timing = {
         "send_start_time": None,
         "first_chunk_time": None,
@@ -196,12 +196,10 @@ def transcribe_file(filepath, server, language):
                     (now - timing["send_start_time"]) * 1000
                     if timing["send_start_time"] else None
                 )
-
                 latency_from_first_chunk = (
                     (now - timing["first_chunk_time"]) * 1000
                     if timing["first_chunk_time"] else None
                 )
-
                 latency_from_send_end = (
                     (now - timing["send_end_time"]) * 1000
                     if timing["send_end_time"] else None
@@ -230,25 +228,22 @@ def transcribe_file(filepath, server, language):
 
                 if is_final and text:
                     final_transcript_parts.append(text)
-                    print(
+                    lat_str = f"{latency_from_send_start:.0f} ms" if latency_from_send_start else "N/A"
+                    logger.log(
                         f"{filepath.name} | FINAL #{response_num} | "
-                        f"{words} words | latency {latency_from_send_start:.0f} ms"
-                        if latency_from_send_start else
-                        f"{filepath.name} | FINAL #{response_num} | {words} words"
+                        f"{words} words | latency {lat_str}"
                     )
                 else:
-                    print(
+                    logger.log(
                         f"{filepath.name} | interim #{response_num} | {text[:60]!r}"
                     )
 
     except Exception as e:
-        print(f"FAILED -> {filepath.name}")
-        print(str(e))
+        logger.log(f"FAILED -> {filepath.name} | {str(e)}")
         traceback.print_exc()
         return None
 
     total_time = time.time() - start_time
-
     transcript_text = "\n".join(final_transcript_parts)
 
     send_start_time = timing["send_start_time"]
@@ -260,7 +255,6 @@ def transcribe_file(filepath, server, language):
         for x in latencies
         if x["latency_from_send_start_ms"] is not None
     ]
-
     latency_values_end = [
         x["latency_from_send_end_ms"]
         for x in latencies
@@ -315,11 +309,17 @@ def transcribe_file(filepath, server, language):
     if reference_text and transcript_text:
         try:
             calculated_wer = round(
-                wer(reference_text.lower(), transcript_text.lower()) * 100,
-                2
+                wer(reference_text.lower(), transcript_text.lower()) * 100, 2
             )
         except Exception:
             pass
+
+    logger.log(
+        f"DONE -> {filepath.name} | "
+        f"total {total_time:.2f}s | "
+        f"words {result_json['summary']['total_words']} | "
+        f"WER {calculated_wer}%"
+    )
 
     return {
         "file_name": filepath.name,
@@ -348,26 +348,24 @@ def run_batch(server, language):
     files = sorted(INPUT_FOLDER.glob("*.wav"))
 
     if not files:
-        print(f"No .wav files found in {INPUT_FOLDER}")
+        logger.log(f"No .wav files found in {INPUT_FOLDER}")
         return
+
+    logger.log(f"Found {len(files)} files | server={server} | lang={language}")
 
     report_rows = []
 
     for idx, file in enumerate(files, start=1):
-        print(f"\n[{idx}/{len(files)}] {file.name}")
+        logger.log(f"[{idx}/{len(files)}] {file.name}")
 
-        row = transcribe_file(
-            filepath=file,
-            server=server,
-            language=language,
-        )
+        row = transcribe_file(filepath=file, server=server, language=language)
 
         if row:
             report_rows.append(row)
 
     generate_excel_report(report_rows)
-
-    print("\nALL FILES COMPLETED")
+    logger.log("ALL FILES COMPLETED")
+    logger.close()
 
 
 # =========================
@@ -392,11 +390,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-
-    run_batch(
-        server=args.server,
-        language=args.language,
-    )
+    logger.log(f"=== RUN START | pid={os.getpid()} ===")
+    run_batch(server=args.server, language=args.language)
 
 
-python transcribe_grpc.py --server 192.168.4.62:50051 --language en-US
+nohup python -u transcribe_grpc.py --server 192.168.4.62:50051 --language en-US > transcription_results_grpc/nohup.out 2>&1 &
