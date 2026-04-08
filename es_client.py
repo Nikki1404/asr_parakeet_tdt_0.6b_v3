@@ -104,3 +104,45 @@ except Exception as e:
     print("ERROR:", e)
 
 print(f"Done in {time.time() - start:.2f} sec")
+
+
+Input #0, mp3, from '/home/re_nikitav/parakeet-asr-multilingual/audio_maria/maria1.mp3':
+  Duration: 00:15:02.24, start: 0.000000, bitrate: 128 kb/s
+  Stream #0:0: Audio: mp3, 44100 Hz, stereo, fltp, 128 kb/s
+Stream mapping:
+  Stream #0:0 -> #0:0 (mp3 (mp3float) -> pcm_s16le (native))
+Press [q] to stop, [?] for help
+Output #0, wav, to '/tmp/maria1_stream.wav':
+  Metadata:
+    ISFT            : Lavf59.27.100
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 16000 Hz, mono, s16, 256 kb/s
+    Metadata:
+      encoder         : Lavc59.37.100 pcm_s16le
+size=     313kB time=00:00:10.00 bitrate= 256.1kbits/s speed=9.56x      
+video:0kB audio:312kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.024375%
+PCM bytes = 320034
+SENDING CHUNK 1 | bytes=16000
+SENDING CHUNK 2 | bytes=16000
+SENDING CHUNK 3 | bytes=16000
+SENDING CHUNK 4 | bytes=16000
+SENDING CHUNK 5 | bytes=16000
+SENDING CHUNK 6 | bytes=16000
+SENDING CHUNK 7 | bytes=16000
+SENDING CHUNK 8 | bytes=16000
+SENDING CHUNK 9 | bytes=16000
+SENDING CHUNK 10 | bytes=16000
+SENDING CHUNK 11 | bytes=16000
+SENDING CHUNK 12 | bytes=16000
+SENDING CHUNK 13 | bytes=16000
+SENDING CHUNK 14 | bytes=16000
+SENDING CHUNK 15 | bytes=16000
+SENDING CHUNK 16 | bytes=16000
+SENDING CHUNK 17 | bytes=16000
+SENDING CHUNK 18 | bytes=16000
+SENDING CHUNK 19 | bytes=16000
+SENDING CHUNK 20 | bytes=16000
+SENDING CHUNK 21 | bytes=34
+
+STOPPING: exceeded 60 sec wall time
+
+Done in 415.83 sec
