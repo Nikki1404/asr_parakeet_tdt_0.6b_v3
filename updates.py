@@ -1,171 +1,433 @@
+import argparse
 import asyncio
 import json
 import time
+import statistics
+import traceback
 from pathlib import Path
+from datetime import datetime
 
-import librosa
 import numpy as np
-import pandas as pd
-import soundfile as sf
+import librosa
 import websockets
+import pandas as pd
 from jiwer import wer
 
-WS_URL = "ws://localhost:8001/ws"
-AUDIO_FOLDER = Path("./audio_samples")
-OUTPUT_FILE = "parakeet_tdt_benchmark.xlsx"
 
-TARGET_SR = 16000
-CHUNK_MS = 80
-AUDIO_EXTENSIONS = {".ogg", ".wav", ".flac", ".mp3", ".m4a"}
+# =========================
+# CONFIG
+# =========================
+SAMPLE_RATE = 16000
+
+SEND_CHUNK_SEC = 30
+SEND_CHUNK_SAMPLES = SAMPLE_RATE * SEND_CHUNK_SEC
+SEND_CHUNK_BYTES = SEND_CHUNK_SAMPLES * 2
+
+SEND_DELAY_MS = 250
+
+INPUT_FOLDER = Path("/home/re_nikitav/parakeet-asr-multilingual/audio_maria")
+OUTPUT_FOLDER = Path("transcription_results")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
+
+# PROCESS ONLY THESE FILES
+TARGET_FILES = {
+    "maria1.wav",
+    "maria2.wav",
+    "maria4.wav",
+    "maria7.wav",
+    "maria10.wav",
+    "maria20.wav",
+    "maria21.wav",
+    "maria24.wav"
+}
+
+EXCEL_ROWS = []
 
 
-def convert_to_wav(filepath):
-    audio, _ = librosa.load(
+# =========================
+# AUDIO LOADER
+# =========================
+def load_audio_as_pcm16(filepath):
+    print(f"Loading audio -> {filepath.name}")
+
+    audio, sr = librosa.load(
         str(filepath),
-        sr=TARGET_SR,
+        sr=SAMPLE_RATE,
         mono=True
     )
 
+    duration_sec = len(audio) / SAMPLE_RATE
+
     pcm16 = (
-        np.clip(audio, -1.0, 1.0) * 32767
-    ).astype(np.int16)
-
-    wav_path = filepath.with_suffix(".wav")
-
-    sf.write(
-        str(wav_path),
-        pcm16,
-        TARGET_SR,
-        subtype="PCM_16"
-    )
-
-    return wav_path
-
-
-def load_reference_text(audio_file):
-    txt_file = AUDIO_FOLDER / f"{audio_file.stem}.txt"
-    return txt_file.read_text(encoding="utf-8").strip()
-
-
-def normalize_text(text):
-    text = text.lower().replace("\n", " ")
-    return " ".join(text.split())
-
-
-def calculate_wer(ref, pred):
-    return round(
-        wer(normalize_text(ref), normalize_text(pred)),
-        4
-    )
-
-
-async def benchmark_tdt(wav_file):
-    audio, _ = sf.read(str(wav_file))
-
-    if audio.ndim == 2:
-        audio = audio.mean(axis=1)
-
-    pcm_bytes = (
         np.clip(audio, -1.0, 1.0) * 32767
     ).astype(np.int16).tobytes()
 
-    chunk_bytes = TARGET_SR * 2 * CHUNK_MS // 1000
+    print(
+        f"Loaded {filepath.name} | "
+        f"Duration: {duration_sec:.1f} sec"
+    )
 
-    transcript_parts = []
-    ttft = None
-    ttfb = None
+    return pcm16, duration_sec
 
-    overall_start = time.time()
 
-    async with websockets.connect(WS_URL) as ws:
-        await ws.send(json.dumps({"sample_rate": TARGET_SR}))
-        send_start = time.time()
+# =========================
+# SAVE RESULTS
+# =========================
+def save_results(filepath, transcript_text, result_json):
+    output_dir = OUTPUT_FOLDER / filepath.stem
+    output_dir.mkdir(exist_ok=True)
 
-        for i in range(0, len(pcm_bytes), chunk_bytes):
-            chunk = pcm_bytes[i:i + chunk_bytes]
-            await ws.send(chunk)
+    transcript_path = output_dir / f"{filepath.stem}_transcript.txt"
+    latency_path = output_dir / f"{filepath.stem}_latency.json"
 
-            try:
-                response = await asyncio.wait_for(
-                    ws.recv(),
-                    timeout=2
+    with open(transcript_path, "w", encoding="utf-8") as f:
+        f.write(transcript_text)
+
+    with open(latency_path, "w", encoding="utf-8") as f:
+        json.dump(result_json, f, indent=2)
+
+    print(f"SAVED -> {filepath.name}")
+
+
+# =========================
+# TRANSCRIBE ONE FILE
+# =========================
+async def transcribe_file(filepath, host, port):
+    uri = f"ws://{host}:{port}/ws"
+
+    print(f"\nSTARTING -> {filepath.name}")
+
+    pcm, duration_sec = load_audio_as_pcm16(filepath)
+
+    final_transcript_parts = []
+    latencies = []
+
+    start_time = time.time()
+
+    first_response_time = None
+    first_final_time = None
+    first_chunk_time = None
+    send_start_time = None
+    send_end_time = None
+
+    response_num = 0
+    last_chunk_sent_time = None
+
+    try:
+        async with websockets.connect(
+            uri,
+            ping_interval=20,
+            ping_timeout=20,
+            max_size=2**24
+        ) as ws:
+
+            async def sender():
+                nonlocal last_chunk_sent_time
+                nonlocal first_chunk_time
+                nonlocal send_start_time
+                nonlocal send_end_time
+
+                send_start_time = time.time()
+
+                offset = 0
+                chunk_num = 0
+
+                while offset < len(pcm):
+                    chunk = pcm[
+                        offset: offset + SEND_CHUNK_BYTES
+                    ]
+                    offset += SEND_CHUNK_BYTES
+                    chunk_num += 1
+
+                    now = time.time()
+
+                    if first_chunk_time is None:
+                        first_chunk_time = now
+
+                    last_chunk_sent_time = now
+
+                    await ws.send(chunk)
+
+                    print(
+                        f"{filepath.name} | "
+                        f"SENT CHUNK {chunk_num}"
+                    )
+
+                    await asyncio.sleep(
+                        SEND_DELAY_MS / 1000
+                    )
+
+                send_end_time = time.time()
+
+                await asyncio.sleep(1.0)
+
+                await ws.send(
+                    json.dumps({"cmd": "flush"})
                 )
 
-                current_time = time.time()
-                data = json.loads(response)
+            async def receiver():
+                nonlocal first_response_time
+                nonlocal first_final_time
+                nonlocal response_num
 
-                text = data.get("text", "").strip()
-                is_final = data.get("is_final", False)
-
-                if text:
-                    transcript_parts.append(text)
-
-                    if ttft is None:
-                        ttft = round(
-                            current_time - send_start,
-                            3
+                while True:
+                    try:
+                        raw = await asyncio.wait_for(
+                            ws.recv(),
+                            timeout=120
                         )
 
-                    if is_final and ttfb is None:
-                        ttfb = round(
-                            current_time - send_start,
-                            3
+                        now = time.time()
+
+                        msg = json.loads(raw)
+
+                        text = msg.get("text", "")
+                        msg_type = msg.get("type", "")
+
+                        is_final = (
+                            msg_type == "transcript"
                         )
 
-            except:
-                pass
+                        response_num += 1
 
-        await ws.send(json.dumps({"eof": True}))
+                        elapsed_ms = (
+                            now - start_time
+                        ) * 1000
 
-    total_time = round(
-        time.time() - overall_start,
-        3
+                        latency_from_send_start = (
+                            now - send_start_time
+                        ) * 1000 if send_start_time else None
+
+                        latency_from_first_chunk = (
+                            now - first_chunk_time
+                        ) * 1000 if first_chunk_time else None
+
+                        latency_from_send_end = (
+                            now - send_end_time
+                        ) * 1000 if send_end_time else None
+
+                        if first_response_time is None:
+                            first_response_time = elapsed_ms
+
+                        if is_final and first_final_time is None:
+                            first_final_time = elapsed_ms
+
+                        words = len(text.split()) if text else 0
+                        chars = len(text)
+
+                        latencies.append({
+                            "response_num": response_num,
+                            "latency_from_start_ms": round(elapsed_ms, 4),
+                            "latency_from_send_start_ms": round(latency_from_send_start, 4) if latency_from_send_start else None,
+                            "latency_from_first_chunk_ms": round(latency_from_first_chunk, 4) if latency_from_first_chunk else None,
+                            "latency_from_send_end_ms": round(latency_from_send_end, 4) if latency_from_send_end else None,
+                            "is_final": is_final,
+                            "words": words,
+                            "char_count": chars
+                        })
+
+                        if text and is_final:
+                            final_transcript_parts.append(text)
+
+                            print(
+                                f"{filepath.name} | "
+                                f"FINAL {response_num}"
+                            )
+
+                    except asyncio.TimeoutError:
+                        print(
+                            f"{filepath.name} | timeout"
+                        )
+                        break
+
+                    except websockets.exceptions.ConnectionClosed:
+                        print(
+                            f"{filepath.name} | closed"
+                        )
+                        break
+
+            await asyncio.gather(
+                sender(),
+                receiver()
+            )
+
+    except Exception as e:
+        print(f"FAILED -> {filepath.name}")
+        print(str(e))
+        traceback.print_exc()
+        return
+
+    total_time = time.time() - start_time
+
+    transcript_text = "\n".join(
+        final_transcript_parts
     )
 
-    transcript = " ".join(transcript_parts)
+    # =========================
+    # REFERENCE TXT + WER
+    # =========================
+    ref_path = filepath.with_suffix(".txt")
 
-    return {
-        "ttft": ttft or total_time,
-        "ttfb": ttfb or total_time,
-        "total_time": total_time,
-        "transcript": transcript
+    if ref_path.exists():
+        reference_text = ref_path.read_text(
+            encoding="utf-8"
+        ).strip()
+    else:
+        reference_text = ""
+
+    try:
+        wer_score = (
+            wer(reference_text, transcript_text)
+            if reference_text else None
+        )
+    except Exception:
+        wer_score = None
+
+    latency_values_start = [
+        x["latency_from_send_start_ms"]
+        for x in latencies
+        if x["latency_from_send_start_ms"] is not None
+    ]
+
+    latency_values_end = [
+        x["latency_from_send_end_ms"]
+        for x in latencies
+        if x["latency_from_send_end_ms"] is not None
+    ]
+
+    result_json = {
+        "audio_file": str(filepath),
+        "audio_duration_sec": duration_sec,
+        "total_processing_time_sec": round(total_time, 4),
+        "timestamp": datetime.now().isoformat(),
+        "model": "parakeet-tdt-0.6b-v3",
+        "language": "multi",
+        "timing_metrics": {
+            "connection_time_sec": 0.0,
+            "send_duration_sec": round(
+                send_end_time - send_start_time, 4
+            ) if send_end_time else None,
+            "first_byte_latency_sec": round(
+                first_response_time / 1000, 4
+            ) if first_response_time else None,
+            "first_response_latency_sec": round(
+                first_response_time / 1000, 4
+            ) if first_response_time else None,
+            "first_final_latency_sec": round(
+                first_final_time / 1000, 4
+            ) if first_final_time else None,
+            "time_to_first_chunk_sec": round(
+                first_chunk_time - start_time, 4
+            ) if first_chunk_time else None
+        },
+        "latencies": latencies,
+        "summary": {
+            "total_responses": len(latencies),
+            "final_responses": sum(
+                1 for x in latencies if x["is_final"]
+            ),
+            "interim_responses": sum(
+                1 for x in latencies if not x["is_final"]
+            ),
+            "total_words": sum(
+                x["words"] for x in latencies
+            ),
+            "total_characters": sum(
+                x["char_count"] for x in latencies
+            ),
+            "avg_latency_from_send_start_ms": round(
+                statistics.mean(latency_values_start), 4
+            ) if latency_values_start else None,
+            "avg_latency_from_send_end_ms": round(
+                statistics.mean(latency_values_end), 4
+            ) if latency_values_end else None,
+            "wer": round(wer_score, 4) if wer_score is not None else None
+        }
     }
 
-
-async def main():
-    rows = []
-
-    for file in AUDIO_FOLDER.iterdir():
-        if file.suffix.lower() not in AUDIO_EXTENSIONS:
-            continue
-
-        print(f"Processing -> {file.name}")
-
-        ref_text = load_reference_text(file)
-        wav_file = convert_to_wav(file)
-
-        result = await benchmark_tdt(wav_file)
-
-        rows.append({
-            "file_name": file.name,
-            "ref_txt": ref_text,
-            "ttft": result["ttft"],
-            "ttfb": result["ttfb"],
-            "total_time": result["total_time"],
-            "wer": calculate_wer(
-                ref_text,
-                result["transcript"]
-            ),
-            "transcript": result["transcript"]
-        })
-
-    pd.DataFrame(rows).to_excel(
-        OUTPUT_FILE,
-        index=False
+    save_results(
+        filepath,
+        transcript_text,
+        result_json
     )
 
-    print(f"Saved -> {OUTPUT_FILE}")
+    # =========================
+    # EXCEL ROW
+    # =========================
+    EXCEL_ROWS.append({
+        "file_name": filepath.name,
+        "reference_txt": reference_text,
+        "ttft_ms": round(first_final_time, 2) if first_final_time else None,
+        "ttfb_ms": round(first_response_time, 2) if first_response_time else None,
+        "avg_latency_ms": round(statistics.mean(latency_values_start), 2) if latency_values_start else None,
+        "wer": round(wer_score, 4) if wer_score is not None else None,
+        "total_time_sec": round(total_time, 2),
+        "transcription": transcript_text
+    })
+
+    print(
+        f"COMPLETED -> {filepath.name} | "
+        f"TOTAL {total_time:.1f} sec"
+    )
 
 
+# =========================
+# BATCH RUNNER
+# =========================
+async def run_batch(host, port):
+    files = sorted([
+        f for f in INPUT_FOLDER.iterdir()
+        if f.suffix.lower() in {".wav", ".mp3"}
+        and f.name in TARGET_FILES
+    ])
+
+    total_files = len(files)
+
+    print("=" * 80)
+    print(f"TOTAL FILES = {total_files}")
+    print("=" * 80)
+
+    for idx, file in enumerate(files, start=1):
+        print(f"\n[{idx}/{total_files}] {file.name}")
+
+        await transcribe_file(
+            filepath=file,
+            host=host,
+            port=port
+        )
+
+    # =========================
+    # SAVE EXCEL
+    # =========================
+    df = pd.DataFrame(EXCEL_ROWS)
+    excel_path = OUTPUT_FOLDER / "summary.xlsx"
+    df.to_excel(excel_path, index=False)
+
+    print(f"\nEXCEL SAVED -> {excel_path}")
+    print("\nALL FILES COMPLETED")
+
+
+# =========================
+# CLI
+# =========================
+def parse_args():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--host", required=True)
+    parser.add_argument("--port", type=int, default=8001)
+
+    return parser.parse_args()
+
+
+# =========================
+# MAIN
+# =========================
 if __name__ == "__main__":
-    asyncio.run(main())
+    args = parse_args()
+
+    asyncio.run(
+        run_batch(
+            args.host,
+            args.port
+        )
+    )
