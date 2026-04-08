@@ -76,3 +76,74 @@ for response in responses:
         if result.alternatives:
             print("TEXT:", result.alternatives[0].transcript)
             print("FINAL:", result.is_final)
+
+
+
+getting this 
+video:0kB audio:28195kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000270%
+Reading wav...
+PCM bytes = 28871818
+Starting gRPC stream...
+SENDING CHUNK 1
+SENDING CHUNK 2
+SENDING CHUNK 3
+SENDING CHUNK 4
+SENDING CHUNK 5
+SENDING CHUNK 6
+SENDING CHUNK 7
+SENDING CHUNK 8
+SENDING CHUNK 9
+SENDING CHUNK 10
+SENDING CHUNK 11
+SENDING CHUNK 12
+SENDING CHUNK 13
+SENDING CHUNK 14
+SENDING CHUNK 15
+SENDING CHUNK 16
+SENDING CHUNK 17
+SENDING CHUNK 18
+SENDING CHUNK 19
+SENDING CHUNK 20
+SENDING CHUNK 21
+SENDING CHUNK 22
+SENDING CHUNK 23
+SENDING CHUNK 24
+SENDING CHUNK 25
+SENDING CHUNK 26
+SENDING CHUNK 27
+SENDING CHUNK 28
+SENDING CHUNK 29
+SENDING CHUNK 30
+SENDING CHUNK 31
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
+RAW RESPONSE RECEIVED
+No results in response
