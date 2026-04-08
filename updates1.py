@@ -397,3 +397,6 @@ if __name__ == "__main__":
         server=args.server,
         language=args.language,
     )
+
+
+python transcribe_grpc.py --server 192.168.4.62:50051 --language en-US
