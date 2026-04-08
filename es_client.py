@@ -1,40 +1,49 @@
+import subprocess
+import wave
 import riva.client
-import librosa
-import numpy as np
 
 SERVER = "192.168.4.62:50051"
-AUDIO_FILE = "/home/re_nikitav/audio_maria/maria1.mp3"
+INPUT_MP3 = "/home/re_nikitav/audio_maria/maria1.mp3"
+TEMP_WAV = "/tmp/maria1_test.wav"
 SAMPLE_RATE = 16000
 CHUNK_SEC = 30
 CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_SEC
 
-print("Loading audio...")
+print("Converting mp3 -> wav...")
 
-audio, sr = librosa.load(
-    AUDIO_FILE,
-    sr=SAMPLE_RATE,
-    mono=True
+subprocess.run(
+    [
+        "ffmpeg",
+        "-y",
+        "-i",
+        INPUT_MP3,
+        "-ar", "16000",
+        "-ac", "1",
+        "-sample_fmt", "s16",
+        TEMP_WAV
+    ],
+    check=True
 )
 
-pcm = (
-    np.clip(audio, -1.0, 1.0) * 32767
-).astype(np.int16).tobytes()
+print("Reading wav...")
 
-print(f"Loaded | bytes={len(pcm)}")
+with open(TEMP_WAV, "rb") as f:
+    wav_bytes = f.read()
 
+# skip WAV header
+pcm = wav_bytes[44:]
+
+print(f"PCM bytes = {len(pcm)}")
 
 def audio_stream():
     offset = 0
     chunk_num = 0
-
     while offset < len(pcm):
         chunk = pcm[offset: offset + CHUNK_BYTES]
         offset += CHUNK_BYTES
         chunk_num += 1
-
         print(f"SENDING CHUNK {chunk_num}")
         yield chunk
-
 
 auth = riva.client.Auth(uri=SERVER)
 asr_service = riva.client.ASRService(auth)
@@ -50,7 +59,7 @@ config = riva.client.StreamingRecognitionConfig(
     interim_results=False
 )
 
-print("STARTING STREAM")
+print("Starting gRPC stream...")
 
 responses = asr_service.streaming_response_generator(
     audio_chunks=audio_stream(),
@@ -59,13 +68,11 @@ responses = asr_service.streaming_response_generator(
 
 for response in responses:
     print("RAW RESPONSE RECEIVED")
-
     if not response.results:
-        print("NO RESULTS")
+        print("No results in response")
         continue
 
     for result in response.results:
         if result.alternatives:
-            text = result.alternatives[0].transcript
-            print(f"TRANSCRIPT -> {text}")
-            print(f"FINAL -> {result.is_final}")
+            print("TEXT:", result.alternatives[0].transcript)
+            print("FINAL:", result.is_final)
