@@ -312,3 +312,28 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+
+gettign this 
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# tail -f benchmark_run.log
+nohup: ignoring input
+Processing -> Monologue.ogg
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 314, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 273, in main
+    ctc = benchmark_ctc_riva(wav_file)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 224, in benchmark_ctc_riva
+    response = asr_service.offline_recognize(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: ASRService.offline_recognize() got an unexpected keyword argument 'audio_file'
