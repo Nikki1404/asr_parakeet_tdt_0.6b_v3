@@ -29,7 +29,7 @@ INPUT_FOLDER = Path(
     "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
 )
 
-OUTPUT_FOLDER = Path("transcription_results_new")
+OUTPUT_FOLDER = Path("transcription_results_ws")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 
@@ -135,8 +135,8 @@ async def transcribe_file(filepath, host, port):
     try:
         async with websockets.connect(
             uri,
-            ping_interval=20,
-            ping_timeout=20,
+            ping_interval=60,
+            ping_timeout=120,
             max_size=2**24
         ) as ws:
 
@@ -177,9 +177,12 @@ async def transcribe_file(filepath, host, port):
 
                 await asyncio.sleep(1.0)
 
-                await ws.send(
-                    json.dumps({"cmd": "flush"})
-                )
+                try:
+                    await ws.send(
+                        json.dumps({"cmd": "flush"})
+                    )
+                except:
+                    pass
 
             async def receiver():
                 nonlocal first_response_time
@@ -253,6 +256,9 @@ async def transcribe_file(filepath, host, port):
                                 f"FINAL {response_num}"
                             )
 
+                            # IMPORTANT FIX
+                            break
+
                     except asyncio.TimeoutError:
                         print(
                             f"{filepath.name} | timeout"
@@ -261,14 +267,21 @@ async def transcribe_file(filepath, host, port):
 
                     except websockets.exceptions.ConnectionClosed:
                         print(
-                            f"{filepath.name} | closed"
+                            f"{filepath.name} | "
+                            f"closed safely"
                         )
                         break
 
-            await asyncio.gather(
-                sender(),
-                receiver()
-            )
+            try:
+                await asyncio.gather(
+                    sender(),
+                    receiver()
+                )
+            except websockets.exceptions.ConnectionClosed:
+                print(
+                    f"{filepath.name} | "
+                    f"connection closed safely"
+                )
 
     except Exception as e:
         print(f"FAILED -> {filepath.name}")
@@ -362,8 +375,8 @@ async def transcribe_file(filepath, host, port):
                 ) * 100,
                 2
             )
-        except Exception:
-            calculated_wer = None
+        except:
+            pass
 
     return {
         "file_name": filepath.name,
@@ -391,16 +404,10 @@ async def transcribe_file(filepath, host, port):
 async def run_batch(host, port):
     files = sorted(INPUT_FOLDER.glob("*.wav"))
 
-    total_files = len(files)
-
-    print("=" * 80)
-    print(f"TOTAL FILES = {total_files}")
-    print("=" * 80)
-
     report_rows = []
 
     for idx, file in enumerate(files, start=1):
-        print(f"\n[{idx}/{total_files}] {file.name}")
+        print(f"\n[{idx}/{len(files)}] {file.name}")
 
         row = await transcribe_file(
             filepath=file,
@@ -428,9 +435,6 @@ def parse_args():
     return parser.parse_args()
 
 
-# =========================
-# MAIN
-# =========================
 if __name__ == "__main__":
     args = parse_args()
 
@@ -440,19 +444,3 @@ if __name__ == "__main__":
             args.port
         )
     )
-
-
-[2/6] 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
-
-STARTING -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
-Loading audio -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
-Loaded 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | Duration: 14.0 sec
-0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | SENT CHUNK 1
-0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | FINAL 1
- with self.send_context():
-  File "/usr/lib/python3.11/contextlib.py", line 204, in __aenter__
-    return await anext(self.gen)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 957, in send_context
-    raise self.protocol.close_exc from original_exc
-websockets.exceptions.ConnectionClosedError: received 1011 (internal error) keepalive ping timeout; then sent 1011 (internal error) keepalive ping timeout
