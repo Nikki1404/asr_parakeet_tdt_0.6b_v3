@@ -29,7 +29,7 @@ INPUT_FOLDER = Path(
     "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
 )
 
-OUTPUT_FOLDER = Path("transcription_results_ws")
+OUTPUT_FOLDER = Path("transcription_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 
@@ -135,8 +135,8 @@ async def transcribe_file(filepath, host, port):
     try:
         async with websockets.connect(
             uri,
-            ping_interval=60,
-            ping_timeout=120,
+            ping_interval=20,
+            ping_timeout=20,
             max_size=2**24
         ) as ws:
 
@@ -177,12 +177,9 @@ async def transcribe_file(filepath, host, port):
 
                 await asyncio.sleep(1.0)
 
-                try:
-                    await ws.send(
-                        json.dumps({"cmd": "flush"})
-                    )
-                except:
-                    pass
+                await ws.send(
+                    json.dumps({"cmd": "flush"})
+                )
 
             async def receiver():
                 nonlocal first_response_time
@@ -256,9 +253,6 @@ async def transcribe_file(filepath, host, port):
                                 f"FINAL {response_num}"
                             )
 
-                            # IMPORTANT FIX
-                            break
-
                     except asyncio.TimeoutError:
                         print(
                             f"{filepath.name} | timeout"
@@ -267,21 +261,14 @@ async def transcribe_file(filepath, host, port):
 
                     except websockets.exceptions.ConnectionClosed:
                         print(
-                            f"{filepath.name} | "
-                            f"closed safely"
+                            f"{filepath.name} | closed"
                         )
                         break
 
-            try:
-                await asyncio.gather(
-                    sender(),
-                    receiver()
-                )
-            except websockets.exceptions.ConnectionClosed:
-                print(
-                    f"{filepath.name} | "
-                    f"connection closed safely"
-                )
+            await asyncio.gather(
+                sender(),
+                receiver()
+            )
 
     except Exception as e:
         print(f"FAILED -> {filepath.name}")
@@ -375,8 +362,8 @@ async def transcribe_file(filepath, host, port):
                 ) * 100,
                 2
             )
-        except:
-            pass
+        except Exception:
+            calculated_wer = None
 
     return {
         "file_name": filepath.name,
@@ -404,10 +391,16 @@ async def transcribe_file(filepath, host, port):
 async def run_batch(host, port):
     files = sorted(INPUT_FOLDER.glob("*.wav"))
 
+    total_files = len(files)
+
+    print("=" * 80)
+    print(f"TOTAL FILES = {total_files}")
+    print("=" * 80)
+
     report_rows = []
 
     for idx, file in enumerate(files, start=1):
-        print(f"\n[{idx}/{len(files)}] {file.name}")
+        print(f"\n[{idx}/{total_files}] {file.name}")
 
         row = await transcribe_file(
             filepath=file,
@@ -435,6 +428,9 @@ def parse_args():
     return parser.parse_args()
 
 
+# =========================
+# MAIN
+# =========================
 if __name__ == "__main__":
     args = parse_args()
 
