@@ -123,3 +123,67 @@ for response in responses:
         print("-" * 80)
 
 print("COMPLETED")
+
+
+(env) root@cx-asr-test:/home/re_nikitav/parakeet-asr-multilingual# tail -f benchmark_run.log
+nohup: ignoring input
+Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.flac
+Trying Riva offline with language_code=es-US
+Offline failed for language_code=es-US: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "
+        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "}"
+>
+Trying Riva offline with language_code=es-ES
+Offline failed for language_code=es-ES: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "
+        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_message:"Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; ", grpc_status:3}"
+>
+Trying Riva offline with language_code=es
+Offline failed for language_code=es: <_InactiveRpcError of RPC that terminated with:
+        status = StatusCode.INVALID_ARGUMENT
+        details = "Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "
+        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_message:"Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; ", grpc_status:3}"
+>
+Trying Riva streaming with language_code=es-US
+Streaming failed for language_code=es-US: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.UNKNOWN
+        details = "Exception iterating requests!"
+        debug_error_string = "None"
+>
+Trying Riva streaming with language_code=es-ES
+Streaming failed for language_code=es-ES: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.UNKNOWN
+        details = "Exception iterating requests!"
+        debug_error_string = "None"
+>
+Trying Riva streaming with language_code=es
+Streaming failed for language_code=es: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.UNKNOWN
+        details = "Exception iterating requests!"
+        debug_error_string = "None"
+>
+Traceback (most recent call last):
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 419, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 393, in main
+    ctc = benchmark_ctc_riva(wav_file)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet-asr-multilingual/transcribe_benchmark_client.py", line 353, in benchmark_ctc_riva
+    raise RuntimeError(f"Riva ASR failed for all modes/language codes. Last error: {last_error}")
+RuntimeError: Riva ASR failed for all modes/language codes. Last error: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.UNKNOWN
+        details = "Exception iterating requests!"
+        debug_error_string = "None"
+>
+
