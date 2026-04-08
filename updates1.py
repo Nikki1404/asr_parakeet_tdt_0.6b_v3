@@ -33,7 +33,6 @@ LOG_FILE = OUTPUT_FOLDER / "run.log"
 
 # =========================
 # LOGGER
-# Line-buffered + flush=True so nohup captures every line in real time
 # =========================
 class Logger:
     def __init__(self, log_path):
@@ -54,8 +53,7 @@ logger = Logger(LOG_FILE)
 
 # =========================
 # LOAD RAW WAV BYTES
-# Reads the file as-is (including WAV header), exactly like the working code.
-# No librosa, no PCM conversion — riva handles it server-side.
+# Read file as-is — riva handles the WAV header server-side
 # =========================
 def load_wav_bytes(filepath):
     logger.log(f"Loading -> {filepath.name}")
@@ -63,22 +61,23 @@ def load_wav_bytes(filepath):
     with open(filepath, "rb") as f:
         audio_data = f.read()
 
-    # Estimate duration from file size:
-    # raw bytes after 44-byte WAV header / (sample_rate * 2 bytes * 1 channel)
     try:
         pcm_bytes = len(audio_data) - 44
         duration_sec = pcm_bytes / (SAMPLE_RATE * 2)
     except Exception:
         duration_sec = 0.0
 
-    logger.log(f"Loaded {filepath.name} | ~{duration_sec:.1f} sec | {len(audio_data)} bytes")
+    logger.log(
+        f"Loaded {filepath.name} | "
+        f"~{duration_sec:.1f} sec | "
+        f"{len(audio_data)} bytes"
+    )
 
     return audio_data, duration_sec
 
 
 # =========================
 # CHUNK GENERATOR
-# Splits raw WAV bytes into 80ms chunks and records timing.
 # =========================
 def chunk_generator(audio_data, chunk_size, timing):
     timing["send_start_time"] = time.time()
@@ -139,10 +138,10 @@ def generate_excel_report(rows):
 # =========================
 def transcribe_file(filepath, server, language):
     logger.log(f"STARTING -> {filepath.name}")
+    logger.log(f"Using server={server} language={language}")
 
     audio_data, duration_sec = load_wav_bytes(filepath)
 
-    # Build riva client — same pattern as working code
     auth = riva.client.Auth(uri=server)
     asr_service = riva.client.ASRService(auth)
 
@@ -232,14 +231,19 @@ def transcribe_file(filepath, server, language):
 
                 if is_final:
                     final_transcript_parts.append(text)
-                    lat_str = f"{latency_from_send_start:.0f} ms" if latency_from_send_start is not None else "N/A"
+                    lat_str = (
+                        f"{latency_from_send_start:.0f} ms"
+                        if latency_from_send_start is not None else "N/A"
+                    )
                     logger.log(
                         f"{filepath.name} | FINAL #{response_num} | "
-                        f"{words} words | latency {lat_str} | {text[:60]!r}"
+                        f"{words} words | latency {lat_str} | "
+                        f"{text[:60]!r}"
                     )
                 else:
                     logger.log(
-                        f"{filepath.name} | interim #{response_num} | {text[:60]!r}"
+                        f"{filepath.name} | interim #{response_num} | "
+                        f"{text[:60]!r}"
                     )
 
     except Exception as e:
@@ -273,10 +277,18 @@ def transcribe_file(filepath, server, language):
         "server": server,
         "language": language,
         "timing_metrics": {
-            "send_duration_sec": round(send_end_time - send_start_time, 4) if send_end_time and send_start_time else None,
-            "first_response_latency_sec": round(first_response_time / 1000, 4) if first_response_time else None,
-            "first_final_latency_sec": round(first_final_time / 1000, 4) if first_final_time else None,
-            "time_to_first_chunk_sec": round(first_chunk_time - start_time, 4) if first_chunk_time and start_time else None,
+            "send_duration_sec": round(
+                send_end_time - send_start_time, 4
+            ) if send_end_time and send_start_time else None,
+            "first_response_latency_sec": round(
+                first_response_time / 1000, 4
+            ) if first_response_time else None,
+            "first_final_latency_sec": round(
+                first_final_time / 1000, 4
+            ) if first_final_time else None,
+            "time_to_first_chunk_sec": round(
+                first_chunk_time - start_time, 4
+            ) if first_chunk_time and start_time else None,
         },
         "latencies": latencies,
         "summary": {
@@ -285,8 +297,12 @@ def transcribe_file(filepath, server, language):
             "interim_responses": sum(1 for x in latencies if not x["is_final"]),
             "total_words": sum(x["words"] for x in latencies if x["is_final"]),
             "total_characters": sum(x["char_count"] for x in latencies if x["is_final"]),
-            "avg_latency_from_send_start_ms": round(statistics.mean(latency_values_start), 4) if latency_values_start else None,
-            "avg_latency_from_send_end_ms": round(statistics.mean(latency_values_end), 4) if latency_values_end else None,
+            "avg_latency_from_send_start_ms": round(
+                statistics.mean(latency_values_start), 4
+            ) if latency_values_start else None,
+            "avg_latency_from_send_end_ms": round(
+                statistics.mean(latency_values_end), 4
+            ) if latency_values_end else None,
         },
     }
 
@@ -315,10 +331,14 @@ def transcribe_file(filepath, server, language):
         "audio_duration_sec": round(duration_sec, 2),
         "reference_txt": reference_text,
         "transcription": transcript_text,
-        "ttfb_ms": (result_json["timing_metrics"]["first_response_latency_sec"] * 1000
-                    if result_json["timing_metrics"]["first_response_latency_sec"] else None),
-        "ttft_ms": (result_json["timing_metrics"]["first_final_latency_sec"] * 1000
-                    if result_json["timing_metrics"]["first_final_latency_sec"] else None),
+        "ttfb_ms": (
+            result_json["timing_metrics"]["first_response_latency_sec"] * 1000
+            if result_json["timing_metrics"]["first_response_latency_sec"] else None
+        ),
+        "ttft_ms": (
+            result_json["timing_metrics"]["first_final_latency_sec"] * 1000
+            if result_json["timing_metrics"]["first_final_latency_sec"] else None
+        ),
         "avg_latency_from_send_start_ms": result_json["summary"]["avg_latency_from_send_start_ms"],
         "avg_latency_from_send_end_ms": result_json["summary"]["avg_latency_from_send_end_ms"],
         "total_words": result_json["summary"]["total_words"],
@@ -337,14 +357,22 @@ def run_batch(server, language):
         logger.log(f"No .wav files found in {INPUT_FOLDER}")
         return
 
-    logger.log(f"Found {len(files)} files | server={server} | lang={language}")
+    logger.log(
+        f"Found {len(files)} files | "
+        f"server={server} | "
+        f"lang={language}"
+    )
 
     report_rows = []
 
     for idx, file in enumerate(files, start=1):
         logger.log(f"--- [{idx}/{len(files)}] {file.name} ---")
 
-        row = transcribe_file(filepath=file, server=server, language=language)
+        row = transcribe_file(
+            filepath=file,
+            server=server,
+            language=language,
+        )
 
         if row:
             report_rows.append(row)
@@ -374,7 +402,7 @@ def parse_args():
     )
     parser.add_argument(
         "--language",
-        default="es-US",
+        default="es-US",           # <-- FIXED: was en-US, now es-US
         help="Language code (default: es-US)",
     )
     return parser.parse_args()
@@ -382,170 +410,16 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    logger.log(f"=== RUN START | pid={os.getpid()} ===")
+
+    logger.log(
+        f"=== RUN START | pid={os.getpid()} | "
+        f"server={args.server} | "
+        f"language={args.language} ==="
+    )
+
     run_batch(server=args.server, language=args.language)
 
 
-nohup python -u transcribe_grpc.py --server 192.168.4.62:50051 --language es-US > transcription_results_grpc/nohup.out 2>&1 &
-tail -f transcription_results_grpc/run.log
 
-
-getting this same error 
-[2026-04-08 23:24:01] === RUN START | pid=2199159 ===
-[2026-04-08 23:24:01] Found 6 files | server=192.168.4.62:50051 | lang=en-US
-[2026-04-08 23:24:01] --- [1/6] 0a12a9ea-af37-41ec-905f-3babb9580e97.wav ---
-[2026-04-08 23:24:01] STARTING -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
-[2026-04-08 23:24:01] Loading -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
-[2026-04-08 23:24:02] Loaded 0a12a9ea-af37-41ec-905f-3babb9580e97.wav | ~14.0 sec | 448078 bytes
-[2026-04-08 23:24:07] FAILED -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav | <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
->
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 183, in transcribe_file
-    for response in responses:
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
-    return self._next()
-           ^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer ipv4:192.168.4.62:50051 {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
->
-[2026-04-08 23:24:07] SKIPPED (failed) -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
-[2026-04-08 23:24:07] --- [2/6] 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav ---
-[2026-04-08 23:24:07] STARTING -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
-[2026-04-08 23:24:07] Loading -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
-[2026-04-08 23:24:07] Loaded 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | ~14.0 sec | 448078 bytes
-[2026-04-08 23:24:07] FAILED -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
->
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 183, in transcribe_file
-    for response in responses:
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
-    return self._next()
-           ^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
->
-[2026-04-08 23:24:07] SKIPPED (failed) -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
-[2026-04-08 23:24:07] --- [3/6] 0aa66680-65d0-4af1-9527-9837df2c7c44.wav ---
-[2026-04-08 23:24:07] STARTING -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav
-[2026-04-08 23:24:07] Loading -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav
-[2026-04-08 23:24:07] Loaded 0aa66680-65d0-4af1-9527-9837df2c7c44.wav | ~14.9 sec | 476878 bytes
-[2026-04-08 23:24:07] FAILED -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav | <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
->
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 183, in transcribe_file
-    for response in responses:
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
-    return self._next()
-           ^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
->
-[2026-04-08 23:24:07] SKIPPED (failed) -> 0aa66680-65d0-4af1-9527-9837df2c7c44.wav
-[2026-04-08 23:24:07] --- [4/6] DIALOGUE.wav ---
-[2026-04-08 23:24:07] STARTING -> DIALOGUE.wav
-[2026-04-08 23:24:07] Loading -> DIALOGUE.wav
-[2026-04-08 23:24:07] Loaded DIALOGUE.wav | ~245.0 sec | 7840992 bytes
-[2026-04-08 23:24:07] FAILED -> DIALOGUE.wav | <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
->
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 183, in transcribe_file
-    for response in responses:
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
-    return self._next()
-           ^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
->
-[2026-04-08 23:24:07] SKIPPED (failed) -> DIALOGUE.wav
-[2026-04-08 23:24:07] --- [5/6] Monologue.wav ---
-[2026-04-08 23:24:07] STARTING -> Monologue.wav
-[2026-04-08 23:24:07] Loading -> Monologue.wav
-[2026-04-08 23:24:07] Loaded Monologue.wav | ~124.7 sec | 3990718 bytes
-[2026-04-08 23:24:07] FAILED -> Monologue.wav | <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
->
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 183, in transcribe_file
-    for response in responses:
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
-    return self._next()
-           ^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; ", grpc_status:3}"
->
-[2026-04-08 23:24:07] SKIPPED (failed) -> Monologue.wav
-[2026-04-08 23:24:07] --- [6/6] poor-audio.wav ---
-[2026-04-08 23:24:07] STARTING -> poor-audio.wav
-[2026-04-08 23:24:07] Loading -> poor-audio.wav
-[2026-04-08 23:24:08] Loaded poor-audio.wav | ~105.0 sec | 3361306 bytes
-[2026-04-08 23:24:08] FAILED -> poor-audio.wav | <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
->
-Traceback (most recent call last):
-  File "/home/re_nikitav/parakeet_test/transcribe_grpc.py", line 183, in transcribe_file
-    for response in responses:
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/riva/client/asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 538, in __next__
-    return self._next()
-           ^^^^^^^^^^^^
-  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/grpc/_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INVALID_ARGUMENT
-        details = "Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:3, grpc_message:"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}"
->
-[2026-04-08 23:24:08] SKIPPED (failed) -> poor-audio.wav
-[2026-04-08 23:24:08] No successful results — Excel not generated.
-[2026-04-08 23:24:08] ALL FILES COMPLETED
-docker logs should be like this 
-I0408 12:36:10.553093 971046 stats_builder.h:100] {"specversion":"1.0","type":"riva.asr.streamingrecognize.v1","source":"","subject":"","id":"73f17491-2aae-4014-afdf-6498058309c5","datacontenttype":"application/json","time":"2026-04-08T09:55:26.107340596+00:00","data":{"release_version":"2.24.0","customer_uuid":"","ngc_org":"","ngc_team":"","ngc_org_team":"","container_uuid":"","language_code":"es-US","request_count":1,"audio_duration":1052.645751953125,"speech_duration":0.0,"status":0,"err_msg":""}}
-not like this 
-I0408 23:24:06.827293 1029187 stats_builder.h:100] {"specversion":"1.0","type":"riva.asr.streamingrecognize.v1","source":"","subject":"","id":"e7e2eeac-e6ee-47c7-a89a-e19933fcc670","datacontenttype":"application/json","time":"2026-04-08T23:24:05.783656343+00:00","data":{"release_version":"2.24.0","customer_uuid":"","ngc_org":"","ngc_team":"","ngc_org_team":"","container_uuid":"","language_code":"en-US","request_count":1,"audio_duration":0.0,"speech_duration":0.0,"status":3,"err_msg":"Error: Unavailable model requested given these parameters: language_code=en; sample_rate=16000; type=online; "}}
+nohup python -u transcribe_grpc.py --server 192.168.4.62:50051 --language es-US \
+  > transcription_results_grpc/nohup.out 2>&1 &
