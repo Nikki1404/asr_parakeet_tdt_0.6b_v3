@@ -16,7 +16,7 @@ OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 SERVER = "192.168.4.62:50051"
 LANGUAGE = "es-US"
-MODEL_NAME = "parakeet-rnnt-1.1b"
+MODEL_NAME = "parakeet-ctc-0.6b-es"
 
 SAMPLE_RATE = 16000
 CHUNK_SEC = 5
