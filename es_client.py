@@ -11,7 +11,7 @@ import wave
 # CONFIG
 # =========================
 INPUT_FOLDER = Path("/home/re_nikitav/audio_maria")
-OUTPUT_FOLDER = Path("/home/re_nikitav/parakeet_0.6b_es_results")
+OUTPUT_FOLDER = Path("/home/re_nikitav/parakeet_0.6_es_results")
 OUTPUT_FOLDER.mkdir(exist_ok=True)
 
 SERVER = "192.168.4.62:50051"
@@ -42,7 +42,7 @@ TARGET_FILES = {
 
 
 # =========================
-# AUDIO HELPERS
+# HELPERS
 # =========================
 def convert_to_wav(input_file: Path, output_file: Path):
     subprocess.run(
@@ -51,12 +51,9 @@ def convert_to_wav(input_file: Path, output_file: Path):
             "-y",
             "-i",
             str(input_file),
-            "-ar",
-            "16000",
-            "-ac",
-            "1",
-            "-sample_fmt",
-            "s16",
+            "-ar", "16000",
+            "-ac", "1",
+            "-sample_fmt", "s16",
             str(output_file)
         ],
         check=True
@@ -68,8 +65,13 @@ def get_audio_duration_sec(wav_path: Path):
         return wf.getnframes() / wf.getframerate()
 
 
+def chunk_generator(audio_data):
+    for i in range(0, len(audio_data), CHUNK_SIZE):
+        yield audio_data[i:i + CHUNK_SIZE]
+
+
 # =========================
-# TRANSCRIBE ONE FILE
+# TRANSCRIBE
 # =========================
 def transcribe_file(asr_service, file_path: Path):
     print(f"\nSTARTING -> {file_path.name}")
@@ -82,11 +84,6 @@ def transcribe_file(asr_service, file_path: Path):
 
     with open(wav_path, "rb") as f:
         audio_data = f.read()
-
-    chunks = [
-        audio_data[i:i + CHUNK_SIZE]
-        for i in range(0, len(audio_data), CHUNK_SIZE)
-    ]
 
     config = riva.client.StreamingRecognitionConfig(
         config=riva.client.RecognitionConfig(
@@ -102,7 +99,7 @@ def transcribe_file(asr_service, file_path: Path):
     send_start_time = time.time()
 
     responses = asr_service.streaming_response_generator(
-        audio_chunks=chunks,
+        audio_chunks=chunk_generator(audio_data),
         streaming_config=config
     )
 
@@ -117,62 +114,64 @@ def transcribe_file(asr_service, file_path: Path):
 
     previous_response_time = send_end_time
 
-    for response in responses:
-        current_time = time.time()
+    try:
+        for response in responses:
+            current_time = time.time()
 
-        if not response.results:
-            continue
-
-        # FRESH LATENCY FOR EVERY RESPONSE
-        response_latency_ms = (
-            current_time - previous_response_time
-        ) * 1000
-
-        previous_response_time = current_time
-
-        for result in response.results:
-            if not result.alternatives:
+            if not response.results:
                 continue
 
-            transcript = (
-                result.alternatives[0].transcript
-            ).strip()
+            response_latency_ms = (
+                current_time - previous_response_time
+            ) * 1000
 
-            response_num += 1
+            previous_response_time = current_time
 
-            if first_response_time is None:
-                first_response_time = response_latency_ms
+            for result in response.results:
+                if not result.alternatives:
+                    continue
 
-            if (
-                result.is_final and
-                first_final_time is None
-            ):
-                first_final_time = response_latency_ms
+                transcript = (
+                    result.alternatives[0].transcript
+                ).strip()
 
-            words = len(transcript.split()) if transcript else 0
-            chars = len(transcript)
+                response_num += 1
 
-            latencies.append({
-                "response_num": response_num,
-                "response_latency_ms": round(
-                    response_latency_ms, 2
-                ),
-                "is_final": result.is_final,
-                "words": words,
-                "char_count": chars
-            })
+                if first_response_time is None:
+                    first_response_time = response_latency_ms
 
-            if transcript:
-                print(
-                    f"{file_path.name} | "
-                    f"RESP {response_num} | "
-                    f"LAT={response_latency_ms:.2f} ms | "
-                    f"FINAL={result.is_final} | "
-                    f"{transcript[:100]}"
-                )
+                if (
+                    result.is_final
+                    and first_final_time is None
+                ):
+                    first_final_time = response_latency_ms
 
-            if result.is_final and transcript:
-                final_parts.append(transcript)
+                words = len(transcript.split()) if transcript else 0
+                chars = len(transcript)
+
+                latencies.append({
+                    "response_num": response_num,
+                    "response_latency_ms": round(
+                        response_latency_ms, 2
+                    ),
+                    "is_final": result.is_final,
+                    "words": words,
+                    "char_count": chars
+                })
+
+                if transcript:
+                    print(
+                        f"{file_path.name} | "
+                        f"RESP {response_num} | "
+                        f"LAT={response_latency_ms:.2f} ms | "
+                        f"{transcript[:100]}"
+                    )
+
+                if result.is_final and transcript:
+                    final_parts.append(transcript)
+
+    except Exception as e:
+        print(f"ERROR -> {file_path.name}: {e}")
 
     total_processing_time_sec = round(
         time.time() - send_start_time,
@@ -203,10 +202,6 @@ def transcribe_file(asr_service, file_path: Path):
         "language":
             LANGUAGE,
         "timing_metrics": {
-            "send_duration_sec": round(
-                send_end_time - send_start_time,
-                4
-            ),
             "ttft_sec": round(
                 first_response_time / 1000,
                 4
@@ -241,10 +236,7 @@ def transcribe_file(asr_service, file_path: Path):
     )
 
     latency_file.write_text(
-        json.dumps(
-            latency_json,
-            indent=2
-        ),
+        json.dumps(latency_json, indent=2),
         encoding="utf-8"
     )
 
@@ -277,12 +269,8 @@ def main():
         )
     ])
 
-    print(f"TOTAL TARGET FILES = {len(files)}")
-
     for file in files:
         transcribe_file(asr_service, file)
-
-    print("\nALL TARGET FILES COMPLETED")
 
 
 if __name__ == "__main__":
