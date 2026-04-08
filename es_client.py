@@ -79,71 +79,62 @@ for response in responses:
 
 
 
-getting this 
-video:0kB audio:28195kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: 0.000270%
-Reading wav...
-PCM bytes = 28871818
-Starting gRPC stream...
-SENDING CHUNK 1
-SENDING CHUNK 2
-SENDING CHUNK 3
-SENDING CHUNK 4
-SENDING CHUNK 5
-SENDING CHUNK 6
-SENDING CHUNK 7
-SENDING CHUNK 8
-SENDING CHUNK 9
-SENDING CHUNK 10
-SENDING CHUNK 11
-SENDING CHUNK 12
-SENDING CHUNK 13
-SENDING CHUNK 14
-SENDING CHUNK 15
-SENDING CHUNK 16
-SENDING CHUNK 17
-SENDING CHUNK 18
-SENDING CHUNK 19
-SENDING CHUNK 20
-SENDING CHUNK 21
-SENDING CHUNK 22
-SENDING CHUNK 23
-SENDING CHUNK 24
-SENDING CHUNK 25
-SENDING CHUNK 26
-SENDING CHUNK 27
-SENDING CHUNK 28
-SENDING CHUNK 29
-SENDING CHUNK 30
-SENDING CHUNK 31
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
-RAW RESPONSE RECEIVED
-No results in response
+import subprocess
+import riva.client
+
+SERVER = "192.168.4.62:50051"
+INPUT_MP3 = "/home/re_nikitav/parakeet-asr-multilingual/audio_maria/maria1.mp3"
+TEMP_WAV = "/tmp/maria1_30s.wav"
+
+print("Converting first 30 sec to wav...")
+
+subprocess.run(
+    [
+        "ffmpeg",
+        "-y",
+        "-i",
+        INPUT_MP3,
+        "-t", "30",
+        "-ar", "16000",
+        "-ac", "1",
+        "-sample_fmt", "s16",
+        TEMP_WAV
+    ],
+    check=True
+)
+
+with open(TEMP_WAV, "rb") as f:
+    wav_bytes = f.read()
+
+pcm = wav_bytes[44:]
+
+auth = riva.client.Auth(uri=SERVER)
+asr_service = riva.client.ASRService(auth)
+
+for lang in ["es-US", "es-ES", "es", "en-US"]:
+    print(f"\nTESTING LANGUAGE = {lang}")
+
+    config = riva.client.RecognitionConfig(
+        encoding=riva.client.AudioEncoding.LINEAR_PCM,
+        sample_rate_hertz=16000,
+        language_code=lang,
+        max_alternatives=1,
+        enable_automatic_punctuation=False
+    )
+
+    try:
+        response = asr_service.offline_recognize(
+            audio_bytes=pcm,
+            config=config
+        )
+
+        if not response.results:
+            print("NO RESULTS")
+            continue
+
+        for i, result in enumerate(response.results, start=1):
+            if result.alternatives:
+                print(f"RESULT {i}: {result.alternatives[0].transcript}")
+
+    except Exception as e:
+        print("ERROR:", e)
