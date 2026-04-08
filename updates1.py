@@ -183,3 +183,30 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+getting this 
+(venv) PS C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing> python .\quick_test.py
+Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 185, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 159, in main
+    result = benchmark_ctc(str(file))
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 97, in benchmark_ctc
+    for response in responses:
+                    ^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\riva\client\asr.py", line 443, in streaming_response_generator
+    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 538, in __next__
+    return self._next()
+           ~~~~~~~~~~^^
+  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 956, in _next
+    raise self
+grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
+        status = StatusCode.INTERNAL
+        details = "Received RST_STREAM with error code 0"
+        debug_error_string = "UNKNOWN:Error received from peer  {grpc_message:"Received RST_STREAM with error code 0", grpc_status:13}"
+>
