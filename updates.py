@@ -338,7 +338,7 @@ if __name__ == "__main__":
 import asyncio, websockets
 
 async def test():
-    async with websockets.connect("ws://192.168.4.62:8001/ws") as ws:
+    async with websockets.connect("ws://34.118.200.125:8001/ws") as ws:
         print("Connected")
 
 asyncio.run(test())
@@ -348,3 +348,4 @@ asyncio.run(test())
 import riva.client
 auth = riva.client.Auth(uri="192.168.4.62:50051")
 print("Riva connected")
+
