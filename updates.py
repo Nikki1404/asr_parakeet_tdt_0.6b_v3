@@ -346,6 +346,17 @@ asyncio.run(test())
 
 
 import riva.client
-auth = riva.client.Auth(uri="192.168.4.62:50051")
+auth = riva.client.Auth(uri="34.118.200.125:50051")
 print("Riva connected")
+
+(venv) PS C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing> Test-NetConnection 34.118.200.125 -Port 8001
+
+
+ComputerName     : 34.118.200.125
+RemoteAddress    : 34.118.200.125
+RemotePort       : 8001
+InterfaceAlias   : Ethernet 2
+SourceAddress    : 10.16.11.56
+TcpTestSucceeded : True
+
 
