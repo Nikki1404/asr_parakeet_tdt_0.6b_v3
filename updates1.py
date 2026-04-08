@@ -1,275 +1,306 @@
+import riva.client
 import time
+import json
+import subprocess
 from pathlib import Path
-
-import librosa
-import numpy as np
-import pandas as pd
-import soundfile as sf
-from jiwer import wer
-import riva.client
-from riva.client import (
-    RecognitionConfig,
-    StreamingRecognitionConfig,
-    AudioEncoding
-)
-
-RIVA_URI = "34.118.200.125:50051"
-
-AUDIO_FOLDER = Path(r"C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\audio_samples")
-OUTPUT_FILE = "parakeet_ctc_benchmark.xlsx"
-
-TARGET_SR = 16000
-AUDIO_EXTENSIONS = {".ogg", ".wav", ".flac", ".mp3", ".m4a"}
-
-LANGUAGE_CODE = "es-ES"
-MODEL_NAME = "parakeet-ctc-0.6b-es"
+from datetime import datetime
+import wave
 
 
-def convert_to_wav(filepath):
-    audio, _ = librosa.load(
-        str(filepath),
-        sr=TARGET_SR,
-        mono=True
-    )
 
-    pcm16 = (
-        np.clip(audio, -1.0, 1.0) * 32767
-    ).astype(np.int16)
+INPUT_FOLDER = Path("/home/re_nikitav/audio_maria")
+OUTPUT_FOLDER = Path("/home/re_nikitav/parakeet_1.1b_results")
+OUTPUT_FOLDER.mkdir(exist_ok=True)
 
-    wav_path = filepath.with_suffix(".wav")
-
-    sf.write(
-        str(wav_path),
-        pcm16,
-        TARGET_SR,
-        subtype="PCM_16"
-    )
-
-    return wav_path
-
-
-def load_reference_text(audio_file):
-    txt_file = AUDIO_FOLDER / f"{audio_file.stem}.txt"
-    return txt_file.read_text(encoding="utf-8").strip()
-
-
-def normalize_text(text):
-    return " ".join(
-        text.lower().replace("\n", " ").split()
-    )
-
-
-def calculate_wer(ref, pred):
-    return round(
-        wer(normalize_text(ref), normalize_text(pred)),
-        4
-    )
-
-
-def benchmark_ctc(wav_file):
-    audio, sr = sf.read(
-        str(wav_file),
-        dtype="int16"
-    )
-
-    audio_bytes = audio.tobytes()
-
-    def audio_chunks():
-        chunk_size = 3200
-        for i in range(0, len(audio_bytes), chunk_size):
-            yield audio_bytes[i:i + chunk_size]
-
-    auth = riva.client.Auth(uri=RIVA_URI)
-
-    asr_service = riva.client.ASRService(auth)
-
-    streaming_config = StreamingRecognitionConfig(
-        config=RecognitionConfig(
-            encoding=AudioEncoding.LINEAR_PCM,
-            sample_rate_hertz=TARGET_SR,
-            audio_channel_count=1,
-            language_code=LANGUAGE_CODE,
-            model=MODEL_NAME
-        ),
-        interim_results=True
-    )
-
-    ttft = None
-    ttfb = None
-    transcript_parts = []
-
-    start = time.time()
-
-    responses = asr_service.streaming_response_generator(
-        audio_chunks=audio_chunks(),
-        streaming_config=streaming_config
-    )
-
-    for response in responses:
-        now = time.time()
-
-        for result in response.results:
-            if not result.alternatives:
-                continue
-
-            text = result.alternatives[0].transcript.strip()
-
-            if text:
-                transcript_parts.append(text)
-
-                if ttft is None:
-                    ttft = round(now - start, 3)
-
-                if result.is_final and ttfb is None:
-                    ttfb = round(now - start, 3)
-
-    total_time = round(time.time() - start, 3)
-
-    return {
-        "ttft": ttft or total_time,
-        "ttfb": ttfb or total_time,
-        "total_time": total_time,
-        "transcript": " ".join(transcript_parts)
-    }
-
-
-def main():
-    rows = []
-
-    for file in AUDIO_FOLDER.iterdir():
-        if file.suffix.lower() not in AUDIO_EXTENSIONS:
-            continue
-
-        print(f"Processing -> {file.name}")
-
-        ref_text = load_reference_text(file)
-        wav_file = convert_to_wav(file)
-
-        result = benchmark_ctc(wav_file)
-
-        rows.append({
-            "file_name": file.name,
-            "ref_txt": ref_text,
-            "ttft": result["ttft"],
-            "ttfb": result["ttfb"],
-            "total_time": result["total_time"],
-            "wer": calculate_wer(
-                ref_text,
-                result["transcript"]
-            ),
-            "transcript": result["transcript"]
-        })
-
-    pd.DataFrame(rows).to_excel(
-        OUTPUT_FILE,
-        index=False
-    )
-
-    print(f"Saved -> {OUTPUT_FILE}")
-
-
-if __name__ == "__main__":
-    main()
-
-(venv) PS C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing> python .\quick_test.py
-Processing -> 0a12a9ea-af37-41ec-905f-3babb9580e97.flac
-Traceback (most recent call last):
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 172, in <module>
-    main()
-    ~~~~^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 148, in main
-    result = benchmark_ctc(wav_file)
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\parakeet_client_testing\quick_test.py", line 108, in benchmark_ctc
-    for response in responses:
-                    ^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\riva\client\asr.py", line 443, in streaming_response_generator
-    for response in self.stub.StreamingRecognize(generator, metadata=self.auth.get_auth_metadata()):
-                    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 538, in __next__
-    return self._next()
-           ~~~~~~~~~~^^
-  File "C:\Users\re_nikitav\Documents\parakeet-asr-multilingual\venv\Lib\site-packages\grpc\_channel.py", line 956, in _next
-    raise self
-grpc._channel._MultiThreadedRendezvous: <_MultiThreadedRendezvous of RPC that terminated with:
-        status = StatusCode.INTERNAL
-        details = "Received RST_STREAM with error code 0"
-        debug_error_string = "UNKNOWN:Error received from peer  {grpc_status:13, grpc_message:"Received RST_STREAM with error code 0"}"
->
-
-
-this is the working code you can follow this 
-import riva.client
-import time
-
-AUDIO_FILE = "/home/re_nikitav/audio_maria/maria1.wav"
-
-# gRPC endpoint from your logs
-SERVER = "192.168.4.62:50051"
-
-# Spanish language
+SERVER = "192.168.4.38:50051"
 LANGUAGE = "es-US"
 
+SAMPLE_RATE = 16000
 
-def main():
-    auth = riva.client.Auth(uri=SERVER)
+# FAST BATCH MODE
+CHUNK_SEC = 5
+CHUNK_SIZE = SAMPLE_RATE * 2 * CHUNK_SEC
 
-    asr_service = riva.client.ASRService(auth)
+SUPPORTED_EXTENSIONS = {
+    ".mp3", ".wav", ".m4a", ".flac"
+}
+
+# CONVERT TO WAV
+def convert_to_wav(input_file: Path, output_file: Path):
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_file),
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-sample_fmt",
+            "s16",
+            str(output_file)
+        ],
+        check=True
+    )
+
+# GET AUDIO DURATION
+def get_audio_duration_sec(wav_path: Path):
+    with wave.open(str(wav_path), "rb") as wf:
+        return wf.getnframes() / wf.getframerate()
+
+
+# TRANSCRIBE ONE FILE
+def transcribe_file(asr_service, file_path: Path):
+    print(f"\nSTARTING -> {file_path.name}")
+
+    wav_path = OUTPUT_FOLDER / f"{file_path.stem}.wav"
+
+    convert_to_wav(file_path, wav_path)
+
+    audio_duration_sec = get_audio_duration_sec(
+        wav_path
+    )
+
+    with open(wav_path, "rb") as f:
+        audio_data = f.read()
+
+    send_start_time = time.time()
+
+    chunks = [
+        audio_data[i:i + CHUNK_SIZE]
+        for i in range(
+            0,
+            len(audio_data),
+            CHUNK_SIZE
+        )
+    ]
+
+    send_end_time = time.time()
 
     config = riva.client.StreamingRecognitionConfig(
         config=riva.client.RecognitionConfig(
             encoding=riva.client.AudioEncoding.LINEAR_PCM,
-            sample_rate_hertz=16000,
+            sample_rate_hertz=SAMPLE_RATE,
             language_code=LANGUAGE,
             max_alternatives=1,
             enable_automatic_punctuation=True
         ),
-        interim_results=True
+        interim_results=False
     )
 
     start_time = time.time()
 
-    with open(AUDIO_FILE, "rb") as f:
-        audio_data = f.read()
+    first_response_time = None
+    first_final_time = None
 
-    # chunk size = 80 ms
-    chunk_size = 16000 * 2 * 80 // 1000
-
-    chunks = [
-        audio_data[i:i + chunk_size]
-        for i in range(0, len(audio_data), chunk_size)
-    ]
-
-    print("STARTING STREAM")
+    response_num = 0
+    latencies = []
+    final_parts = []
 
     responses = asr_service.streaming_response_generator(
         audio_chunks=chunks,
         streaming_config=config
     )
 
-    final_transcript = []
-
     for response in responses:
+        now = time.time()
+
         for result in response.results:
-            transcript = result.alternatives[0].transcript
+            response_num += 1
+
+            transcript = (
+                result.alternatives[0].transcript
+            )
+
+            words = len(
+                transcript.split()
+            )
+
+            chars = len(transcript)
+
+            latency_from_start_ms = (
+                now - start_time
+            ) * 1000
+
+            latency_from_send_start_ms = (
+                now - send_start_time
+            ) * 1000
+
+            latency_from_send_end_ms = (
+                now - send_end_time
+            ) * 1000
+
+            if first_response_time is None:
+                first_response_time = (
+                    latency_from_start_ms
+                )
+
+            if (
+                result.is_final and
+                first_final_time is None
+            ):
+                first_final_time = (
+                    latency_from_start_ms
+                )
+
+            latencies.append({
+                "response_num": response_num,
+                "latency_from_start_ms": round(
+                    latency_from_start_ms, 2
+                ),
+                "latency_from_send_start_ms": round(
+                    latency_from_send_start_ms, 2
+                ),
+                "latency_from_send_end_ms": round(
+                    latency_from_send_end_ms, 2
+                ),
+                "is_final": result.is_final,
+                "words": words,
+                "char_count": chars
+            })
 
             if transcript:
-                print("TRANSCRIPT:", transcript)
+                print(
+                    f"{file_path.name} | "
+                    f"RESP {response_num} | "
+                    f"{transcript[:80]}"
+                )
 
-            if result.is_final:
-                final_transcript.append(transcript)
+            if (
+                result.is_final and
+                transcript
+            ):
+                final_parts.append(
+                    transcript
+                )
 
-    total_time = time.time() - start_time
+    total_time = (
+        time.time() - start_time
+    )
 
-    print("\nFINAL TRANSCRIPT:")
-    print(" ".join(final_transcript))
+    total_words = sum(
+        x["words"] for x in latencies
+    )
 
-    print(f"\nTOTAL TIME: {total_time:.2f} sec")
+    total_chars = sum(
+        x["char_count"] for x in latencies
+    )
+
+    final_count = sum(
+        1 for x in latencies
+        if x["is_final"]
+    )
+
+    latency_values = [
+        x["latency_from_send_start_ms"]
+        for x in latencies
+    ]
+
+    latency_json = {
+        "audio_file": str(file_path),
+        "audio_duration_sec": round(
+            audio_duration_sec, 4
+        ),
+        "total_processing_time_sec": round(
+            total_time, 4
+        ),
+        "timestamp": datetime.now().isoformat(),
+        "model": "parakeet-rnnt-1.1b",
+        "language": LANGUAGE,
+        "timing_metrics": {
+            "send_duration_sec": round(
+                send_end_time -
+                send_start_time, 4
+            ),
+            "first_response_latency_sec": round(
+                first_response_time / 1000, 4
+            ) if first_response_time else None,
+            "first_final_latency_sec": round(
+                first_final_time / 1000, 4
+            ) if first_final_time else None
+        },
+        "latencies": latencies,
+        "summary": {
+            "total_responses": len(
+                latencies
+            ),
+            "final_responses":
+                final_count,
+            "interim_responses":
+                len(latencies) - final_count,
+            "total_words":
+                total_words,
+            "total_characters":
+                total_chars,
+            "avg_latency_from_send_start_ms":
+                round(
+                    sum(latency_values) /
+                    len(latency_values), 2
+                ),
+            "min_latency_from_send_start_ms":
+                round(
+                    min(latency_values), 2
+                ),
+            "max_latency_from_send_start_ms":
+                round(
+                    max(latency_values), 2
+                )
+        }
+    }
+
+    latency_file = (
+        OUTPUT_FOLDER /
+        f"{file_path.stem}_latency.json"
+    )
+
+    latency_file.write_text(
+        json.dumps(
+            latency_json,
+            indent=2
+        ),
+        encoding="utf-8"
+    )
+
+    transcript_file = (
+        OUTPUT_FOLDER /
+        f"{file_path.stem}_transcription.txt"
+    )
+
+    transcript_file.write_text(
+        "\n".join(final_parts),
+        encoding="utf-8"
+    )
+
+    print(
+        f"COMPLETED -> {file_path.name}"
+    )
+
+
+# MAIN
+def main():
+    auth = riva.client.Auth(uri=SERVER)
+
+    asr_service = riva.client.ASRService(
+        auth
+    )
+
+    files = sorted([
+        f for f in INPUT_FOLDER.iterdir()
+        if f.suffix.lower()
+        in SUPPORTED_EXTENSIONS
+    ])
+
+    print(f"TOTAL FILES = {len(files)}")
+
+    for file in files:
+        transcribe_file(
+            asr_service,
+            file
+        )
+
+    print("\nALL FILES COMPLETED")
 
 
 if __name__ == "__main__":
     main()
-
-
-for f in *.flac *.ogg; do
-    ffmpeg -y -i "$f" -ar 16000 -ac 1 -sample_fmt s16 "${f%.*}.wav"
-done
