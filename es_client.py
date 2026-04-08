@@ -187,3 +187,11 @@ RuntimeError: Riva ASR failed for all modes/language codes. Last error: <_MultiT
         debug_error_string = "None"
 >
 
+
+these are DOcker logs from server for parakeet-ctc-0.6b-es model 
+ne; 
+I0408 14:25:23.556370 996197 stats_builder.h:100] {"specversion":"1.0","type":"riva.asr.recognize.v1","source":"","subject":"","id":"f8222c3e-73f1-493e-8648-b51f94f97f43","datacontenttype":"application/json","time":"2026-04-08T14:25:23.555960021+00:00","data":{"release_version":"2.24.0","customer_uuid":"","ngc_org":"","ngc_team":"","ngc_org_team":"","container_uuid":"","language_code":"es-ES","request_count":1,"audio_duration":0.0,"speech_duration":0.0,"status":3,"err_msg":"Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; "}}
+I0408 14:25:23.639611 996197 grpc_riva_asr.cc:244] ASRService.Recognize called.
+E0408 14:25:23.639964 996197 grpc_riva_asr.cc:264] Error: Unavailable model requested given these parameters: language_code=es; sample_rate=16000; type=offline; 
+
+ 
