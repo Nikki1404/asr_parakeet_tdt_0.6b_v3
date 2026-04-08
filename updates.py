@@ -440,3 +440,19 @@ if __name__ == "__main__":
             args.port
         )
     )
+
+
+[2/6] 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
+
+STARTING -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
+Loading audio -> 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav
+Loaded 0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | Duration: 14.0 sec
+0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | SENT CHUNK 1
+0a530b75-d3b1-4533-8ca9-f405d41b445e.wav | FINAL 1
+ with self.send_context():
+  File "/usr/lib/python3.11/contextlib.py", line 204, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/re_nikitav/parakeet_test/env/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 957, in send_context
+    raise self.protocol.close_exc from original_exc
+websockets.exceptions.ConnectionClosedError: received 1011 (internal error) keepalive ping timeout; then sent 1011 (internal error) keepalive ping timeout
