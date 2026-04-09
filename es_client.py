@@ -2,9 +2,10 @@ import asyncio
 import json
 import time
 import statistics
-import wave
 from pathlib import Path
 
+import numpy as np
+import librosa
 import websockets
 import pandas as pd
 from jiwer import wer
@@ -15,13 +16,15 @@ from jiwer import wer
 # =========================
 SAMPLE_RATE = 16000
 
-# EXACT SAME AS WORKING MIC CLIENT
-CHUNK_MS = 80
-CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_MS // 1000
+CHUNK_MS = 250
+CHUNK_FRAMES = int(SAMPLE_RATE * CHUNK_MS / 1000)
+CHUNK_BYTES = CHUNK_FRAMES * 2
 
 SEND_DELAY_MS = 80
 
-INPUT_FOLDER = Path(r"C:\Users\re_nikitav\Downloads\audio_samples\english_samples")
+INPUT_FOLDER = Path(
+    "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
+)
 
 OUTPUT_FILE = "nemotron_final_report.xlsx"
 
@@ -31,33 +34,30 @@ BACKEND = "nemotron"
 
 
 # =========================
-# WAV LOADER
+# AUDIO LOADER
 # =========================
 def load_wav_as_pcm16(filepath):
-    with wave.open(str(filepath), "rb") as wf:
-        sr = wf.getframerate()
-        channels = wf.getnchannels()
-        sample_width = wf.getsampwidth()
+    print(f"Loading -> {filepath.name}", flush=True)
 
-        if sr != SAMPLE_RATE:
-            raise ValueError(
-                f"{filepath.name}: expected {SAMPLE_RATE}Hz, got {sr}"
-            )
+    audio, sr = librosa.load(
+        str(filepath),
+        sr=SAMPLE_RATE,
+        mono=True
+    )
 
-        if channels != 1:
-            raise ValueError(
-                f"{filepath.name}: expected mono, got {channels}"
-            )
+    duration_sec = len(audio) / SAMPLE_RATE
 
-        if sample_width != 2:
-            raise ValueError(
-                f"{filepath.name}: expected 16-bit PCM"
-            )
+    pcm16 = (
+        np.clip(audio, -1.0, 1.0) * 32767
+    ).astype(np.int16).tobytes()
 
-        pcm = wf.readframes(wf.getnframes())
-        duration_sec = wf.getnframes() / SAMPLE_RATE
+    print(
+        f"{filepath.name} loaded | "
+        f"{duration_sec:.2f} sec",
+        flush=True
+    )
 
-    return pcm, duration_sec
+    return pcm16, duration_sec
 
 
 # =========================
@@ -103,6 +103,7 @@ async def transcribe_file(filepath):
 
     first_response_time = None
     first_final_time = None
+    response_num = 0
 
     async with websockets.connect(
         WEBSOCKET_ADDRESS,
@@ -112,14 +113,19 @@ async def transcribe_file(filepath):
         close_timeout=30
     ) as ws:
 
-        # backend config
+        # send backend config
         await ws.send(json.dumps({
             "backend": BACKEND,
             "sample_rate": SAMPLE_RATE
         }))
 
+        offset = 0
+
         async def sender():
-            offset = 0
+            nonlocal offset
+
+            chunk_num = 0
+            total_chunks = len(pcm) // CHUNK_BYTES + 1
 
             while offset < len(pcm):
                 chunk = pcm[
@@ -127,22 +133,28 @@ async def transcribe_file(filepath):
                 ]
 
                 offset += CHUNK_BYTES
+                chunk_num += 1
 
                 await ws.send(chunk)
+
+                # LIVE CHUNK STATUS
+                if chunk_num % 20 == 0:
+                    print(
+                        f"{filepath.name} | "
+                        f"sent chunk {chunk_num}/{total_chunks}",
+                        flush=True
+                    )
 
                 await asyncio.sleep(
                     SEND_DELAY_MS / 1000
                 )
 
-            # IMPORTANT:
-            # same flush logic as mic client
-            silence = b"\x00\x00" * int(
-                SAMPLE_RATE * 0.6
-            )
-
-            await ws.send(silence)
-
             await asyncio.sleep(0.5)
+
+            print(
+                f"{filepath.name} | sending EOS",
+                flush=True
+            )
 
             # EOS
             await ws.send(b"")
@@ -150,12 +162,13 @@ async def transcribe_file(filepath):
         async def receiver():
             nonlocal first_response_time
             nonlocal first_final_time
+            nonlocal response_num
 
             while True:
                 try:
                     raw = await asyncio.wait_for(
                         ws.recv(),
-                        timeout=60
+                        timeout=180
                     )
 
                     now = time.time()
@@ -165,28 +178,52 @@ async def transcribe_file(filepath):
                     typ = msg.get("type")
                     text = msg.get("text", "")
 
+                    response_num += 1
+
                     elapsed_ms = (
                         now - start_time
                     ) * 1000
 
+                    # LIVE TRANSCRIPTION STATUS
+                    if text:
+                        print(
+                            f"{filepath.name} | "
+                            f"{typ.upper()} | "
+                            f"{text[:120]}",
+                            flush=True
+                        )
+
                     if first_response_time is None:
                         first_response_time = elapsed_ms
 
-                    if typ == "final" and text:
+                    if typ == "final":
+
                         if first_final_time is None:
                             first_final_time = elapsed_ms
 
                         final_transcript_parts.append(text)
+
                         latencies.append(elapsed_ms)
 
-                    elif typ == "partial":
-                        # ignore partial text for final report
-                        pass
-
                 except asyncio.TimeoutError:
+                    print(
+                        f"{filepath.name} | receiver timeout",
+                        flush=True
+                    )
                     break
 
                 except websockets.exceptions.ConnectionClosed:
+                    print(
+                        f"{filepath.name} | websocket closed",
+                        flush=True
+                    )
+                    break
+
+                except Exception as e:
+                    print(
+                        f"{filepath.name} | receiver error: {e}",
+                        flush=True
+                    )
                     break
 
         await asyncio.gather(
@@ -230,10 +267,18 @@ async def transcribe_file(filepath):
 async def run_batch():
     files = sorted(INPUT_FOLDER.glob("*.wav"))
 
+    if not files:
+        raise FileNotFoundError(
+            f"No wav files found in {INPUT_FOLDER}"
+        )
+
     rows = []
 
     for idx, file in enumerate(files, start=1):
-        print(f"[{idx}/{len(files)}] {file.name}")
+        print(
+            f"\n[{idx}/{len(files)}] {file.name}",
+            flush=True
+        )
 
         row = await transcribe_file(file)
 
@@ -246,7 +291,10 @@ async def run_batch():
         index=False
     )
 
-    print(f"\nSAVED -> {OUTPUT_FILE}")
+    print(
+        f"\nSAVED -> {OUTPUT_FILE}",
+        flush=True
+    )
 
 
 # =========================
