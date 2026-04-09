@@ -470,3 +470,10 @@ Failed to build PyAudio
 ERROR: Could not build wheels for PyAudio, which is required to install pyproject.toml-based projects
 
 
+cffi==2.0.0
+numpy==2.4.4
+PyAudio==0.2.14
+pycparser==3.0
+pydub==0.25.1
+soundfile==0.13.1
+websockets==16.0
