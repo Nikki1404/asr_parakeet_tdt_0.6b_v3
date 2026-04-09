@@ -1,13 +1,10 @@
-import argparse
 import asyncio
 import json
 import time
 import statistics
-import traceback
+import wave
 from pathlib import Path
 
-import numpy as np
-import librosa
 import websockets
 import pandas as pd
 from jiwer import wer
@@ -19,8 +16,7 @@ from jiwer import wer
 SAMPLE_RATE = 16000
 
 CHUNK_MS = 250
-CHUNK_FRAMES = int(SAMPLE_RATE * CHUNK_MS / 1000)
-CHUNK_BYTES = CHUNK_FRAMES * 2
+CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_MS // 1000
 
 SEND_DELAY_MS = 50
 
@@ -36,22 +32,33 @@ BACKEND = "nemotron"
 
 
 # =========================
-# AUDIO LOADER
+# WAV LOADER
 # =========================
 def load_wav_as_pcm16(filepath):
-    audio, sr = librosa.load(
-        str(filepath),
-        sr=SAMPLE_RATE,
-        mono=True
-    )
+    with wave.open(str(filepath), "rb") as wf:
+        sr = wf.getframerate()
+        channels = wf.getnchannels()
+        sample_width = wf.getsampwidth()
 
-    duration_sec = len(audio) / SAMPLE_RATE
+        if sr != SAMPLE_RATE:
+            raise ValueError(
+                f"{filepath.name}: expected {SAMPLE_RATE}Hz, got {sr}"
+            )
 
-    pcm16 = (
-        np.clip(audio, -1.0, 1.0) * 32767
-    ).astype(np.int16).tobytes()
+        if channels != 1:
+            raise ValueError(
+                f"{filepath.name}: expected mono, got {channels}"
+            )
 
-    return pcm16, duration_sec
+        if sample_width != 2:
+            raise ValueError(
+                f"{filepath.name}: expected 16-bit PCM"
+            )
+
+        pcm = wf.readframes(wf.getnframes())
+        duration_sec = wf.getnframes() / SAMPLE_RATE
+
+    return pcm, duration_sec
 
 
 # =========================
@@ -97,26 +104,20 @@ async def transcribe_file(filepath):
 
     first_response_time = None
     first_final_time = None
-    response_num = 0
 
     async with websockets.connect(
         WEBSOCKET_ADDRESS,
         max_size=None
     ) as ws:
 
+        # send backend config
         await ws.send(json.dumps({
             "backend": BACKEND,
             "sample_rate": SAMPLE_RATE
         }))
 
-        offset = 0
-
-        send_start_time = time.time()
-
         async def sender():
-            nonlocal offset
-
-            chunk_num = 0
+            offset = 0
 
             while offset < len(pcm):
                 chunk = pcm[
@@ -124,7 +125,6 @@ async def transcribe_file(filepath):
                 ]
 
                 offset += CHUNK_BYTES
-                chunk_num += 1
 
                 await ws.send(chunk)
 
@@ -132,21 +132,19 @@ async def transcribe_file(filepath):
                     SEND_DELAY_MS / 1000
                 )
 
-            await asyncio.sleep(0.5)
-
             # EOS
+            await asyncio.sleep(0.5)
             await ws.send(b"")
 
         async def receiver():
             nonlocal first_response_time
             nonlocal first_final_time
-            nonlocal response_num
 
             while True:
                 try:
                     raw = await asyncio.wait_for(
                         ws.recv(),
-                        timeout=120
+                        timeout=30
                     )
 
                     now = time.time()
@@ -156,8 +154,6 @@ async def transcribe_file(filepath):
                     typ = msg.get("type")
                     text = msg.get("text", "")
 
-                    response_num += 1
-
                     elapsed_ms = (
                         now - start_time
                     ) * 1000
@@ -165,16 +161,17 @@ async def transcribe_file(filepath):
                     if first_response_time is None:
                         first_response_time = elapsed_ms
 
-                    if typ == "final":
-
+                    if typ == "final" and text:
                         if first_final_time is None:
                             first_final_time = elapsed_ms
 
                         final_transcript_parts.append(text)
-
                         latencies.append(elapsed_ms)
 
-                except:
+                except asyncio.TimeoutError:
+                    break
+
+                except websockets.exceptions.ConnectionClosed:
                     break
 
         await asyncio.gather(
