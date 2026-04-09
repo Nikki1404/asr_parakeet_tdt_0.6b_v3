@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 # =====================================
 # CONFIG
 # =====================================
-WEBSOCKET_ADDRESS = "ws://34.118.200.125:8001/ws"
+WEBSOCKET_ADDRESS = "ws://192.168.4.38:8001/ws"
 TARGET_SR = 16000
 CHUNK_MS = 30
 CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
