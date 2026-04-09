@@ -232,6 +232,45 @@ async def run_batch():
     print(f"\nSAVED -> {OUTPUT_FILE}")
 
 
+INFO:     172.17.0.1:55668 - "WebSocket /asr/realtime-custom-vad" [accepted]
+INFO:     connection open
+2026-04-09 08:05:23,909 | INFO | asr_server | WS connected | backend=nemotron client=Address(host='172.17.0.1', port=55668) client_sr=16000 server_sr=16000
+2026-04-09 08:06:52,562 | ERROR | asr_server | Error during websocket session
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 317, in asgi_send
+    await self.send(data)  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/site-packages/websockets/legacy/protocol.py", line 618, in send
+    await self.ensure_open()
+  File "/usr/local/lib/python3.11/site-packages/websockets/legacy/protocol.py", line 925, in ensure_open
+    raise self.connection_closed_exc()
+websockets.exceptions.ConnectionClosedError: received 1011 (internal error) keepalive ping timeout; then sent 1011 (internal error) keepalive ping timeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.11/site-packages/starlette/websockets.py", line 86, in send
+    await self._send(message)
+  File "/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py", line 39, in sender
+    await send(message)
+  File "/usr/local/lib/python3.11/site-packages/uvicorn/protocols/websockets/websockets_impl.py", line 330, in asgi_send
+    raise ClientDisconnected from exc
+INFO:     connection closed
+uvicorn.protocols.utils.ClientDisconnected
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/srv/app/main.py", line 136, in ws_asr
+    await ws.send_text(json.dumps({
+  File "/usr/local/lib/python3.11/site-packages/starlette/websockets.py", line 166, in send_text
+    await self.send({"type": "websocket.send", "text": data})
+  File "/usr/local/lib/python3.11/site-packages/starlette/websockets.py", line 89, in send
+    raise WebSocketDisconnect(code=1006)
+starlette.websockets.WebSocketDisconnect
+2026-04-09 08:06:52,563 | INFO | asr_server | WS session closed for Address(host='172.17.0.1', port=55668)
+2026-04-09 08:06:52,882 | INFO | asr_server | WS connection request from Address(host='172.17.0.1', port=59284)
+INFO:     172.17.0.1:59284 - "WebSocket /asr/realtime-custom-vad" [accepted]
 # =========================
 # MAIN
 # =========================
