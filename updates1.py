@@ -1,432 +1,415 @@
+"""
+Parakeet ASR – Terminal Microphone Client
+Captures microphone audio, sends it to the WebSocket server in real time,
+and prints transcriptions as they arrive. Works for English & Spanish
+(parakeet-tdt-0.6b-v3 auto-detects the language).
+
+Usage:
+    # Microphone mode (default)
+    python client.py (local testing)
+    python client.py --host 34.118.200.125 --port 8001 (GCP)
+    
+
+    # File mode – streams audio file(s) chunk by chunk at real-time speed
+    python client.py --host 34.118.200.125 --port 8001 --file english.wav
+    python client.py --host 34.118.200.125 --port 8001 --file english.wav spanish.mp3
+    python client.py --host 34.118.200.125 --port 8001 --file audio.wav --speed 1.5
+
+
+Dependencies:
+    pip install pyaudio websockets soundfile numpy
+    pip install pydub   (optional, for MP3/OGG)
+    apt install ffmpeg  (optional, for non-WAV resampling)
+"""
+
 import argparse
+import asyncio
 import json
+import logging
+import sys
+import threading
 import time
-import statistics
-import traceback
-import os
 from pathlib import Path
-from datetime import datetime
-
-import pandas as pd
-from jiwer import wer
-
-import riva.client
-
-
-# =========================
-# CONFIG
-# =========================
-SAMPLE_RATE = 16000
-
-# 80 ms chunks — same as working code
-CHUNK_SIZE = SAMPLE_RATE * 2 * 80 // 1000  # = 2560 bytes
-
-INPUT_FOLDER = Path(
-    "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
-)
-
-OUTPUT_FOLDER = Path("transcription_results_grpc")
-OUTPUT_FOLDER.mkdir(exist_ok=True)
-
-LOG_FILE = OUTPUT_FOLDER / "run.log"
-
-
-# =========================
-# LOGGER
-# =========================
-class Logger:
-    def __init__(self, log_path):
-        self.file = open(log_path, "a", encoding="utf-8", buffering=1)
-
-    def log(self, msg):
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        line = f"[{ts}] {msg}"
-        print(line, flush=True)
-        self.file.write(line + "\n")
-
-    def close(self):
-        self.file.close()
-
-
-logger = Logger(LOG_FILE)
-
-
-# =========================
-# LOAD RAW WAV BYTES
-# Read file as-is — riva handles the WAV header server-side
-# =========================
-def load_wav_bytes(filepath):
-    logger.log(f"Loading -> {filepath.name}")
-
-    with open(filepath, "rb") as f:
-        audio_data = f.read()
-
-    try:
-        pcm_bytes = len(audio_data) - 44
-        duration_sec = pcm_bytes / (SAMPLE_RATE * 2)
-    except Exception:
-        duration_sec = 0.0
-
-    logger.log(
-        f"Loaded {filepath.name} | "
-        f"~{duration_sec:.1f} sec | "
-        f"{len(audio_data)} bytes"
-    )
-
-    return audio_data, duration_sec
-
-
-# =========================
-# CHUNK GENERATOR
-# =========================
-def chunk_generator(audio_data, chunk_size, timing):
-    timing["send_start_time"] = time.time()
-
-    for i in range(0, len(audio_data), chunk_size):
-        chunk = audio_data[i: i + chunk_size]
-
-        now = time.time()
-        if timing.get("first_chunk_time") is None:
-            timing["first_chunk_time"] = now
-
-        yield chunk
-
-    timing["send_end_time"] = time.time()
-
-
-# =========================
-# SAVE RESULTS
-# =========================
-def save_results(filepath, transcript_text, result_json):
-    output_dir = OUTPUT_FOLDER / filepath.stem
-    output_dir.mkdir(exist_ok=True)
-
-    transcript_path = output_dir / f"{filepath.stem}_transcript.txt"
-    latency_path = output_dir / f"{filepath.stem}_latency.json"
-
-    with open(transcript_path, "w", encoding="utf-8") as f:
-        f.write(transcript_text)
-
-    with open(latency_path, "w", encoding="utf-8") as f:
-        json.dump(result_json, f, indent=2)
-
-    logger.log(f"SAVED -> {filepath.name}")
-
-
-# =========================
-# REFERENCE TEXT
-# =========================
-def load_reference_text(filepath):
-    txt_path = filepath.with_suffix(".txt")
-    if txt_path.exists():
-        return txt_path.read_text(encoding="utf-8").strip()
-    return ""
-
-
-# =========================
-# EXCEL REPORT
-# =========================
-def generate_excel_report(rows):
-    excel_path = OUTPUT_FOLDER / "final_report.xlsx"
-    df = pd.DataFrame(rows)
-    df.to_excel(excel_path, index=False, engine="openpyxl")
-    logger.log(f"EXCEL SAVED -> {excel_path}")
-
-
-# =========================
-# TRANSCRIBE ONE FILE
-# =========================
-def transcribe_file(filepath, server, language):
-    logger.log(f"STARTING -> {filepath.name}")
-    logger.log(f"Using server={server} language={language}")
-
-    audio_data, duration_sec = load_wav_bytes(filepath)
-
-    auth = riva.client.Auth(uri=server)
-    asr_service = riva.client.ASRService(auth)
-
-    config = riva.client.StreamingRecognitionConfig(
-        config=riva.client.RecognitionConfig(
-            encoding=riva.client.AudioEncoding.LINEAR_PCM,
-            sample_rate_hertz=SAMPLE_RATE,
-            language_code=language,
-            max_alternatives=1,
-            enable_automatic_punctuation=True,
-        ),
-        interim_results=True,
-    )
-
-    final_transcript_parts = []
-    latencies = []
-
-    start_time = time.time()
-
-    first_response_time = None
-    first_final_time = None
-    response_num = 0
-
-    timing = {
-        "send_start_time": None,
-        "first_chunk_time": None,
-        "send_end_time": None,
-    }
-
-    try:
-        chunks = chunk_generator(audio_data, CHUNK_SIZE, timing)
-
-        responses = asr_service.streaming_response_generator(
-            audio_chunks=chunks,
-            streaming_config=config,
-        )
-
-        for response in responses:
-            now = time.time()
-            elapsed_ms = (now - start_time) * 1000
-
-            for result in response.results:
-                if not result.alternatives:
-                    continue
-
-                text = result.alternatives[0].transcript
-                is_final = result.is_final
-
-                if not text:
-                    continue
-
-                response_num += 1
-
-                latency_from_send_start = (
-                    (now - timing["send_start_time"]) * 1000
-                    if timing["send_start_time"] else None
-                )
-                latency_from_first_chunk = (
-                    (now - timing["first_chunk_time"]) * 1000
-                    if timing["first_chunk_time"] else None
-                )
-                latency_from_send_end = (
-                    (now - timing["send_end_time"]) * 1000
-                    if timing["send_end_time"] else None
-                )
-
-                if first_response_time is None:
-                    first_response_time = elapsed_ms
-
-                if is_final and first_final_time is None:
-                    first_final_time = elapsed_ms
-
-                words = len(text.split()) if text else 0
-                chars = len(text)
-
-                latencies.append({
-                    "response_num": response_num,
-                    "latency_from_start_ms": round(elapsed_ms, 4),
-                    "latency_from_send_start_ms": round(latency_from_send_start, 4) if latency_from_send_start is not None else None,
-                    "latency_from_first_chunk_ms": round(latency_from_first_chunk, 4) if latency_from_first_chunk is not None else None,
-                    "latency_from_send_end_ms": round(latency_from_send_end, 4) if latency_from_send_end is not None else None,
-                    "is_final": is_final,
-                    "words": words,
-                    "char_count": chars,
-                    "text_preview": text[:80],
-                })
-
-                if is_final:
-                    final_transcript_parts.append(text)
-                    lat_str = (
-                        f"{latency_from_send_start:.0f} ms"
-                        if latency_from_send_start is not None else "N/A"
-                    )
-                    logger.log(
-                        f"{filepath.name} | FINAL #{response_num} | "
-                        f"{words} words | latency {lat_str} | "
-                        f"{text[:60]!r}"
-                    )
-                else:
-                    logger.log(
-                        f"{filepath.name} | interim #{response_num} | "
-                        f"{text[:60]!r}"
-                    )
-
-    except Exception as e:
-        logger.log(f"FAILED -> {filepath.name} | {str(e)}")
-        traceback.print_exc()
-        return None
-
-    total_time = time.time() - start_time
-    transcript_text = "\n".join(final_transcript_parts)
-
-    send_start_time = timing["send_start_time"]
-    send_end_time = timing["send_end_time"]
-    first_chunk_time = timing["first_chunk_time"]
-
-    latency_values_start = [
-        x["latency_from_send_start_ms"]
-        for x in latencies
-        if x["latency_from_send_start_ms"] is not None
-    ]
-    latency_values_end = [
-        x["latency_from_send_end_ms"]
-        for x in latencies
-        if x["latency_from_send_end_ms"] is not None
-    ]
-
-    result_json = {
-        "audio_file": str(filepath),
-        "audio_duration_sec": round(duration_sec, 2),
-        "total_processing_time_sec": round(total_time, 4),
-        "timestamp": datetime.now().isoformat(),
-        "server": server,
-        "language": language,
-        "timing_metrics": {
-            "send_duration_sec": round(
-                send_end_time - send_start_time, 4
-            ) if send_end_time and send_start_time else None,
-            "first_response_latency_sec": round(
-                first_response_time / 1000, 4
-            ) if first_response_time else None,
-            "first_final_latency_sec": round(
-                first_final_time / 1000, 4
-            ) if first_final_time else None,
-            "time_to_first_chunk_sec": round(
-                first_chunk_time - start_time, 4
-            ) if first_chunk_time and start_time else None,
-        },
-        "latencies": latencies,
-        "summary": {
-            "total_responses": len(latencies),
-            "final_responses": sum(1 for x in latencies if x["is_final"]),
-            "interim_responses": sum(1 for x in latencies if not x["is_final"]),
-            "total_words": sum(x["words"] for x in latencies if x["is_final"]),
-            "total_characters": sum(x["char_count"] for x in latencies if x["is_final"]),
-            "avg_latency_from_send_start_ms": round(
-                statistics.mean(latency_values_start), 4
-            ) if latency_values_start else None,
-            "avg_latency_from_send_end_ms": round(
-                statistics.mean(latency_values_end), 4
-            ) if latency_values_end else None,
-        },
-    }
-
-    save_results(filepath, transcript_text, result_json)
-
-    reference_text = load_reference_text(filepath)
-    calculated_wer = None
-
-    if reference_text and transcript_text:
+from queue import Empty, Queue
+from typing import List, Optional
+
+import numpy as np
+import pyaudio
+import websockets
+
+# Config
+SAMPLE_RATE   = 16_000
+CHANNELS      = 1
+FORMAT        = pyaudio.paInt16
+CHUNK_MS      = 30
+CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000   # 480 samples
+CHUNK_BYTES   = CHUNK_SAMPLES * 2                # int16 → 2 bytes per sample
+
+logging.basicConfig(level=logging.WARNING)
+logger = logging.getLogger(__name__)
+
+BANNER = r"""
+╔══════════════════════════════════════════════════════════════╗
+║        Parakeet-TDT-0.6B-v3  |  Real-Time ASR Client        ║
+║          Auto language detection (EN / ES / more)           ║
+║          WebSocket: ws://localhost:8001/ws                   ║
+╚══════════════════════════════════════════════════════════════╝
+"""
+
+HELP = """
+Commands
+  [Enter]   Manual flush – force transcription of buffered audio
+  q         Quit
+  d         List available audio input devices
+
+Test phrases
+  EN: "The quick brown fox jumps over the lazy dog"
+  ES: "El zorro marrón rápido salta sobre el perro perezoso"
+"""
+
+
+# Audio capture (mic)
+
+class MicCapture:
+    """Captures microphone audio into a thread-safe queue."""
+
+    def __init__(self, device_index: Optional[int] = None):
+        self.queue: Queue[bytes] = Queue(maxsize=512)
+        self._stop   = threading.Event()
+        self._device = device_index
+        self._thread = threading.Thread(target=self._capture, daemon=True)
+
+    def start(self):
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+
+    def _capture(self):
+        pa = pyaudio.PyAudio()
         try:
-            calculated_wer = round(
-                wer(reference_text.lower(), transcript_text.lower()) * 100, 2
+            stream = pa.open(
+                format=FORMAT,
+                channels=CHANNELS,
+                rate=SAMPLE_RATE,
+                input=True,
+                input_device_index=self._device,
+                frames_per_buffer=CHUNK_SAMPLES,
             )
+            while not self._stop.is_set():
+                data = stream.read(CHUNK_SAMPLES, exception_on_overflow=False)
+                self.queue.put(data)
+        except OSError as exc:
+            print(f"\n[ERROR] Audio capture failed: {exc}", file=sys.stderr)
+            self._stop.set()
+        finally:
+            try:
+                stream.stop_stream()
+                stream.close()
+            except Exception:
+                pass
+            pa.terminate()
+
+
+def list_devices():
+    pa = pyaudio.PyAudio()
+    print("\nAvailable audio input devices:")
+    for i in range(pa.get_device_count()):
+        info = pa.get_device_info_by_index(i)
+        if info["maxInputChannels"] > 0:
+            print(f"  [{i}] {info['name']}  ({int(info['defaultSampleRate'])} Hz)")
+    pa.terminate()
+    print()
+
+
+#  Audio loading (file) 
+def load_audio_as_16k_pcm(path: str) -> bytes:
+    """
+    Load any audio file → raw int16 LE PCM at 16 kHz mono.
+    Tries soundfile first (WAV/FLAC/OGG), then pydub (MP3 etc).
+    """
+    try:
+        import soundfile as sf
+        data, sr = sf.read(path, dtype="float32", always_2d=False)
+        if data.ndim == 2:
+            data = data.mean(axis=1)
+        if sr != SAMPLE_RATE:
+            data = _resample(data, sr, SAMPLE_RATE)
+        return _float32_to_pcm16(data)
+    except Exception as sf_err:
+        try:
+            from pydub import AudioSegment
+            seg = AudioSegment.from_file(path)
+            seg = seg.set_channels(1).set_frame_rate(SAMPLE_RATE).set_sample_width(2)
+            return seg.raw_data
+        except Exception as pd_err:
+            raise RuntimeError(
+                f"Cannot load '{path}'.\n"
+                f"  soundfile : {sf_err}\n"
+                f"  pydub     : {pd_err}\n"
+                f"  Tip: install ffmpeg for MP3/OGG support."
+            )
+
+
+def _resample(data: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
+    try:
+        import librosa
+        return librosa.resample(data, orig_sr=orig_sr, target_sr=target_sr)
+    except ImportError:
+        pass
+    try:
+        from scipy.signal import resample_poly
+        from math import gcd
+        g = gcd(orig_sr, target_sr)
+        return resample_poly(data, target_sr // g, orig_sr // g).astype(np.float32)
+    except ImportError:
+        pass
+    # Pure numpy linear interpolation fallback
+    duration  = len(data) / orig_sr
+    old_times = np.linspace(0, duration, len(data))
+    new_times = np.linspace(0, duration, int(duration * target_sr))
+    return np.interp(new_times, old_times, data).astype(np.float32)
+
+
+def _float32_to_pcm16(data: np.ndarray) -> bytes:
+    return (np.clip(data, -1.0, 1.0) * 32767).astype(np.int16).tobytes()
+
+
+# ── Shared receiver (same for mic and file modes)
+
+async def _receiver(ws):
+    """Receives partial + final transcripts and prints them."""
+    try:
+        async for raw in ws:
+            try:
+                msg = json.loads(raw)
+            except json.JSONDecodeError:
+                continue
+
+            msg_type = msg.get("type", "")
+            text     = msg.get("text", "")
+            dur_ms   = msg.get("duration_ms", 0)
+            ts       = time.strftime("%H:%M:%S")
+
+            if msg_type == "partial":
+                print(f"\r  ⏳ [{ts}] {text:<80}", end="", flush=True)
+
+            elif msg_type == "transcript":
+                rtf = msg.get("rtf", 0)
+                print(f"\r{' ' * 90}\r", end="")
+                print(f"[{ts}] ({dur_ms/1000:.1f}s | RTF {rtf:.2f}x)")
+                print(f"  ✅  {text}")
+                print("─" * 64)
+
+    except websockets.exceptions.ConnectionClosed:
+        print("\n[Connection closed]")
+
+
+# ── stdin reader 
+
+def stdin_reader(cmd_queue: Queue):
+    while True:
+        try:
+            line = sys.stdin.readline()
+            if line:
+                cmd_queue.put(line.strip())
         except Exception:
-            pass
-
-    logger.log(
-        f"DONE -> {filepath.name} | "
-        f"total {total_time:.2f}s | "
-        f"words {result_json['summary']['total_words']} | "
-        f"WER {calculated_wer}%"
-    )
-
-    return {
-        "file_name": filepath.name,
-        "audio_duration_sec": round(duration_sec, 2),
-        "reference_txt": reference_text,
-        "transcription": transcript_text,
-        "ttfb_ms": (
-            result_json["timing_metrics"]["first_response_latency_sec"] * 1000
-            if result_json["timing_metrics"]["first_response_latency_sec"] else None
-        ),
-        "ttft_ms": (
-            result_json["timing_metrics"]["first_final_latency_sec"] * 1000
-            if result_json["timing_metrics"]["first_final_latency_sec"] else None
-        ),
-        "avg_latency_from_send_start_ms": result_json["summary"]["avg_latency_from_send_start_ms"],
-        "avg_latency_from_send_end_ms": result_json["summary"]["avg_latency_from_send_end_ms"],
-        "total_words": result_json["summary"]["total_words"],
-        "wer": calculated_wer,
-        "total_time_sec": round(total_time, 4),
-    }
+            break
 
 
-# =========================
-# BATCH RUNNER
-# =========================
-def run_batch(server, language):
-    files = sorted(INPUT_FOLDER.glob("*.wav"))
+#  MODE 1 : Microphone 
 
-    if not files:
-        logger.log(f"No .wav files found in {INPUT_FOLDER}")
-        return
+async def run_mic(host: str, port: int, device_index: Optional[int]):
+    uri = f"ws://{host}:{port}/ws"
+    print(BANNER)
+    print(f"Connecting to {uri} …", end=" ", flush=True)
 
-    logger.log(
-        f"Found {len(files)} files | "
-        f"server={server} | "
-        f"lang={language}"
-    )
+    try:
+        async with websockets.connect(uri, ping_interval=20, ping_timeout=20) as ws:
+            print("connected ✓\n")
+            print("🎙  Speak now – transcriptions appear below\n")
+            print("─" * 64)
 
-    report_rows = []
+            mic = MicCapture(device_index)
+            mic.start()
 
-    for idx, file in enumerate(files, start=1):
-        logger.log(f"--- [{idx}/{len(files)}] {file.name} ---")
+            cmd_queue: Queue[str] = Queue()
+            threading.Thread(target=stdin_reader, args=(cmd_queue,), daemon=True).start()
 
-        row = transcribe_file(
-            filepath=file,
-            server=server,
-            language=language,
-        )
+            send_task = asyncio.create_task(_mic_sender(ws, mic, cmd_queue))
+            recv_task = asyncio.create_task(_receiver(ws))
 
-        if row:
-            report_rows.append(row)
-        else:
-            logger.log(f"SKIPPED (failed) -> {file.name}")
+            done, pending = await asyncio.wait(
+                [send_task, recv_task],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for t in pending:
+                t.cancel()
+            mic.stop()
 
-    if report_rows:
-        generate_excel_report(report_rows)
-    else:
-        logger.log("No successful results — Excel not generated.")
-
-    logger.log("ALL FILES COMPLETED")
-    logger.close()
+    except (OSError, websockets.exceptions.WebSocketException) as exc:
+        print(f"failed ✗\n[ERROR] {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
-# =========================
-# CLI
-# =========================
+async def _mic_sender(ws, mic: MicCapture, cmd_queue: Queue):
+    print(HELP)
+    try:
+        while True:
+            try:
+                cmd = cmd_queue.get_nowait()
+                if cmd.lower() in ("q", "quit", "exit"):
+                    print("\nBye!")
+                    return
+                elif cmd == "":
+                    await ws.send(json.dumps({"cmd": "flush"}).encode())
+                    print("[flushed]\n", flush=True)
+                elif cmd.lower() == "d":
+                    list_devices()
+            except Empty:
+                pass
+
+            sent = 0
+            while not mic.queue.empty() and sent < 50:
+                frame = mic.queue.get_nowait()
+                await ws.send(frame)
+                sent += 1
+
+            await asyncio.sleep(0.005)
+
+    except websockets.exceptions.ConnectionClosed:
+        print("\n[Connection closed by server]")
+
+
+# File streaming
+async def run_files(host: str, port: int, files: List[str], speed: float):
+    uri = f"ws://{host}:{port}/ws"
+    print(BANNER)
+    print(f"  Mode   : FILE streaming at {speed:.1f}× real-time speed")
+    print(f"  Server : {uri}")
+    print(f"  Files  : {', '.join(Path(f).name for f in files)}\n")
+
+    for filepath in files:
+        p = Path(filepath)
+        if not p.exists():
+            print(f"  [SKIP] File not found: {filepath}\n")
+            continue
+
+        # Load and resample
+        print(f"  Loading {p.name} …", end=" ", flush=True)
+        try:
+            pcm = load_audio_as_16k_pcm(str(p))
+        except RuntimeError as e:
+            print(f"FAILED ✗\n  {e}\n")
+            continue
+
+        duration_sec = len(pcm) / 2 / SAMPLE_RATE
+        print(f"{duration_sec:.1f}s  ✓")
+        print(f"\n{'═' * 64}")
+        print(f"  📄 {p.name}  ({duration_sec:.1f}s)  — language auto-detected by model")
+        print(f"{'═' * 64}\n")
+
+        try:
+            async with websockets.connect(
+                uri, ping_interval=20, ping_timeout=20, max_size=2**23
+            ) as ws:
+                send_task = asyncio.create_task(
+                    _file_sender(ws, pcm, speed)
+                )
+                recv_task = asyncio.create_task(_receiver(ws))
+
+                # Receiver exits on ConnectionClosed; sender exits when done
+                done, pending = await asyncio.wait(
+                    [send_task, recv_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for t in pending:
+                    t.cancel()
+
+        except (OSError, websockets.exceptions.WebSocketException) as exc:
+            print(f"\n  [ERROR] WebSocket failed: {exc}")
+
+        print()   # blank line between files
+
+    print("  All files processed.")
+
+
+async def _file_sender(ws, pcm: bytes, speed: float):
+    """Stream PCM bytes to server chunk by chunk at real-time speed."""
+    chunk_delay = (CHUNK_MS / 1000) / speed   # e.g. 0.03s at 1×, 0.015s at 2×
+    offset      = 0
+
+    while offset + CHUNK_BYTES <= len(pcm):
+        chunk   = pcm[offset: offset + CHUNK_BYTES]
+        offset += CHUNK_BYTES
+        await ws.send(chunk)
+        await asyncio.sleep(chunk_delay)
+
+    # Pad and send any leftover bytes
+    leftover = pcm[offset:]
+    if leftover:
+        await ws.send(leftover + bytes(CHUNK_BYTES - len(leftover)))
+
+    # Small pause then manual flush to force final transcript
+    await asyncio.sleep(0.3)
+    await ws.send(json.dumps({"cmd": "flush"}).encode())
+
+    # Wait long enough for the server to respond with the final transcript
+    await asyncio.sleep(10)
+
+
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Batch ASR transcription via Riva gRPC"
-    )
-    parser.add_argument(
-        "--server",
-        default="192.168.4.62:50051",
-        help="gRPC server address (default: 192.168.4.62:50051)",
-    )
-    parser.add_argument(
-        "--language",
-        default="es-US",           # <-- FIXED: was en-US, now es-US
-        help="Language code (default: es-US)",
-    )
-    return parser.parse_args()
+    p = argparse.ArgumentParser(description="Parakeet ASR client – mic or file mode")
+    p.add_argument("--host",   default="localhost", help="Server host (default: localhost)")
+    p.add_argument("--port",   type=int, default=8001, help="Server port (default: 8001)")
+    p.add_argument("--device", type=int, default=None, metavar="INDEX",
+                   help="Mic device index for mic mode (see --list)")
+    p.add_argument("--list",   action="store_true",
+                   help="List audio input devices and exit")
+    p.add_argument("--file",   nargs="+", metavar="FILE",
+                   help="File mode: stream audio file(s) instead of mic "
+                        "(WAV / MP3 / FLAC / OGG)")
+    p.add_argument("--speed",  type=float, default=1.0,
+                   help="File mode: playback speed multiplier "
+                        "(default 1.0 = real-time, 2.0 = 2× faster)")
+    return p.parse_args()
 
 
 if __name__ == "__main__":
     args = parse_args()
 
-    logger.log(
-        f"=== RUN START | pid={os.getpid()} | "
-        f"server={args.server} | "
-        f"language={args.language} ==="
-    )
+    if args.list:
+        list_devices()
+        sys.exit(0)
 
-    run_batch(server=args.server, language=args.language)
-
-
-
-nohup python -u transcribe_grpc.py --server 192.168.4.62:50051 --language es-US \
-  > transcription_results_grpc/nohup.out 2>&1 &
+    if args.file:
+        asyncio.run(run_files(args.host, args.port, args.file, args.speed))
+    else:
+        asyncio.run(run_mic(args.host, args.port, args.device))
 
 
-sudo apt update && \
-sudo apt install -y python3.11-dev portaudio19-dev libasound2-dev build-essential && \
-source env/bin/activate && \
-pip install --upgrade pip setuptools wheel && \
-pip install -r requirements.txt
+now running of another vm using 
+(env) nikita_verma2@cx-asr-v2:~/parakeet-asr-multilingual$ python client.py --host 192.168.4.38 --port 8001 --file /home/nikita_verma2/0a12a9ea
+-af37-41ec-905f-3babb9580e97.wav
+
+╔══════════════════════════════════════════════════════════════╗
+║        Parakeet-TDT-0.6B-v3  |  Real-Time ASR Client        ║
+║          Auto language detection (EN / ES / more)           ║
+║          WebSocket: ws://localhost:8001/ws                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Mode   : FILE streaming at 1.0× real-time speed
+  Server : ws://192.168.4.38:8001/ws
+  Files  : 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
+
+  Loading 0a12a9ea-af37-41ec-905f-3babb9580e97.wav … 14.0s  ✓
+
+════════════════════════════════════════════════════════════════
+  📄 0a12a9ea-af37-41ec-905f-3babb9580e97.wav  (14.0s)  — language auto-detected by model
+════════════════════════════════════════════════════════════════
+
+
+  [ERROR] WebSocket failed: [Errno 111] Connect call failed ('192.168.4.38', 8001)
+
+  All files processed.
+so when running on vm itself then this error shouldn't occur ?
