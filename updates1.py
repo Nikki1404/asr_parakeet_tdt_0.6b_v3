@@ -57,28 +57,36 @@ async def stream_parakeet(audio_file: str):
         print(f"\nConnected to {WEBSOCKET_ADDRESS}")
         print("🎙 Streaming in real time...\n")
 
+        final_received = asyncio.Event()
+
         async def receive_task():
             try:
                 async for msg in ws:
-                    if isinstance(msg, str):
-                        obj = json.loads(msg)
+                    print(f"\nRAW -> {msg}")   # debug
 
-                        typ = obj.get("type")
-                        txt = obj.get("text", "")
+                    if isinstance(msg, bytes):
+                        msg = msg.decode("utf-8")
 
-                        ts = time.strftime("%H:%M:%S")
+                    obj = json.loads(msg)
 
-                        if typ == "partial":
-                            print(
-                                f"\r⏳ [{ts}] {txt:<100}",
-                                end="",
-                                flush=True
-                            )
+                    typ = obj.get("type")
+                    txt = obj.get("text", "")
 
-                        elif typ in ["transcript", "final"]:
-                            print("\r" + " " * 120, end="\r")
-                            print(f"✅ [{ts}] FINAL: {txt}")
-                            break
+                    ts = time.strftime("%H:%M:%S")
+
+                    if typ == "partial":
+                        print(
+                            f"\r⏳ [{ts}] {txt:<100}",
+                            end="",
+                            flush=True
+                        )
+
+                    elif typ in ["transcript", "final"]:
+                        print("\r" + " " * 120, end="\r")
+                        print(f"✅ [{ts}] FINAL: {txt}")
+
+                        final_received.set()
+                        break
 
             except websockets.exceptions.ConnectionClosed:
                 print("\nConnection closed")
@@ -99,32 +107,44 @@ async def stream_parakeet(audio_file: str):
 
                 await ws.send(chunk)
 
-                # real-time speed
                 await asyncio.sleep(
                     CHUNK_MS / 1000
                 )
 
-            # flush final transcript
-            await asyncio.sleep(0.3)
+            # send flush
+            await asyncio.sleep(0.5)
             await ws.send(
                 json.dumps({"cmd": "flush"})
             )
 
-        await asyncio.gather(
-            send_task(),
-            receive_task()
-        )
+            print("\nFlush sent. Waiting for final transcript...")
+
+            # wait max 10 sec for final
+            try:
+                await asyncio.wait_for(
+                    final_received.wait(),
+                    timeout=10
+                )
+            except asyncio.TimeoutError:
+                print("\nTimeout waiting for final transcript")
+
+        recv = asyncio.create_task(receive_task())
+        send = asyncio.create_task(send_task())
+
+        await send
+        await recv
 
 
 # =====================================
 # MAIN
 # =====================================
 async def main():
-    audio_file = "/home/nikita_verma2/0a12a9ea-af37-41ec-905f-3babb9580e97.wav"   # change file name
+    audio_file = "/home/nikita_verma2/0a12a9ea-af37-41ec-905f-3babb9580e97.wav"
     await stream_parakeet(audio_file)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
