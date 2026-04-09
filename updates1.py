@@ -18,6 +18,10 @@ CHUNK_MS = 30
 CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
 
+# silence flush after 500 ms
+SILENCE_FLUSH_MS = 500
+SILENCE_THRESHOLD = 400
+
 
 # =====================================
 # AUDIO LOADER
@@ -51,21 +55,22 @@ async def stream_parakeet(audio_file: str):
 
     async with websockets.connect(
         WEBSOCKET_ADDRESS,
-        max_size=None
+        max_size=None,
+        ping_interval=20,
+        ping_timeout=60,
+        close_timeout=30
     ) as ws:
 
         print(f"\nConnected to {WEBSOCKET_ADDRESS}")
         print("🎙 Streaming in real time...\n")
 
-        final_received = asyncio.Event()
-
         async def receive_task():
             try:
                 async for msg in ws:
-                    print(f"\nRAW -> {msg}")   # debug
-
                     if isinstance(msg, bytes):
                         msg = msg.decode("utf-8")
+
+                    print(f"\nRAW -> {msg}")
 
                     obj = json.loads(msg)
 
@@ -85,14 +90,12 @@ async def stream_parakeet(audio_file: str):
                         print("\r" + " " * 120, end="\r")
                         print(f"✅ [{ts}] FINAL: {txt}")
 
-                        final_received.set()
-                        break
-
             except websockets.exceptions.ConnectionClosed:
                 print("\nConnection closed")
 
         async def send_task():
             offset = 0
+            silence_ms = 0
 
             while offset < len(pcm_audio):
                 chunk = pcm_audio[
@@ -107,33 +110,53 @@ async def stream_parakeet(audio_file: str):
 
                 await ws.send(chunk)
 
+                # silence detection
+                samples = np.frombuffer(
+                    chunk,
+                    dtype=np.int16
+                ).astype(np.float32)
+
+                rms = np.sqrt(np.mean(samples ** 2))
+
+                if rms < SILENCE_THRESHOLD:
+                    silence_ms += CHUNK_MS
+                else:
+                    silence_ms = 0
+
+                # flush after 500 ms silence
+                if silence_ms >= SILENCE_FLUSH_MS:
+                    await ws.send(
+                        json.dumps({"cmd": "flush"})
+                    )
+                    print("\n[500 ms pause detected → flush sent]")
+                    silence_ms = 0
+
                 await asyncio.sleep(
                     CHUNK_MS / 1000
                 )
 
-            # send flush
+            # final flush
             await asyncio.sleep(0.5)
+
             await ws.send(
                 json.dumps({"cmd": "flush"})
             )
 
-            print("\nFlush sent. Waiting for final transcript...")
-
-            # wait max 10 sec for final
-            try:
-                await asyncio.wait_for(
-                    final_received.wait(),
-                    timeout=10
-                )
-            except asyncio.TimeoutError:
-                print("\nTimeout waiting for final transcript")
+            print("\n[Final flush sent]")
 
         recv = asyncio.create_task(receive_task())
         send = asyncio.create_task(send_task())
 
         await send
-        await recv
 
+        # allow final messages to arrive
+        await asyncio.sleep(5)
+
+        recv.cancel()
+        await asyncio.gather(
+            recv,
+            return_exceptions=True
+        )
 
 
 # =====================================
@@ -143,39 +166,6 @@ async def main():
     audio_file = "/home/nikita_verma2/0a12a9ea-af37-41ec-905f-3babb9580e97.wav"
     await stream_parakeet(audio_file)
 
-✅ [18:20:33] FINAL: My sister in law quiere que haga, you know, she she's a linguist and so she wants to sort of track, you know, Spanglish. So she decided me if I would wear it at work.
-TimeoutError: timed out while closing connection
 
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 128, in <module>
-    asyncio.run(main())
-  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
-    return runner.run(main)
-           ^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
-    return future.result()
-           ^^^^^^^^^^^^^^^
-  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 124, in main
-    await stream_parakeet(audio_file)
-  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 113, in stream_parakeet
-    await asyncio.gather(
-  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 100, in send_task
-    await ws.send(chunk)
-  File "/home/nikita_verma2/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 485, in send
-    async with self.send_context():
-  File "/usr/lib/python3.11/contextlib.py", line 204, in __aenter__
-    return await anext(self.gen)
-           ^^^^^^^^^^^^^^^^^^^^^
-  File "/home/nikita_verma2/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 965, in send_context
-    raise self.protocol.close_exc from original_exc
-websockets.exceptions.ConnectionClosedError: sent 1011 (internal error) keepalive ping timeout; no close frame received
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-
