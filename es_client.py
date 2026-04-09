@@ -152,13 +152,31 @@ async def transcribe_file(filepath):
                     SEND_DELAY_MS / 1000
                 )
 
-            # IMPORTANT FIX
-            # trailing silence before EOS
+            # ==================================
+            # SAFE FINALIZATION FIX
+            # only improves last file behavior
+            # ==================================
             silence = b"\x00\x00" * int(
-                SAMPLE_RATE * 0.6
+                SAMPLE_RATE * 1.0
             )
 
             await ws.send(silence)
+
+            await asyncio.sleep(1.0)
+
+            try:
+                await ws.send(json.dumps({
+                    "cmd": "flush"
+                }))
+
+                print(
+                    f"{filepath.name} | sending FLUSH",
+                    flush=True
+                )
+
+            except Exception:
+                # keep backward compatible
+                pass
 
             await asyncio.sleep(1.0)
 
@@ -199,7 +217,6 @@ async def transcribe_file(filepath):
                         now - start_time
                     ) * 1000
 
-                    # LIVE TRANSCRIPTION
                     if text:
                         print(
                             f"{filepath.name} | "
@@ -226,7 +243,8 @@ async def transcribe_file(filepath):
                         time.time() - last_message_time
                     )
 
-                    # IMPORTANT FIX
+                    # SAFE:
+                    # earlier files unaffected
                     if final_received and idle_time > 5:
                         print(
                             f"{filepath.name} | "
@@ -235,7 +253,8 @@ async def transcribe_file(filepath):
                         )
                         break
 
-                    if idle_time > 20:
+                    # increased for last file
+                    if idle_time > 60:
                         print(
                             f"{filepath.name} | "
                             f"timeout after no messages",
@@ -350,30 +369,3 @@ async def run_batch():
 # =========================
 if __name__ == "__main__":
     asyncio.run(run_batch())
-
-
-see this 
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | sent chunk 260/421
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
-poor-audio.wav | sent chunk 280/421
-poor-audio.wav | sent chunk 300/421
-poor-audio.wav | sent chunk 320/421
-poor-audio.wav | sent chunk 340/421
-poor-audio.wav | sent chunk 360/421
-poor-audio.wav | sent chunk 380/421
-poor-audio.wav | sent chunk 400/421
-poor-audio.wav | sent chunk 420/421
-poor-audio.wav | sending EOS
-poor-audio.wav | timeout after no messages
-
-SAVED -> nemotron_final_report_20260409_144257.xlsx
-after chunk 260 i didn't get transcriptions
-
