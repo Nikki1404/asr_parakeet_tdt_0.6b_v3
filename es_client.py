@@ -20,9 +20,7 @@ CHUNK_BYTES = SAMPLE_RATE * 2 * CHUNK_MS // 1000
 
 SEND_DELAY_MS = 50
 
-INPUT_FOLDER = Path(
-    "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
-)
+INPUT_FOLDER = Path(r"C:\Users\re_nikitav\Downloads\audio_samples\english_samples")
 
 OUTPUT_FILE = "nemotron_final_report.xlsx"
 
