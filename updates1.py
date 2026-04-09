@@ -143,7 +143,37 @@ async def main():
     audio_file = "/home/nikita_verma2/0a12a9ea-af37-41ec-905f-3babb9580e97.wav"
     await stream_parakeet(audio_file)
 
+✅ [18:20:33] FINAL: My sister in law quiere que haga, you know, she she's a linguist and so she wants to sort of track, you know, Spanglish. So she decided me if I would wear it at work.
+TimeoutError: timed out while closing connection
 
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 128, in <module>
+    asyncio.run(main())
+  File "/usr/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.11/asyncio/base_events.py", line 653, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 124, in main
+    await stream_parakeet(audio_file)
+  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 113, in stream_parakeet
+    await asyncio.gather(
+  File "/home/nikita_verma2/parakeet-asr-multilingual/websocket_test.py", line 100, in send_task
+    await ws.send(chunk)
+  File "/home/nikita_verma2/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 485, in send
+    async with self.send_context():
+  File "/usr/lib/python3.11/contextlib.py", line 204, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nikita_verma2/parakeet-asr-multilingual/env/lib/python3.11/site-packages/websockets/asyncio/connection.py", line 965, in send_context
+    raise self.protocol.close_exc from original_exc
+websockets.exceptions.ConnectionClosedError: sent 1011 (internal error) keepalive ping timeout; no close frame received
 if __name__ == "__main__":
     asyncio.run(main())
 
