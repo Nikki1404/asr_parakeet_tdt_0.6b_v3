@@ -3,6 +3,7 @@ import json
 import time
 import statistics
 from pathlib import Path
+from datetime import datetime
 
 import numpy as np
 import librosa
@@ -26,7 +27,10 @@ INPUT_FOLDER = Path(
     "/home/re_nikitav/parakeet-asr-multilingual/audio_samples"
 )
 
-OUTPUT_FILE = "nemotron_final_report.xlsx"
+OUTPUT_FILE = (
+    f"nemotron_final_report_"
+    f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+)
 
 WEBSOCKET_ADDRESS = "ws://127.0.0.1:8002/asr/realtime-custom-vad"
 
@@ -113,7 +117,7 @@ async def transcribe_file(filepath):
         close_timeout=30
     ) as ws:
 
-        # send backend config
+        # backend config
         await ws.send(json.dumps({
             "backend": BACKEND,
             "sample_rate": SAMPLE_RATE
@@ -137,7 +141,6 @@ async def transcribe_file(filepath):
 
                 await ws.send(chunk)
 
-                # LIVE CHUNK STATUS
                 if chunk_num % 20 == 0:
                     print(
                         f"{filepath.name} | "
@@ -149,14 +152,21 @@ async def transcribe_file(filepath):
                     SEND_DELAY_MS / 1000
                 )
 
-            await asyncio.sleep(0.5)
+            # IMPORTANT FIX
+            # trailing silence before EOS
+            silence = b"\x00\x00" * int(
+                SAMPLE_RATE * 0.6
+            )
+
+            await ws.send(silence)
+
+            await asyncio.sleep(1.0)
 
             print(
                 f"{filepath.name} | sending EOS",
                 flush=True
             )
 
-            # EOS
             await ws.send(b"")
 
         async def receiver():
@@ -164,12 +174,17 @@ async def transcribe_file(filepath):
             nonlocal first_final_time
             nonlocal response_num
 
+            last_message_time = time.time()
+            final_received = False
+
             while True:
                 try:
                     raw = await asyncio.wait_for(
                         ws.recv(),
-                        timeout=180
+                        timeout=300
                     )
+
+                    last_message_time = time.time()
 
                     now = time.time()
 
@@ -184,7 +199,7 @@ async def transcribe_file(filepath):
                         now - start_time
                     ) * 1000
 
-                    # LIVE TRANSCRIPTION STATUS
+                    # LIVE TRANSCRIPTION
                     if text:
                         print(
                             f"{filepath.name} | "
@@ -196,7 +211,8 @@ async def transcribe_file(filepath):
                     if first_response_time is None:
                         first_response_time = elapsed_ms
 
-                    if typ == "final":
+                    if typ == "final" and text:
+                        final_received = True
 
                         if first_final_time is None:
                             first_final_time = elapsed_ms
@@ -206,22 +222,41 @@ async def transcribe_file(filepath):
                         latencies.append(elapsed_ms)
 
                 except asyncio.TimeoutError:
-                    print(
-                        f"{filepath.name} | receiver timeout",
-                        flush=True
+                    idle_time = (
+                        time.time() - last_message_time
                     )
-                    break
+
+                    # IMPORTANT FIX
+                    if final_received and idle_time > 5:
+                        print(
+                            f"{filepath.name} | "
+                            f"final transcription completed",
+                            flush=True
+                        )
+                        break
+
+                    if idle_time > 20:
+                        print(
+                            f"{filepath.name} | "
+                            f"timeout after no messages",
+                            flush=True
+                        )
+                        break
+
+                    continue
 
                 except websockets.exceptions.ConnectionClosed:
                     print(
-                        f"{filepath.name} | websocket closed",
+                        f"{filepath.name} | "
+                        f"websocket closed",
                         flush=True
                     )
                     break
 
                 except Exception as e:
                     print(
-                        f"{filepath.name} | receiver error: {e}",
+                        f"{filepath.name} | "
+                        f"receiver error: {e}",
                         flush=True
                     )
                     break
@@ -286,13 +321,26 @@ async def run_batch():
 
     df = pd.DataFrame(rows)
 
-    df.to_excel(
-        OUTPUT_FILE,
-        index=False
-    )
+    try:
+        df.to_excel(
+            OUTPUT_FILE,
+            index=False
+        )
+        final_output = OUTPUT_FILE
+
+    except PermissionError:
+        final_output = (
+            f"nemotron_final_report_backup_"
+            f"{int(time.time())}.xlsx"
+        )
+
+        df.to_excel(
+            final_output,
+            index=False
+        )
 
     print(
-        f"\nSAVED -> {OUTPUT_FILE}",
+        f"\nSAVED -> {final_output}",
         flush=True
     )
 
