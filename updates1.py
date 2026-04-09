@@ -151,7 +151,7 @@ async def stream_parakeet(audio_file: str):
 # TEST RUNNER
 # =====================================
 async def main():
-    audio_file = "english.wav"   # change this
+    audio_file = "/home/nikita_verma2/0a12a9ea-af37-41ec-905f-3babb9580e97.wav"   # change this
 
     async for event in stream_parakeet(audio_file):
         print(event)
