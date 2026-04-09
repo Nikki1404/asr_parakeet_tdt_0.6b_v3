@@ -350,3 +350,30 @@ async def run_batch():
 # =========================
 if __name__ == "__main__":
     asyncio.run(run_batch())
+
+
+see this 
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | sent chunk 260/421
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | PARTIAL | Uh, and we're talking with Jenny. So what is your current occupation? I'm Assistant Director of Navy Davidson Private Ho
+poor-audio.wav | sent chunk 280/421
+poor-audio.wav | sent chunk 300/421
+poor-audio.wav | sent chunk 320/421
+poor-audio.wav | sent chunk 340/421
+poor-audio.wav | sent chunk 360/421
+poor-audio.wav | sent chunk 380/421
+poor-audio.wav | sent chunk 400/421
+poor-audio.wav | sent chunk 420/421
+poor-audio.wav | sending EOS
+poor-audio.wav | timeout after no messages
+
+SAVED -> nemotron_final_report_20260409_144257.xlsx
+after chunk 260 i didn't get transcriptions
+
