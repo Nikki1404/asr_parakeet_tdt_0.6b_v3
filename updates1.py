@@ -425,55 +425,8 @@ nohup python -u transcribe_grpc.py --server 192.168.4.62:50051 --language es-US 
   > transcription_results_grpc/nohup.out 2>&1 &
 
 
-     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 184.6/184.6 kB 38.9 MB/s eta 0:00:00
-Requirement already satisfied: cffi>=1.0 in ./env/lib/python3.11/site-packages (from soundfile==0.13.1) (2.0.0)
-Building wheels for collected packages: PyAudio
-  Building wheel for PyAudio (pyproject.toml) ... error
-  error: subprocess-exited-with-error
-  
-  × Building wheel for PyAudio (pyproject.toml) did not run successfully.
-  │ exit code: 1
-  ╰─> [28 lines of output]
-      /tmp/pip-build-env-vnu5knp4/overlay/lib/python3.11/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
-      !!
-      
-              ********************************************************************************
-              Please consider removing the following classifiers in favor of a SPDX license expression:
-      
-              License :: OSI Approved :: MIT License
-      
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-      
-      !!
-        self._finalize_license_expression()
-      running bdist_wheel
-      running build
-      running build_py
-      creating build/lib.linux-x86_64-cpython-311/pyaudio
-      copying src/pyaudio/__init__.py -> build/lib.linux-x86_64-cpython-311/pyaudio
-      running build_ext
-      building 'pyaudio._portaudio' extension
-      creating build/temp.linux-x86_64-cpython-311/src/pyaudio
-      x86_64-linux-gnu-gcc -Wsign-compare -DNDEBUG -g -fwrapv -O2 -Wall -g -fstack-protector-strong -Wformat -Werror=format-security -g -fwrapv -O2 -fPIC -I/usr/local/include -I/usr/include -I/home/nikita_verma2/parakeet-asr-multilingual/env/include -I/usr/include/python3.11 -c src/pyaudio/device_api.c -o build/temp.linux-x86_64-cpython-311/src/pyaudio/device_api.o
-      In file included from src/pyaudio/device_api.c:1:
-      src/pyaudio/device_api.h:7:10: fatal error: Python.h: No such file or directory
-          7 | #include "Python.h"
-            |          ^~~~~~~~~~
-      compilation terminated.
-      error: command '/usr/bin/x86_64-linux-gnu-gcc' failed with exit code 1
-      [end of output]
-  
-  note: This error originates from a subprocess, and is likely not a problem with pip.
-  ERROR: Failed building wheel for PyAudio
-Failed to build PyAudio
-ERROR: Could not build wheels for PyAudio, which is required to install pyproject.toml-based projects
-
-
-cffi==2.0.0
-numpy==2.4.4
-PyAudio==0.2.14
-pycparser==3.0
-pydub==0.25.1
-soundfile==0.13.1
-websockets==16.0
+sudo apt update && \
+sudo apt install -y python3.11-dev portaudio19-dev libasound2-dev build-essential && \
+source env/bin/activate && \
+pip install --upgrade pip setuptools wheel && \
+pip install -r requirements.txt
