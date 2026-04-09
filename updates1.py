@@ -388,28 +388,87 @@ if __name__ == "__main__":
         asyncio.run(run_mic(args.host, args.port, args.device))
 
 
-now running of another vm using 
-(env) nikita_verma2@cx-asr-v2:~/parakeet-asr-multilingual$ python client.py --host 192.168.4.38 --port 8001 --file /home/nikita_verma2/0a12a9ea
--af37-41ec-905f-3babb9580e97.wav
-
-╔══════════════════════════════════════════════════════════════╗
-║        Parakeet-TDT-0.6B-v3  |  Real-Time ASR Client        ║
-║          Auto language detection (EN / ES / more)           ║
-║          WebSocket: ws://localhost:8001/ws                   ║
-╚══════════════════════════════════════════════════════════════╝
-
-  Mode   : FILE streaming at 1.0× real-time speed
-  Server : ws://192.168.4.38:8001/ws
-  Files  : 0a12a9ea-af37-41ec-905f-3babb9580e97.wav
-
-  Loading 0a12a9ea-af37-41ec-905f-3babb9580e97.wav … 14.0s  ✓
-
-════════════════════════════════════════════════════════════════
-  📄 0a12a9ea-af37-41ec-905f-3babb9580e97.wav  (14.0s)  — language auto-detected by model
-════════════════════════════════════════════════════════════════
-
-
-  [ERROR] WebSocket failed: [Errno 111] Connect call failed ('192.168.4.38', 8001)
-
-  All files processed.
-so when running on vm itself then this error shouldn't occur ?
+while docker build getting this 
+(env) root@cx-asr-v2:/home/nikita_verma2/parakeet-asr-multilingual# docker build -t parakeet_tdt_0.6b_v3 .
+Sending build context to Docker daemon  103.2MB
+Step 1/15 : FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+12.1.1-runtime-ubuntu22.04: Pulling from nvidia/cuda
+aece8493d397: Already exists 
+dd4939a04761: Pull complete 
+b0d7cc89b769: Pull complete 
+1532d9024b9c: Pull complete 
+04fc8a31fa53: Pull complete 
+a14a8a8a6ebc: Pull complete 
+7d61afc7a3ac: Pull complete 
+8bd2762ffdd9: Pull complete 
+2a5ee6fadd42: Pull complete 
+Digest: sha256:8bbc6e304b193e84327fa30d93eea70ec0213b808239a46602a919a479a73b12
+Status: Downloaded newer image for nvidia/cuda:12.1.1-runtime-ubuntu22.04
+ ---> 0495908f9381
+Step 2/15 : ENV http_proxy="http://163.116.128.80:8080"
+ ---> Running in 74ca3a80c02e
+Removing intermediate container 74ca3a80c02e
+ ---> 1551ee7c8c66
+Step 3/15 : ENV https_proxy="http://163.116.128.80:8080"
+ ---> Running in 6b5a5b58b6fe
+Removing intermediate container 6b5a5b58b6fe
+ ---> da3503993aa7
+Step 4/15 : RUN apt-get update && apt-get install -y --no-install-recommends         python3.10         python3.10-dev         python3-pip         python3.10-distutils         build-essential         gcc         g++         ffmpeg         libsndfile1         libportaudio2         portaudio19-dev         git         wget         curl         libcudnn8         libcudnn8-dev     && rm -rf /var/lib/apt/lists/*
+ ---> Running in f2c6b880f4ae
+Ign:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+Ign:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
+Ign:3 http://archive.ubuntu.com/ubuntu jammy InRelease
+Ign:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+Ign:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+Ign:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+Ign:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
+Ign:3 http://archive.ubuntu.com/ubuntu jammy InRelease
+Ign:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+Ign:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+Ign:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+Ign:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
+Ign:3 http://archive.ubuntu.com/ubuntu jammy InRelease
+Ign:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+Ign:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+Err:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
+Err:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
+  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
+Err:3 http://archive.ubuntu.com/ubuntu jammy InRelease
+  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
+Err:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+  Unable to connect to 163.116.128.80:8080:
+Err:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+  Unable to connect to 163.116.128.80:8080:
+Reading package lists...
+W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy/InRelease  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
+W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-updates/InRelease  Unable to connect to 163.116.128.80:8080:
+W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-backports/InRelease  Unable to connect to 163.116.128.80:8080:
+W: Failed to fetch http://security.ubuntu.com/ubuntu/dists/jammy-security/InRelease  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
+W: Failed to fetch https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/InRelease  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
+W: Some index files failed to download. They have been ignored, or old ones used instead.
+Reading package lists...
+Building dependency tree...
+Reading state information...
+E: Unable to locate package python3.10
+E: Couldn't find any package by glob 'python3.10'
+E: Couldn't find any package by regex 'python3.10'
+E: Unable to locate package python3.10-dev
+E: Couldn't find any package by glob 'python3.10-dev'
+E: Couldn't find any package by regex 'python3.10-dev'
+E: Unable to locate package python3-pip
+E: Unable to locate package python3.10-distutils
+E: Couldn't find any package by glob 'python3.10-distutils'
+E: Couldn't find any package by regex 'python3.10-distutils'
+E: Unable to locate package build-essential
+E: Unable to locate package gcc
+E: Unable to locate package ffmpeg
+E: Unable to locate package libsndfile1
+E: Unable to locate package libportaudio2
+E: Unable to locate package portaudio19-dev
+E: Unable to locate package git
+E: Unable to locate package wget
+E: Unable to locate package curl
+E: Unable to locate package libcudnn8
+E: Unable to locate package libcudnn8-dev
+The command '/bin/sh -c apt-get update && apt-get install -y --no-install-recommends         python3.10         python3.10-dev         python3-pip         python3.10-distutils         build-essential         gcc         g++         ffmpeg         libsndfile1         libportaudio2         portaudio19-dev         git         wget         curl         libcudnn8         libcudnn8-dev     && rm -rf /var/lib/apt/lists/*' returned a non-zero code: 100
