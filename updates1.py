@@ -52,14 +52,17 @@ async def stream_parakeet(audio_file: str):
 
     async with websockets.connect(
         WEBSOCKET_ADDRESS,
-        max_size=None
+        max_size=None,
+        ping_interval=20,
+        ping_timeout=20
     ) as ws:
 
         logger.info("Connected to websocket")
 
         async def receive_task():
             """
-            Background task to listen for WebSocket messages.
+            Listen for partial + final transcripts
+            throughout the full audio stream.
             """
             try:
                 async for msg in ws:
@@ -85,22 +88,16 @@ async def stream_parakeet(audio_file: str):
                                 "text": txt
                             })
 
-                            # stop after final transcript
-                            await event_queue.put(None)
-                            break
-
             except websockets.exceptions.ConnectionClosed:
-                pass
-
-            finally:
-                await event_queue.put(None)
+                logger.info("Connection closed by server")
 
         async def send_task():
             """
-            Background task to stream audio frames.
+            Stream complete audio file chunk by chunk.
             """
             try:
                 offset = 0
+                total_chunks = 0
 
                 while offset < len(pcm_audio):
                     chunk = pcm_audio[
@@ -114,22 +111,38 @@ async def stream_parakeet(audio_file: str):
                         )
 
                     await ws.send(chunk)
+                    total_chunks += 1
+
+                    if total_chunks % 1000 == 0:
+                        logger.info(
+                            f"Sent {total_chunks} chunks"
+                        )
 
                     await asyncio.sleep(
                         CHUNK_MS / 1000
                     )
 
-                # flush final transcript
-                await asyncio.sleep(0.3)
+                logger.info("Finished sending full audio")
+
+                # final flush
+                await asyncio.sleep(0.5)
 
                 await ws.send(
                     json.dumps({"cmd": "flush"})
                 )
 
+                logger.info("Flush sent")
+
+                # wait for last transcript
+                await asyncio.sleep(10)
+
+                await event_queue.put(None)
+
             except Exception as e:
                 logger.info(f"Error occurred: {e}")
+                await event_queue.put(None)
 
-        # Start sender and receiver
+        # start background tasks
         stask = asyncio.create_task(send_task())
         rtask = asyncio.create_task(receive_task())
 
@@ -151,7 +164,7 @@ async def stream_parakeet(audio_file: str):
 # TEST RUNNER
 # =====================================
 async def main():
-    audio_file = "/home/nikita_verma2/maria1.wav"   # change this
+    audio_file = "/home/nikita_verma2/maria1.wav"   # change file here
 
     async for event in stream_parakeet(audio_file):
         print(event)
