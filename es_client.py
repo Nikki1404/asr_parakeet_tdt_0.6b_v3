@@ -231,6 +231,12 @@ async def run_batch():
 
     print(f"\nSAVED -> {OUTPUT_FILE}")
 
+# =========================
+# MAIN
+# =========================
+if __name__ == "__main__":
+    asyncio.run(run_batch())
+
 
 INFO:     172.17.0.1:55668 - "WebSocket /asr/realtime-custom-vad" [accepted]
 INFO:     connection open
@@ -271,8 +277,45 @@ starlette.websockets.WebSocketDisconnect
 2026-04-09 08:06:52,563 | INFO | asr_server | WS session closed for Address(host='172.17.0.1', port=55668)
 2026-04-09 08:06:52,882 | INFO | asr_server | WS connection request from Address(host='172.17.0.1', port=59284)
 INFO:     172.17.0.1:59284 - "WebSocket /asr/realtime-custom-vad" [accepted]
-# =========================
-# MAIN
-# =========================
-if __name__ == "__main__":
+
+and getting this client side 
+(venv) PS C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts> python .\benchmarking_client.py
+[1/3] DIALOGUE.wav
+TimeoutError: timed out while closing connection
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts\benchmarking_client.py", line 239, in <module>
     asyncio.run(run_batch())
+    ~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Program Files\Python313\Lib\asyncio\runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Program Files\Python313\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Program Files\Python313\Lib\asyncio\base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts\benchmarking_client.py", line 221, in run_batch
+    row = await transcribe_file(file)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts\benchmarking_client.py", line 175, in transcribe_file
+    await asyncio.gather(
+    ...<2 lines>...
+    )
+  File "C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts\benchmarking_client.py", line 127, in sender
+    await ws.send(chunk)
+  File "C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts\venv\Lib\site-packages\websockets\asyncio\connection.py", line 485, in send
+    async with self.send_context():
+               ~~~~~~~~~~~~~~~~~^^
+  File "C:\Program Files\Python313\Lib\contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Desktop\bu-digital-cx-speech-asr-realtime-custom-vad\scripts\venv\Lib\site-packages\websockets\asyncio\connection.py", line 965, in send_context
+    raise self.protocol.close_exc from original_exc
+websockets.exceptions.ConnectionClosedError: sent 1011 (internal error) keepalive ping timeout; no close frame received                                                     
+                                                        
+                                                        
+
