@@ -1,9 +1,10 @@
 import asyncio
 import json
 import logging
-import websockets
-import soundfile as sf
+
 import numpy as np
+import soundfile as sf
+import websockets
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -12,10 +13,15 @@ logging.basicConfig(level=logging.INFO)
 # CONFIG
 # =====================================
 WEBSOCKET_ADDRESS = "ws://192.168.4.38:8001/ws"
+
 TARGET_SR = 16000
 CHUNK_MS = 30
 CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
+
+# silence / pause config
+PAUSE_MS = 200
+SILENCE_THRESHOLD = 300
 
 
 # =====================================
@@ -59,7 +65,7 @@ async def stream_parakeet(audio_file: str):
 
         async def receive_task():
             """
-            Background task to listen for WebSocket messages.
+            Listen for partial + final transcripts
             """
             try:
                 async for msg in ws:
@@ -85,22 +91,24 @@ async def stream_parakeet(audio_file: str):
                                 "text": txt
                             })
 
-                            # stop after final transcript
-                            await event_queue.put(None)
-                            break
-
             except websockets.exceptions.ConnectionClosed:
-                pass
+                logger.info("WebSocket closed")
 
             finally:
                 await event_queue.put(None)
 
         async def send_task():
             """
-            Background task to stream audio frames.
+            Stream audio + flush after 200 ms silence
             """
             try:
                 offset = 0
+
+                silent_chunks_needed = (
+                    PAUSE_MS // CHUNK_MS
+                ) + 1
+
+                silent_chunk_count = 0
 
                 while offset < len(pcm_audio):
                     chunk = pcm_audio[
@@ -113,23 +121,57 @@ async def stream_parakeet(audio_file: str):
                             CHUNK_BYTES - len(chunk)
                         )
 
+                    # silence detection
+                    chunk_np = np.frombuffer(
+                        chunk,
+                        dtype=np.int16
+                    )
+
+                    rms = np.sqrt(
+                        np.mean(
+                            chunk_np.astype(np.float32) ** 2
+                        )
+                    )
+
                     await ws.send(chunk)
+
+                    # detect pause
+                    if rms < SILENCE_THRESHOLD:
+                        silent_chunk_count += 1
+                    else:
+                        silent_chunk_count = 0
+
+                    # flush after 200 ms pause
+                    if silent_chunk_count >= silent_chunks_needed:
+                        await asyncio.sleep(0.05)
+
+                        await ws.send(
+                            json.dumps({"cmd": "flush"})
+                        )
+
+                        logger.info(
+                            f"Flush sent after {PAUSE_MS} ms pause"
+                        )
+
+                        silent_chunk_count = 0
 
                     await asyncio.sleep(
                         CHUNK_MS / 1000
                     )
 
-                # flush final transcript
+                # final flush at end
                 await asyncio.sleep(0.3)
 
                 await ws.send(
                     json.dumps({"cmd": "flush"})
                 )
 
+                logger.info("Final flush sent")
+
             except Exception as e:
                 logger.info(f"Error occurred: {e}")
 
-        # Start sender and receiver
+        # start sender + receiver
         stask = asyncio.create_task(send_task())
         rtask = asyncio.create_task(receive_task())
 
@@ -145,6 +187,7 @@ async def stream_parakeet(audio_file: str):
         finally:
             stask.cancel()
             rtask.cancel()
+
 
 
 # =====================================
