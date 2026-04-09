@@ -58,6 +58,9 @@ async def stream_parakeet(audio_file: str):
         logger.info("Connected to websocket")
 
         async def receive_task():
+            """
+            Background task to listen for WebSocket messages.
+            """
             try:
                 async for msg in ws:
                     if isinstance(msg, str):
@@ -81,15 +84,21 @@ async def stream_parakeet(audio_file: str):
                                 "type": "FINAL_TRANSCRIPT",
                                 "text": txt
                             })
+
+                            # stop after final transcript
+                            await event_queue.put(None)
                             break
 
             except websockets.exceptions.ConnectionClosed:
                 pass
 
-            # signal completion
-            await event_queue.put(None)
+            finally:
+                await event_queue.put(None)
 
         async def send_task():
+            """
+            Background task to stream audio frames.
+            """
             try:
                 offset = 0
 
@@ -110,7 +119,7 @@ async def stream_parakeet(audio_file: str):
                         CHUNK_MS / 1000
                     )
 
-                # final flush
+                # flush final transcript
                 await asyncio.sleep(0.3)
 
                 await ws.send(
@@ -120,6 +129,7 @@ async def stream_parakeet(audio_file: str):
             except Exception as e:
                 logger.info(f"Error occurred: {e}")
 
+        # Start sender and receiver
         stask = asyncio.create_task(send_task())
         rtask = asyncio.create_task(receive_task())
 
@@ -141,11 +151,12 @@ async def stream_parakeet(audio_file: str):
 # TEST RUNNER
 # =====================================
 async def main():
-    audio_file = "/home/nikita_verma2/maria1.wav"  # change this
+    audio_file = "/home/nikita_verma2/maria1.wav"   # change this
 
     async for event in stream_parakeet(audio_file):
-        print(f"\nEVENT RECEIVED -> {event}")
+        print(event)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+
