@@ -1,474 +1,161 @@
-"""
-Parakeet ASR – Terminal Microphone Client
-Captures microphone audio, sends it to the WebSocket server in real time,
-and prints transcriptions as they arrive. Works for English & Spanish
-(parakeet-tdt-0.6b-v3 auto-detects the language).
-
-Usage:
-    # Microphone mode (default)
-    python client.py (local testing)
-    python client.py --host 34.118.200.125 --port 8001 (GCP)
-    
-
-    # File mode – streams audio file(s) chunk by chunk at real-time speed
-    python client.py --host 34.118.200.125 --port 8001 --file english.wav
-    python client.py --host 34.118.200.125 --port 8001 --file english.wav spanish.mp3
-    python client.py --host 34.118.200.125 --port 8001 --file audio.wav --speed 1.5
-
-
-Dependencies:
-    pip install pyaudio websockets soundfile numpy
-    pip install pydub   (optional, for MP3/OGG)
-    apt install ffmpeg  (optional, for non-WAV resampling)
-"""
-
-import argparse
 import asyncio
 import json
 import logging
-import sys
-import threading
-import time
-from pathlib import Path
-from queue import Empty, Queue
-from typing import List, Optional
-
-import numpy as np
-import pyaudio
 import websockets
+import soundfile as sf
+import numpy as np
 
-# Config
-SAMPLE_RATE   = 16_000
-CHANNELS      = 1
-FORMAT        = pyaudio.paInt16
-CHUNK_MS      = 30
-CHUNK_SAMPLES = SAMPLE_RATE * CHUNK_MS // 1000   # 480 samples
-CHUNK_BYTES   = CHUNK_SAMPLES * 2                # int16 → 2 bytes per sample
-
-logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
-BANNER = r"""
-╔══════════════════════════════════════════════════════════════╗
-║        Parakeet-TDT-0.6B-v3  |  Real-Time ASR Client        ║
-║          Auto language detection (EN / ES / more)           ║
-║          WebSocket: ws://localhost:8001/ws                   ║
-╚══════════════════════════════════════════════════════════════╝
-"""
-
-HELP = """
-Commands
-  [Enter]   Manual flush – force transcription of buffered audio
-  q         Quit
-  d         List available audio input devices
-
-Test phrases
-  EN: "The quick brown fox jumps over the lazy dog"
-  ES: "El zorro marrón rápido salta sobre el perro perezoso"
-"""
+# =====================================
+# CONFIG
+# =====================================
+WEBSOCKET_ADDRESS = "ws://34.118.200.125:8001/ws"
+TARGET_SR = 16000
+CHUNK_MS = 30
+CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
+CHUNK_BYTES = CHUNK_SAMPLES * 2
 
 
-# Audio capture (mic)
+# =====================================
+# AUDIO LOADER
+# =====================================
+def load_audio(filepath: str):
+    audio, sr = sf.read(filepath, dtype="float32")
 
-class MicCapture:
-    """Captures microphone audio into a thread-safe queue."""
+    if audio.ndim == 2:
+        audio = audio.mean(axis=1)
 
-    def __init__(self, device_index: Optional[int] = None):
-        self.queue: Queue[bytes] = Queue(maxsize=512)
-        self._stop   = threading.Event()
-        self._device = device_index
-        self._thread = threading.Thread(target=self._capture, daemon=True)
-
-    def start(self):
-        self._thread.start()
-
-    def stop(self):
-        self._stop.set()
-
-    def _capture(self):
-        pa = pyaudio.PyAudio()
-        try:
-            stream = pa.open(
-                format=FORMAT,
-                channels=CHANNELS,
-                rate=SAMPLE_RATE,
-                input=True,
-                input_device_index=self._device,
-                frames_per_buffer=CHUNK_SAMPLES,
-            )
-            while not self._stop.is_set():
-                data = stream.read(CHUNK_SAMPLES, exception_on_overflow=False)
-                self.queue.put(data)
-        except OSError as exc:
-            print(f"\n[ERROR] Audio capture failed: {exc}", file=sys.stderr)
-            self._stop.set()
-        finally:
-            try:
-                stream.stop_stream()
-                stream.close()
-            except Exception:
-                pass
-            pa.terminate()
-
-
-def list_devices():
-    pa = pyaudio.PyAudio()
-    print("\nAvailable audio input devices:")
-    for i in range(pa.get_device_count()):
-        info = pa.get_device_info_by_index(i)
-        if info["maxInputChannels"] > 0:
-            print(f"  [{i}] {info['name']}  ({int(info['defaultSampleRate'])} Hz)")
-    pa.terminate()
-    print()
-
-
-#  Audio loading (file) 
-def load_audio_as_16k_pcm(path: str) -> bytes:
-    """
-    Load any audio file → raw int16 LE PCM at 16 kHz mono.
-    Tries soundfile first (WAV/FLAC/OGG), then pydub (MP3 etc).
-    """
-    try:
-        import soundfile as sf
-        data, sr = sf.read(path, dtype="float32", always_2d=False)
-        if data.ndim == 2:
-            data = data.mean(axis=1)
-        if sr != SAMPLE_RATE:
-            data = _resample(data, sr, SAMPLE_RATE)
-        return _float32_to_pcm16(data)
-    except Exception as sf_err:
-        try:
-            from pydub import AudioSegment
-            seg = AudioSegment.from_file(path)
-            seg = seg.set_channels(1).set_frame_rate(SAMPLE_RATE).set_sample_width(2)
-            return seg.raw_data
-        except Exception as pd_err:
-            raise RuntimeError(
-                f"Cannot load '{path}'.\n"
-                f"  soundfile : {sf_err}\n"
-                f"  pydub     : {pd_err}\n"
-                f"  Tip: install ffmpeg for MP3/OGG support."
-            )
-
-
-def _resample(data: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarray:
-    try:
+    if sr != TARGET_SR:
         import librosa
-        return librosa.resample(data, orig_sr=orig_sr, target_sr=target_sr)
-    except ImportError:
-        pass
-    try:
-        from scipy.signal import resample_poly
-        from math import gcd
-        g = gcd(orig_sr, target_sr)
-        return resample_poly(data, target_sr // g, orig_sr // g).astype(np.float32)
-    except ImportError:
-        pass
-    # Pure numpy linear interpolation fallback
-    duration  = len(data) / orig_sr
-    old_times = np.linspace(0, duration, len(data))
-    new_times = np.linspace(0, duration, int(duration * target_sr))
-    return np.interp(new_times, old_times, data).astype(np.float32)
+        audio = librosa.resample(
+            audio,
+            orig_sr=sr,
+            target_sr=TARGET_SR
+        )
+
+    pcm = (
+        np.clip(audio, -1.0, 1.0) * 32767
+    ).astype(np.int16)
+
+    return pcm.tobytes()
 
 
-def _float32_to_pcm16(data: np.ndarray) -> bytes:
-    return (np.clip(data, -1.0, 1.0) * 32767).astype(np.int16).tobytes()
+# =====================================
+# MAIN STREAM FUNCTION
+# =====================================
+async def stream_parakeet(audio_file: str):
+    event_queue = asyncio.Queue()
 
+    pcm_audio = load_audio(audio_file)
 
-# ── Shared receiver (same for mic and file modes)
+    async with websockets.connect(
+        WEBSOCKET_ADDRESS,
+        max_size=None
+    ) as ws:
 
-async def _receiver(ws):
-    """Receives partial + final transcripts and prints them."""
-    try:
-        async for raw in ws:
+        logger.info("Connected to websocket")
+
+        async def receive_task():
+            """
+            Background task to listen for WebSocket messages.
+            """
             try:
-                msg = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
+                async for msg in ws:
+                    if isinstance(msg, str):
+                        obj = json.loads(msg)
 
-            msg_type = msg.get("type", "")
-            text     = msg.get("text", "")
-            dur_ms   = msg.get("duration_ms", 0)
-            ts       = time.strftime("%H:%M:%S")
+                        typ = obj.get("type")
+                        txt = obj.get("text", "")
 
-            if msg_type == "partial":
-                print(f"\r  ⏳ [{ts}] {text:<80}", end="", flush=True)
+                        logger.info(
+                            f"Websocket received msg: {txt}, type: {typ}"
+                        )
 
-            elif msg_type == "transcript":
-                rtf = msg.get("rtf", 0)
-                print(f"\r{' ' * 90}\r", end="")
-                print(f"[{ts}] ({dur_ms/1000:.1f}s | RTF {rtf:.2f}x)")
-                print(f"  ✅  {text}")
-                print("─" * 64)
+                        if typ == "partial":
+                            await event_queue.put({
+                                "type": "INTERIM_TRANSCRIPT",
+                                "text": txt
+                            })
 
-    except websockets.exceptions.ConnectionClosed:
-        print("\n[Connection closed]")
+                        elif typ in ["transcript", "final"]:
+                            await event_queue.put({
+                                "type": "FINAL_TRANSCRIPT",
+                                "text": txt
+                            })
 
+                            # stop after final transcript
+                            await event_queue.put(None)
+                            break
 
-# ── stdin reader 
-
-def stdin_reader(cmd_queue: Queue):
-    while True:
-        try:
-            line = sys.stdin.readline()
-            if line:
-                cmd_queue.put(line.strip())
-        except Exception:
-            break
-
-
-#  MODE 1 : Microphone 
-
-async def run_mic(host: str, port: int, device_index: Optional[int]):
-    uri = f"ws://{host}:{port}/ws"
-    print(BANNER)
-    print(f"Connecting to {uri} …", end=" ", flush=True)
-
-    try:
-        async with websockets.connect(uri, ping_interval=20, ping_timeout=20) as ws:
-            print("connected ✓\n")
-            print("🎙  Speak now – transcriptions appear below\n")
-            print("─" * 64)
-
-            mic = MicCapture(device_index)
-            mic.start()
-
-            cmd_queue: Queue[str] = Queue()
-            threading.Thread(target=stdin_reader, args=(cmd_queue,), daemon=True).start()
-
-            send_task = asyncio.create_task(_mic_sender(ws, mic, cmd_queue))
-            recv_task = asyncio.create_task(_receiver(ws))
-
-            done, pending = await asyncio.wait(
-                [send_task, recv_task],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for t in pending:
-                t.cancel()
-            mic.stop()
-
-    except (OSError, websockets.exceptions.WebSocketException) as exc:
-        print(f"failed ✗\n[ERROR] {exc}", file=sys.stderr)
-        sys.exit(1)
-
-
-async def _mic_sender(ws, mic: MicCapture, cmd_queue: Queue):
-    print(HELP)
-    try:
-        while True:
-            try:
-                cmd = cmd_queue.get_nowait()
-                if cmd.lower() in ("q", "quit", "exit"):
-                    print("\nBye!")
-                    return
-                elif cmd == "":
-                    await ws.send(json.dumps({"cmd": "flush"}).encode())
-                    print("[flushed]\n", flush=True)
-                elif cmd.lower() == "d":
-                    list_devices()
-            except Empty:
+            except websockets.exceptions.ConnectionClosed:
                 pass
 
-            sent = 0
-            while not mic.queue.empty() and sent < 50:
-                frame = mic.queue.get_nowait()
-                await ws.send(frame)
-                sent += 1
+            finally:
+                await event_queue.put(None)
 
-            await asyncio.sleep(0.005)
+        async def send_task():
+            """
+            Background task to stream audio frames.
+            """
+            try:
+                offset = 0
 
-    except websockets.exceptions.ConnectionClosed:
-        print("\n[Connection closed by server]")
+                while offset < len(pcm_audio):
+                    chunk = pcm_audio[
+                        offset: offset + CHUNK_BYTES
+                    ]
+                    offset += CHUNK_BYTES
 
+                    if len(chunk) < CHUNK_BYTES:
+                        chunk += bytes(
+                            CHUNK_BYTES - len(chunk)
+                        )
 
-# File streaming
-async def run_files(host: str, port: int, files: List[str], speed: float):
-    uri = f"ws://{host}:{port}/ws"
-    print(BANNER)
-    print(f"  Mode   : FILE streaming at {speed:.1f}× real-time speed")
-    print(f"  Server : {uri}")
-    print(f"  Files  : {', '.join(Path(f).name for f in files)}\n")
+                    await ws.send(chunk)
 
-    for filepath in files:
-        p = Path(filepath)
-        if not p.exists():
-            print(f"  [SKIP] File not found: {filepath}\n")
-            continue
+                    await asyncio.sleep(
+                        CHUNK_MS / 1000
+                    )
 
-        # Load and resample
-        print(f"  Loading {p.name} …", end=" ", flush=True)
-        try:
-            pcm = load_audio_as_16k_pcm(str(p))
-        except RuntimeError as e:
-            print(f"FAILED ✗\n  {e}\n")
-            continue
+                # flush final transcript
+                await asyncio.sleep(0.3)
 
-        duration_sec = len(pcm) / 2 / SAMPLE_RATE
-        print(f"{duration_sec:.1f}s  ✓")
-        print(f"\n{'═' * 64}")
-        print(f"  📄 {p.name}  ({duration_sec:.1f}s)  — language auto-detected by model")
-        print(f"{'═' * 64}\n")
-
-        try:
-            async with websockets.connect(
-                uri, ping_interval=20, ping_timeout=20, max_size=2**23
-            ) as ws:
-                send_task = asyncio.create_task(
-                    _file_sender(ws, pcm, speed)
+                await ws.send(
+                    json.dumps({"cmd": "flush"})
                 )
-                recv_task = asyncio.create_task(_receiver(ws))
 
-                # Receiver exits on ConnectionClosed; sender exits when done
-                done, pending = await asyncio.wait(
-                    [send_task, recv_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                for t in pending:
-                    t.cancel()
+            except Exception as e:
+                logger.info(f"Error occurred: {e}")
 
-        except (OSError, websockets.exceptions.WebSocketException) as exc:
-            print(f"\n  [ERROR] WebSocket failed: {exc}")
+        # Start sender and receiver
+        stask = asyncio.create_task(send_task())
+        rtask = asyncio.create_task(receive_task())
 
-        print()   # blank line between files
+        try:
+            while True:
+                event = await event_queue.get()
 
-    print("  All files processed.")
+                if event is None:
+                    break
 
+                yield event
 
-async def _file_sender(ws, pcm: bytes, speed: float):
-    """Stream PCM bytes to server chunk by chunk at real-time speed."""
-    chunk_delay = (CHUNK_MS / 1000) / speed   # e.g. 0.03s at 1×, 0.015s at 2×
-    offset      = 0
-
-    while offset + CHUNK_BYTES <= len(pcm):
-        chunk   = pcm[offset: offset + CHUNK_BYTES]
-        offset += CHUNK_BYTES
-        await ws.send(chunk)
-        await asyncio.sleep(chunk_delay)
-
-    # Pad and send any leftover bytes
-    leftover = pcm[offset:]
-    if leftover:
-        await ws.send(leftover + bytes(CHUNK_BYTES - len(leftover)))
-
-    # Small pause then manual flush to force final transcript
-    await asyncio.sleep(0.3)
-    await ws.send(json.dumps({"cmd": "flush"}).encode())
-
-    # Wait long enough for the server to respond with the final transcript
-    await asyncio.sleep(10)
+        finally:
+            stask.cancel()
+            rtask.cancel()
 
 
-def parse_args():
-    p = argparse.ArgumentParser(description="Parakeet ASR client – mic or file mode")
-    p.add_argument("--host",   default="localhost", help="Server host (default: localhost)")
-    p.add_argument("--port",   type=int, default=8001, help="Server port (default: 8001)")
-    p.add_argument("--device", type=int, default=None, metavar="INDEX",
-                   help="Mic device index for mic mode (see --list)")
-    p.add_argument("--list",   action="store_true",
-                   help="List audio input devices and exit")
-    p.add_argument("--file",   nargs="+", metavar="FILE",
-                   help="File mode: stream audio file(s) instead of mic "
-                        "(WAV / MP3 / FLAC / OGG)")
-    p.add_argument("--speed",  type=float, default=1.0,
-                   help="File mode: playback speed multiplier "
-                        "(default 1.0 = real-time, 2.0 = 2× faster)")
-    return p.parse_args()
+# =====================================
+# TEST RUNNER
+# =====================================
+async def main():
+    audio_file = "english.wav"   # change this
+
+    async for event in stream_parakeet(audio_file):
+        print(event)
 
 
 if __name__ == "__main__":
-    args = parse_args()
-
-    if args.list:
-        list_devices()
-        sys.exit(0)
-
-    if args.file:
-        asyncio.run(run_files(args.host, args.port, args.file, args.speed))
-    else:
-        asyncio.run(run_mic(args.host, args.port, args.device))
-
-
-while docker build getting this 
-(env) root@cx-asr-v2:/home/nikita_verma2/parakeet-asr-multilingual# docker build -t parakeet_tdt_0.6b_v3 .
-Sending build context to Docker daemon  103.2MB
-Step 1/15 : FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
-12.1.1-runtime-ubuntu22.04: Pulling from nvidia/cuda
-aece8493d397: Already exists 
-dd4939a04761: Pull complete 
-b0d7cc89b769: Pull complete 
-1532d9024b9c: Pull complete 
-04fc8a31fa53: Pull complete 
-a14a8a8a6ebc: Pull complete 
-7d61afc7a3ac: Pull complete 
-8bd2762ffdd9: Pull complete 
-2a5ee6fadd42: Pull complete 
-Digest: sha256:8bbc6e304b193e84327fa30d93eea70ec0213b808239a46602a919a479a73b12
-Status: Downloaded newer image for nvidia/cuda:12.1.1-runtime-ubuntu22.04
- ---> 0495908f9381
-Step 2/15 : ENV http_proxy="http://163.116.128.80:8080"
- ---> Running in 74ca3a80c02e
-Removing intermediate container 74ca3a80c02e
- ---> 1551ee7c8c66
-Step 3/15 : ENV https_proxy="http://163.116.128.80:8080"
- ---> Running in 6b5a5b58b6fe
-Removing intermediate container 6b5a5b58b6fe
- ---> da3503993aa7
-Step 4/15 : RUN apt-get update && apt-get install -y --no-install-recommends         python3.10         python3.10-dev         python3-pip         python3.10-distutils         build-essential         gcc         g++         ffmpeg         libsndfile1         libportaudio2         portaudio19-dev         git         wget         curl         libcudnn8         libcudnn8-dev     && rm -rf /var/lib/apt/lists/*
- ---> Running in f2c6b880f4ae
-Ign:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-Ign:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
-Ign:3 http://archive.ubuntu.com/ubuntu jammy InRelease
-Ign:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-Ign:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-Ign:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-Ign:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
-Ign:3 http://archive.ubuntu.com/ubuntu jammy InRelease
-Ign:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-Ign:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-Ign:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-Ign:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
-Ign:3 http://archive.ubuntu.com/ubuntu jammy InRelease
-Ign:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-Ign:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-Err:1 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
-Err:2 http://security.ubuntu.com/ubuntu jammy-security InRelease
-  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
-Err:3 http://archive.ubuntu.com/ubuntu jammy InRelease
-  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
-Err:4 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-  Unable to connect to 163.116.128.80:8080:
-Err:5 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-  Unable to connect to 163.116.128.80:8080:
-Reading package lists...
-W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy/InRelease  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
-W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-updates/InRelease  Unable to connect to 163.116.128.80:8080:
-W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-backports/InRelease  Unable to connect to 163.116.128.80:8080:
-W: Failed to fetch http://security.ubuntu.com/ubuntu/dists/jammy-security/InRelease  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
-W: Failed to fetch https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/InRelease  Could not connect to 163.116.128.80:8080 (163.116.128.80), connection timed out
-W: Some index files failed to download. They have been ignored, or old ones used instead.
-Reading package lists...
-Building dependency tree...
-Reading state information...
-E: Unable to locate package python3.10
-E: Couldn't find any package by glob 'python3.10'
-E: Couldn't find any package by regex 'python3.10'
-E: Unable to locate package python3.10-dev
-E: Couldn't find any package by glob 'python3.10-dev'
-E: Couldn't find any package by regex 'python3.10-dev'
-E: Unable to locate package python3-pip
-E: Unable to locate package python3.10-distutils
-E: Couldn't find any package by glob 'python3.10-distutils'
-E: Couldn't find any package by regex 'python3.10-distutils'
-E: Unable to locate package build-essential
-E: Unable to locate package gcc
-E: Unable to locate package ffmpeg
-E: Unable to locate package libsndfile1
-E: Unable to locate package libportaudio2
-E: Unable to locate package portaudio19-dev
-E: Unable to locate package git
-E: Unable to locate package wget
-E: Unable to locate package curl
-E: Unable to locate package libcudnn8
-E: Unable to locate package libcudnn8-dev
-The command '/bin/sh -c apt-get update && apt-get install -y --no-install-recommends         python3.10         python3.10-dev         python3-pip         python3.10-distutils         build-essential         gcc         g++         ffmpeg         libsndfile1         libportaudio2         portaudio19-dev         git         wget         curl         libcudnn8         libcudnn8-dev     && rm -rf /var/lib/apt/lists/*' returned a non-zero code: 100
+    asyncio.run(main())
