@@ -4,7 +4,6 @@ import logging
 import websockets
 import soundfile as sf
 import numpy as np
-import time
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -17,10 +16,6 @@ TARGET_SR = 16000
 CHUNK_MS = 30
 CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
 CHUNK_BYTES = CHUNK_SAMPLES * 2
-
-# silence flush after 500 ms
-SILENCE_FLUSH_MS = 500
-SILENCE_THRESHOLD = 400
 
 
 # =====================================
@@ -48,123 +43,108 @@ def load_audio(filepath: str):
 
 
 # =====================================
-# STREAM FUNCTION
+# MAIN STREAM FUNCTION
 # =====================================
 async def stream_parakeet(audio_file: str):
+    event_queue = asyncio.Queue()
+
     pcm_audio = load_audio(audio_file)
 
     async with websockets.connect(
         WEBSOCKET_ADDRESS,
-        max_size=None,
-        ping_interval=20,
-        ping_timeout=60,
-        close_timeout=30
+        max_size=None
     ) as ws:
 
-        print(f"\nConnected to {WEBSOCKET_ADDRESS}")
-        print("🎙 Streaming in real time...\n")
+        logger.info("Connected to websocket")
 
         async def receive_task():
             try:
                 async for msg in ws:
-                    if isinstance(msg, bytes):
-                        msg = msg.decode("utf-8")
+                    if isinstance(msg, str):
+                        obj = json.loads(msg)
 
-                    print(f"\nRAW -> {msg}")
+                        typ = obj.get("type")
+                        txt = obj.get("text", "")
 
-                    obj = json.loads(msg)
-
-                    typ = obj.get("type")
-                    txt = obj.get("text", "")
-
-                    ts = time.strftime("%H:%M:%S")
-
-                    if typ == "partial":
-                        print(
-                            f"\r⏳ [{ts}] {txt:<100}",
-                            end="",
-                            flush=True
+                        logger.info(
+                            f"Websocket received msg: {txt}, type: {typ}"
                         )
 
-                    elif typ in ["transcript", "final"]:
-                        print("\r" + " " * 120, end="\r")
-                        print(f"✅ [{ts}] FINAL: {txt}")
+                        if typ == "partial":
+                            await event_queue.put({
+                                "type": "INTERIM_TRANSCRIPT",
+                                "text": txt
+                            })
+
+                        elif typ in ["transcript", "final"]:
+                            await event_queue.put({
+                                "type": "FINAL_TRANSCRIPT",
+                                "text": txt
+                            })
+                            break
 
             except websockets.exceptions.ConnectionClosed:
-                print("\nConnection closed")
+                pass
+
+            # signal completion
+            await event_queue.put(None)
 
         async def send_task():
-            offset = 0
-            silence_ms = 0
+            try:
+                offset = 0
 
-            while offset < len(pcm_audio):
-                chunk = pcm_audio[
-                    offset: offset + CHUNK_BYTES
-                ]
-                offset += CHUNK_BYTES
+                while offset < len(pcm_audio):
+                    chunk = pcm_audio[
+                        offset: offset + CHUNK_BYTES
+                    ]
+                    offset += CHUNK_BYTES
 
-                if len(chunk) < CHUNK_BYTES:
-                    chunk += bytes(
-                        CHUNK_BYTES - len(chunk)
+                    if len(chunk) < CHUNK_BYTES:
+                        chunk += bytes(
+                            CHUNK_BYTES - len(chunk)
+                        )
+
+                    await ws.send(chunk)
+
+                    await asyncio.sleep(
+                        CHUNK_MS / 1000
                     )
 
-                await ws.send(chunk)
+                # final flush
+                await asyncio.sleep(0.3)
 
-                # silence detection
-                samples = np.frombuffer(
-                    chunk,
-                    dtype=np.int16
-                ).astype(np.float32)
-
-                rms = np.sqrt(np.mean(samples ** 2))
-
-                if rms < SILENCE_THRESHOLD:
-                    silence_ms += CHUNK_MS
-                else:
-                    silence_ms = 0
-
-                # flush after 500 ms silence
-                if silence_ms >= SILENCE_FLUSH_MS:
-                    await ws.send(
-                        json.dumps({"cmd": "flush"})
-                    )
-                    print("\n[500 ms pause detected → flush sent]")
-                    silence_ms = 0
-
-                await asyncio.sleep(
-                    CHUNK_MS / 1000
+                await ws.send(
+                    json.dumps({"cmd": "flush"})
                 )
 
-            # final flush
-            await asyncio.sleep(0.5)
+            except Exception as e:
+                logger.info(f"Error occurred: {e}")
 
-            await ws.send(
-                json.dumps({"cmd": "flush"})
-            )
+        stask = asyncio.create_task(send_task())
+        rtask = asyncio.create_task(receive_task())
 
-            print("\n[Final flush sent]")
+        try:
+            while True:
+                event = await event_queue.get()
 
-        recv = asyncio.create_task(receive_task())
-        send = asyncio.create_task(send_task())
+                if event is None:
+                    break
 
-        await send
+                yield event
 
-        # allow final messages to arrive
-        await asyncio.sleep(5)
-
-        recv.cancel()
-        await asyncio.gather(
-            recv,
-            return_exceptions=True
-        )
+        finally:
+            stask.cancel()
+            rtask.cancel()
 
 
 # =====================================
-# MAIN
+# TEST RUNNER
 # =====================================
 async def main():
-    audio_file = "/home/nikita_verma2/0a12a9ea-af37-41ec-905f-3babb9580e97.wav"
-    await stream_parakeet(audio_file)
+    audio_file = "/home/nikita_verma2/maria1.wav"  # change this
+
+    async for event in stream_parakeet(audio_file):
+        print(f"\nEVENT RECEIVED -> {event}")
 
 
 if __name__ == "__main__":
