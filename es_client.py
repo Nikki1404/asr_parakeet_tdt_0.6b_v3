@@ -505,3 +505,6 @@ if __name__ == "__main__":
         asyncio.run(run_files(args.host, args.port, args.file, args.speed, args.url))
     else:
         asyncio.run(run_mic(args.host, args.port, args.device, args.url))
+
+
+python client.py --url wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
