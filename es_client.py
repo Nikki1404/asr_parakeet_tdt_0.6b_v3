@@ -505,34 +505,3 @@ if __name__ == "__main__":
         asyncio.run(run_files(args.host, args.port, args.file, args.speed, args.url))
     else:
         asyncio.run(run_mic(args.host, args.port, args.device, args.url))
-
-
-
---url wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
-
-For file test:
-
-
-why pot 443 int this 
-python - <<'PY'
-import socket
-host = "parakeet-custom-vad-150916788856.us-central1.run.app"
-port = 443
-try:
-    s = socket.create_connection((host, port), timeout=10)
-    print("TCP 443 reachable")
-    s.close()
-except Exception as e:
-    print("TCP failed:", repr(e))
-PY
-
-
-
-sudo apt update
-sudo apt install -y portaudio19-dev
-sudo apt install -y build-essential
-sudo apt install -y libasound2-dev
-pip install --upgrade pip
-pip install --upgrade setuptools
-pip install --upgrade wheel
-pip install PyAudio==0.2.14
