@@ -1,38 +1,44 @@
 import time
-import json
 from pathlib import Path
 import azure.cognitiveservices.speech as speechsdk
 
 # ==========================
 # CONFIG
 # ==========================
-SPEECH_KEY = "YOUR_KEY"
+SPEECH_KEY = "xxxxxxxxxxxxxxxxxxx78dcc9363"
 SPEECH_REGION = "eastus"
 
-LANGUAGES = ["en-US", "es-US"]
-
+CANDIDATE_LANGUAGES = ["en-US", "es-US"]
 AUDIO_FILE = "audio/maria1.mp3"
 
 
-def transcribe_audio(file_path, language="en-US"):
+def transcribe_audio_auto_detect(file_path):
     print("=" * 60)
-    print(f"Testing Azure STT")
+    print("Testing Azure STT with Auto Language Detection")
     print(f"File      : {file_path}")
-    print(f"Language  : {language}")
+    print(f"Candidates: {CANDIDATE_LANGUAGES}")
     print("=" * 60)
+
+    if not Path(file_path).exists():
+        raise FileNotFoundError(f"Audio file not found: {file_path}")
 
     speech_config = speechsdk.SpeechConfig(
         subscription=SPEECH_KEY,
         region=SPEECH_REGION
     )
-
-    speech_config.speech_recognition_language = language
     speech_config.output_format = speechsdk.OutputFormat.Detailed
+
+    auto_detect_source_language_config = (
+        speechsdk.languageconfig.AutoDetectSourceLanguageConfig(
+            languages=CANDIDATE_LANGUAGES
+        )
+    )
 
     audio_config = speechsdk.audio.AudioConfig(filename=file_path)
 
     recognizer = speechsdk.SpeechRecognizer(
         speech_config=speech_config,
+        auto_detect_source_language_config=auto_detect_source_language_config,
         audio_config=audio_config
     )
 
@@ -42,11 +48,11 @@ def transcribe_audio(file_path, language="en-US"):
     start_time = time.time()
     first_partial_time = None
     first_final_time = None
-
+    detected_language = None
     done = False
 
     def recognizing(evt):
-        nonlocal first_partial_time
+        nonlocal first_partial_time, detected_language
 
         if evt.result.text:
             now = time.time()
@@ -54,17 +60,20 @@ def transcribe_audio(file_path, language="en-US"):
             if first_partial_time is None:
                 first_partial_time = now
 
-            latency = (now - start_time) * 1000
+            auto_lang = speechsdk.AutoDetectSourceLanguageResult(evt.result)
+            detected_language = auto_lang.language
 
+            latency = (now - start_time) * 1000
             partial_results.append({
                 "text": evt.result.text,
-                "latency_ms": latency
+                "latency_ms": latency,
+                "detected_language": detected_language
             })
 
-            print(f"[PARTIAL {latency:.0f} ms] {evt.result.text}")
+            print(f"[PARTIAL {latency:.0f} ms] ({detected_language}) {evt.result.text}")
 
     def recognized(evt):
-        nonlocal first_final_time
+        nonlocal first_final_time, detected_language
 
         if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
             now = time.time()
@@ -72,23 +81,34 @@ def transcribe_audio(file_path, language="en-US"):
             if first_final_time is None:
                 first_final_time = now
 
-            latency = (now - start_time) * 1000
+            auto_lang = speechsdk.AutoDetectSourceLanguageResult(evt.result)
+            detected_language = auto_lang.language
 
+            latency = (now - start_time) * 1000
             final_results.append({
                 "text": evt.result.text,
-                "latency_ms": latency
+                "latency_ms": latency,
+                "detected_language": detected_language
             })
 
-            print(f"[FINAL {latency:.0f} ms] {evt.result.text}")
+            print(f"[FINAL {latency:.0f} ms] ({detected_language}) {evt.result.text}")
 
-    def stop(evt):
+    def canceled(evt):
+        nonlocal done
+        print("Recognition canceled.")
+        if evt.result and evt.result.cancellation_details:
+            print(f"Reason: {evt.result.cancellation_details.reason}")
+            print(f"Details: {evt.result.cancellation_details.error_details}")
+        done = True
+
+    def stopped(evt):
         nonlocal done
         done = True
 
     recognizer.recognizing.connect(recognizing)
-    recognizer.recognized.connect(recognized)
-    recognizer.session_stopped.connect(stop)
-    recognizer.canceled.connect(stop)
+    recognizer.recognized.connect(recogned := recognized)
+    recognizer.session_stopped.connect(stopped)
+    recognizer.canceled.connect(canceled)
 
     recognizer.start_continuous_recognition()
 
@@ -98,22 +118,21 @@ def transcribe_audio(file_path, language="en-US"):
     recognizer.stop_continuous_recognition()
 
     total_time = time.time() - start_time
+    final_transcript = " ".join([x["text"] for x in final_results])
 
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
-
+    print(f"Detected Lang: {detected_language}")
     print(f"TTFT Partial : {(first_partial_time - start_time)*1000:.0f} ms" if first_partial_time else "No partial")
     print(f"TTFT Final   : {(first_final_time - start_time)*1000:.0f} ms" if first_final_time else "No final")
     print(f"Total Time   : {total_time:.2f} sec")
-
-    final_transcript = " ".join([x["text"] for x in final_results])
 
     print("\nFINAL TRANSCRIPT:")
     print(final_transcript)
 
     return {
-        "language": language,
+        "detected_language": detected_language,
         "partial_results": partial_results,
         "final_results": final_results,
         "final_transcript": final_transcript,
@@ -122,9 +141,7 @@ def transcribe_audio(file_path, language="en-US"):
 
 
 if __name__ == "__main__":
-    for lang in LANGUAGES:
-        transcribe_audio(AUDIO_FILE, lang)
-
+    transcribe_audio_auto_detect(AUDIO_FILE)
 
 
 
