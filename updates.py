@@ -147,3 +147,6 @@ if __name__ == "__main__":
 
 pip install azure-cognitiveservices-speech
 pip install python-dotenv mutagen
+
+
+wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
