@@ -525,3 +525,14 @@ try:
 except Exception as e:
     print("TCP failed:", repr(e))
 PY
+
+
+
+sudo apt update
+sudo apt install -y portaudio19-dev
+sudo apt install -y build-essential
+sudo apt install -y libasound2-dev
+pip install --upgrade pip
+pip install --upgrade setuptools
+pip install --upgrade wheel
+pip install PyAudio==0.2.14
