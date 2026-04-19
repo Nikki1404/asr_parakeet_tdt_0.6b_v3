@@ -152,5 +152,15 @@ def transcribe_audio_auto_detect(file_path):
 if __name__ == "__main__":
     transcribe_audio_auto_detect(INPUT_AUDIO_FILE)
 
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> winget install ffmpeg
+Failed when searching source: msstore
+An unexpected error occurred while executing the command:
+0x8a15005e : The server certificate did not match any of the expected values.
+
+The following packages were found among the working sources.
+Please specify one of them using the --source option to proceed.
+Name   Id          Source
+-------------------------
+FFmpeg Gyan.FFmpeg winget
 
 wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
