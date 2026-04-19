@@ -152,15 +152,37 @@ def transcribe_audio_auto_detect(file_path):
 if __name__ == "__main__":
     transcribe_audio_auto_detect(INPUT_AUDIO_FILE)
 
-(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> winget install ffmpeg
-Failed when searching source: msstore
-An unexpected error occurred while executing the command:
-0x8a15005e : The server certificate did not match any of the expected values.
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> winget install --id Gyan.FFmpeg --source winget
+Found FFmpeg [Gyan.FFmpeg] Version 8.1
+This application is licensed to you by its owner.
+Microsoft is not responsible for, nor does it grant any licenses to, third-party packages.
+Downloading https://github.com/GyanD/codexffmpeg/releases/download/8.1/ffmpeg-8.1-full_build.zip
+  ██████████████████████████████   236 MB /  236 MB
+Successfully verified installer hash
+Extracting archive...
+Successfully extracted archive
+Starting package install...
+Path environment variable modified; restart your shell to use the new value.
+Command line alias added: "ffmpeg"
+Command line alias added: "ffplay"
+Command line alias added: "ffprobe"
+Successfully installed
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> ffmpeg --version
+ffmpeg : The term 'ffmpeg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ ffmpeg --version
++ ~~~~~~
+    + CategoryInfo          : ObjectNotFound: (ffmpeg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
 
-The following packages were found among the working sources.
-Please specify one of them using the --source option to proceed.
-Name   Id          Source
--------------------------
-FFmpeg Gyan.FFmpeg winget
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> ffmpeg -version
+ffmpeg : The term 'ffmpeg' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the
+spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ ffmpeg -version
++ ~~~~~~
+    + CategoryInfo          : ObjectNotFound: (ffmpeg:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
 
-wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test>
