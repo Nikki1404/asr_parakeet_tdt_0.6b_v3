@@ -1,31 +1,63 @@
+import os
 import time
 from pathlib import Path
 import azure.cognitiveservices.speech as speechsdk
+from pydub import AudioSegment
 
 # ==========================
 # CONFIG
 # ==========================
-SPEECH_KEY = "xxxxxxxxxxxxxxxxxxx78dcc9363"
+SPEECH_KEY = "YOUR_KEY"
 SPEECH_REGION = "eastus"
 
-CANDIDATE_LANGUAGES = ["en-US", "es-US"]
-AUDIO_FILE = "audio/maria1.mp3"
+CANDIDATE_LANGUAGES = ["en-US", "es-ES"]
+
+INPUT_AUDIO_FILE = "audio/maria1.mp3"
+
+
+def convert_to_wav(input_file):
+    """
+    Convert audio to:
+    WAV / PCM / 16kHz / Mono / 16-bit
+    """
+
+    input_path = Path(input_file)
+
+    if not input_path.exists():
+        raise FileNotFoundError(f"File not found: {input_file}")
+
+    output_file = str(input_path.with_suffix(".wav"))
+
+    print(f"\nConverting audio:")
+    print(f"FROM: {input_file}")
+    print(f"TO  : {output_file}")
+
+    audio = AudioSegment.from_file(input_file)
+
+    audio = audio.set_frame_rate(16000)
+    audio = audio.set_channels(1)
+    audio = audio.set_sample_width(2)  # 16-bit
+
+    audio.export(output_file, format="wav")
+
+    print("Conversion completed.\n")
+
+    return output_file
 
 
 def transcribe_audio_auto_detect(file_path):
     print("=" * 60)
-    print("Testing Azure STT with Auto Language Detection")
-    print(f"File      : {file_path}")
-    print(f"Candidates: {CANDIDATE_LANGUAGES}")
+    print("Azure STT Auto Language Detection")
     print("=" * 60)
 
-    if not Path(file_path).exists():
-        raise FileNotFoundError(f"Audio file not found: {file_path}")
+    # Convert first
+    wav_file = convert_to_wav(file_path)
 
     speech_config = speechsdk.SpeechConfig(
         subscription=SPEECH_KEY,
         region=SPEECH_REGION
     )
+
     speech_config.output_format = speechsdk.OutputFormat.Detailed
 
     auto_detect_source_language_config = (
@@ -34,7 +66,7 @@ def transcribe_audio_auto_detect(file_path):
         )
     )
 
-    audio_config = speechsdk.audio.AudioConfig(filename=file_path)
+    audio_config = speechsdk.audio.AudioConfig(filename=wav_file)
 
     recognizer = speechsdk.SpeechRecognizer(
         speech_config=speech_config,
@@ -42,33 +74,24 @@ def transcribe_audio_auto_detect(file_path):
         audio_config=audio_config
     )
 
-    partial_results = []
-    final_results = []
-
-    start_time = time.time()
+    final_transcript = []
+    detected_language = None
     first_partial_time = None
     first_final_time = None
-    detected_language = None
+    start_time = time.time()
     done = False
 
     def recognizing(evt):
         nonlocal first_partial_time, detected_language
 
         if evt.result.text:
-            now = time.time()
-
             if first_partial_time is None:
-                first_partial_time = now
+                first_partial_time = time.time()
 
-            auto_lang = speechsdk.AutoDetectSourceLanguageResult(evt.result)
-            detected_language = auto_lang.language
+            lang_result = speechsdk.AutoDetectSourceLanguageResult(evt.result)
+            detected_language = lang_result.language
 
-            latency = (now - start_time) * 1000
-            partial_results.append({
-                "text": evt.result.text,
-                "latency_ms": latency,
-                "detected_language": detected_language
-            })
+            latency = (time.time() - start_time) * 1000
 
             print(f"[PARTIAL {latency:.0f} ms] ({detected_language}) {evt.result.text}")
 
@@ -76,39 +99,28 @@ def transcribe_audio_auto_detect(file_path):
         nonlocal first_final_time, detected_language
 
         if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
-            now = time.time()
-
             if first_final_time is None:
-                first_final_time = now
+                first_final_time = time.time()
 
-            auto_lang = speechsdk.AutoDetectSourceLanguageResult(evt.result)
-            detected_language = auto_lang.language
+            lang_result = speechsdk.AutoDetectSourceLanguageResult(evt.result)
+            detected_language = lang_result.language
 
-            latency = (now - start_time) * 1000
-            final_results.append({
-                "text": evt.result.text,
-                "latency_ms": latency,
-                "detected_language": detected_language
-            })
+            latency = (time.time() - start_time) * 1000
 
             print(f"[FINAL {latency:.0f} ms] ({detected_language}) {evt.result.text}")
 
-    def canceled(evt):
-        nonlocal done
-        print("Recognition canceled.")
-        if evt.result and evt.result.cancellation_details:
-            print(f"Reason: {evt.result.cancellation_details.reason}")
-            print(f"Details: {evt.result.cancellation_details.error_details}")
-        done = True
+            final_transcript.append(evt.result.text)
 
-    def stopped(evt):
+    def stop(evt):
         nonlocal done
         done = True
 
     recognizer.recognizing.connect(recognizing)
-    recognizer.recognized.connect(recogned := recognized)
-    recognizer.session_stopped.connect(stopped)
-    recognizer.canceled.connect(canceled)
+    recognizer.recognized.connect(recognized)
+    recognizer.session_stopped.connect(stop)
+    recognizer.canceled.connect(stop)
+
+    print("Starting recognition...\n")
 
     recognizer.start_continuous_recognition()
 
@@ -118,90 +130,27 @@ def transcribe_audio_auto_detect(file_path):
     recognizer.stop_continuous_recognition()
 
     total_time = time.time() - start_time
-    final_transcript = " ".join([x["text"] for x in final_results])
 
     print("\n" + "=" * 60)
     print("SUMMARY")
     print("=" * 60)
-    print(f"Detected Lang: {detected_language}")
-    print(f"TTFT Partial : {(first_partial_time - start_time)*1000:.0f} ms" if first_partial_time else "No partial")
-    print(f"TTFT Final   : {(first_final_time - start_time)*1000:.0f} ms" if first_final_time else "No final")
-    print(f"Total Time   : {total_time:.2f} sec")
+
+    print(f"Detected Language : {detected_language}")
+
+    if first_partial_time:
+        print(f"TTFT Partial      : {(first_partial_time - start_time)*1000:.0f} ms")
+
+    if first_final_time:
+        print(f"TTFT Final        : {(first_final_time - start_time)*1000:.0f} ms")
+
+    print(f"Total Time        : {total_time:.2f} sec")
 
     print("\nFINAL TRANSCRIPT:")
-    print(final_transcript)
-
-    return {
-        "detected_language": detected_language,
-        "partial_results": partial_results,
-        "final_results": final_results,
-        "final_transcript": final_transcript,
-        "total_time_sec": total_time
-    }
+    print(" ".join(final_transcript))
 
 
 if __name__ == "__main__":
-    transcribe_audio_auto_detect(AUDIO_FILE)
-
-
-
-pip install azure-cognitiveservices-speech
-pip install python-dotenv mutagen
-
-(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> python .\azure_asr_test.py
-============================================================
-Testing Azure STT with Auto Language Detection
-File      : audio/maria1.mp3
-Candidates: ['en-US', 'es-US']
-============================================================
-Traceback (most recent call last):
-  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_asr_test.py", line 144, in <module>
-    transcribe_audio_auto_detect(AUDIO_FILE)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_asr_test.py", line 39, in transcribe_audio_auto_detect
-    recognizer = speechsdk.SpeechRecognizer(
-        speech_config=speech_config,
-        auto_detect_source_language_config=auto_detect_source_language_config,
-        audio_config=audio_config
-    )
-  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\speech.py", line 1166, in __init__
-    _call_hr_fn(
-    ~~~~~~~~~~~^
-        fn=_sdk_lib.recognizer_create_speech_recognizer_from_auto_detect_source_lang_config,
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        *[ctypes.byref(handle), speech_config._handle, auto_detect_source_language_config._handle, audio_config_handle])
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\interop.py", line 62, in _call_hr_fn
-    _raise_if_failed(hr)
-    ~~~~~~~~~~~~~~~~^^^^
-  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\interop.py", line 55, in _raise_if_failed
-    __try_get_error(_spx_handle(hr))
-    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\interop.py", line 50, in __try_get_error
-    raise RuntimeError(message)
-RuntimeError: Exception with error code:
-[CALL STACK BEGIN]
-
-    > pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - pal_string_to_wstring
-    - recognizer_create_speech_recognizer_from_config
-    - recognizer_create_speech_recognizer_from_auto_detect_source_lang_config
-
-[CALL STACK END]
-
-Exception with an error code: 0xa (SPXERR_INVALID_HEADER)
+    transcribe_audio_auto_detect(INPUT_AUDIO_FILE)
 
 
 wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
