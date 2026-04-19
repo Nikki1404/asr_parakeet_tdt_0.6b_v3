@@ -148,5 +148,60 @@ if __name__ == "__main__":
 pip install azure-cognitiveservices-speech
 pip install python-dotenv mutagen
 
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> python .\azure_asr_test.py
+============================================================
+Testing Azure STT with Auto Language Detection
+File      : audio/maria1.mp3
+Candidates: ['en-US', 'es-US']
+============================================================
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_asr_test.py", line 144, in <module>
+    transcribe_audio_auto_detect(AUDIO_FILE)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_asr_test.py", line 39, in transcribe_audio_auto_detect
+    recognizer = speechsdk.SpeechRecognizer(
+        speech_config=speech_config,
+        auto_detect_source_language_config=auto_detect_source_language_config,
+        audio_config=audio_config
+    )
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\speech.py", line 1166, in __init__
+    _call_hr_fn(
+    ~~~~~~~~~~~^
+        fn=_sdk_lib.recognizer_create_speech_recognizer_from_auto_detect_source_lang_config,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        *[ctypes.byref(handle), speech_config._handle, auto_detect_source_language_config._handle, audio_config_handle])
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\interop.py", line 62, in _call_hr_fn
+    _raise_if_failed(hr)
+    ~~~~~~~~~~~~~~~~^^^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\interop.py", line 55, in _raise_if_failed
+    __try_get_error(_spx_handle(hr))
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_test_env\Lib\site-packages\azure\cognitiveservices\speech\interop.py", line 50, in __try_get_error
+    raise RuntimeError(message)
+RuntimeError: Exception with error code:
+[CALL STACK BEGIN]
+
+    > pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - pal_string_to_wstring
+    - recognizer_create_speech_recognizer_from_config
+    - recognizer_create_speech_recognizer_from_auto_detect_source_lang_config
+
+[CALL STACK END]
+
+Exception with an error code: 0xa (SPXERR_INVALID_HEADER)
+
 
 wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
