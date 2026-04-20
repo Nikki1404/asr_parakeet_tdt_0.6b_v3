@@ -5,12 +5,46 @@ Reads observations/comparison_report.json and prints a
 formatted documentation report you can copy into Confluence,
 Notion, Google Docs, or send to your manager.
 
-Run after every stage (or at the end of all stages):
-  python generate_observation_doc.py
+Supports BOTH formats:
+
+FORMAT A (old expected)
+-----------------------
+{
+  "stages": [
+    {
+      "stage": "baseline",
+      "stage_description": "...",
+      "metrics": {...},
+      "features": {...},
+      "transcript": "..."
+    }
+  ]
+}
+
+FORMAT B (your current JSON)
+----------------------------
+{
+  "stages": [
+    {
+      "detected_language": "en-US",
+      "ttft_partial_ms": 2505.8,
+      "ttft_final_ms": 3656.8,
+      "total_time_sec": 442.96,
+      "segment_count": 83,
+      "word_count": 1240,
+      "empty_segments": 0,
+      "avg_confidence": null,
+      "transcript": "..."
+    }
+  ]
+}
+
+Run:
+    python generate_observation_doc.py
 
 Output:
-  observations/OBSERVATION_REPORT.md   ← Markdown doc
-  observations/OBSERVATION_REPORT.txt  ← Plain text doc
+    observations/OBSERVATION_REPORT.md
+    observations/OBSERVATION_REPORT.txt
 """
 
 import os
@@ -18,16 +52,17 @@ import json
 from datetime import datetime
 
 REPORT_PATH = os.path.join("observations", "comparison_report.json")
-MD_OUT      = os.path.join("observations", "OBSERVATION_REPORT.md")
-TXT_OUT     = os.path.join("observations", "OBSERVATION_REPORT.txt")
+MD_OUT = os.path.join("observations", "OBSERVATION_REPORT.md")
+TXT_OUT = os.path.join("observations", "OBSERVATION_REPORT.txt")
 
 
-def load_report() -> dict:
+def load_report():
     if not os.path.exists(REPORT_PATH):
         print(f"No report found at {REPORT_PATH}")
         print("Run azure_incremental.py first.")
         exit(1)
-    with open(REPORT_PATH) as f:
+
+    with open(REPORT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -37,14 +72,41 @@ def fmt(val, suffix=""):
     return f"{val}{suffix}"
 
 
-def direction_symbol(d: str) -> str:
-    return {"improved": "✅", "worse": "⚠️", "same": "➡️", "unknown": "❓"}.get(d, "❓")
+def direction_symbol(d):
+    return {
+        "improved": "✅",
+        "worse": "⚠️",
+        "same": "➡️",
+        "unknown": "❓"
+    }.get(d, "❓")
 
 
-def build_markdown(report: dict) -> str:
-    stages      = report.get("stages", [])
+def get_metrics(stage):
+    """
+    Supports both:
+    Format A -> stage["metrics"]
+    Format B -> metrics directly inside stage
+    """
+    if "metrics" in stage and isinstance(stage["metrics"], dict):
+        return stage["metrics"]
+    return stage
+
+
+def get_stage_name(stage, index):
+    return stage.get("stage", f"stage_{index}")
+
+
+def get_stage_description(stage):
+    return stage.get(
+        "stage_description",
+        f"Detected language: {stage.get('detected_language', 'Unknown')}"
+    )
+
+
+def build_markdown(report):
+    stages = report.get("stages", [])
     comparisons = report.get("comparisons", [])
-    lines       = []
+    lines = []
 
     lines += [
         "# Azure Speech-to-Text — Incremental Improvement Observations",
@@ -63,24 +125,36 @@ def build_markdown(report: dict) -> str:
         "",
     ]
 
-    # ── Stage-by-stage detail ──────────────────────────────────────────
+    # Stage-by-stage detail
     for i, stage in enumerate(stages):
-        m    = stage["metrics"]
+        m = get_metrics(stage)
         feat = stage.get("features", {})
-        comp = next((c for c in comparisons if c["to_stage"] == stage["stage"]), None)
+        stage_name = get_stage_name(stage, i)
+        stage_desc = get_stage_description(stage)
+
+        comp = next(
+            (
+                c for c in comparisons
+                if c.get("to_stage") == stage.get("stage")
+            ),
+            None
+        )
 
         lines += [
-            f"## Stage {i}: `{stage['stage']}`",
+            f"## Stage {i}: `{stage_name}`",
             "",
-            f"**What was added:** {stage['stage_description']}",
+            f"**What was added:** {stage_desc}",
             "",
             "### Features active at this stage",
             "",
         ]
 
-        for k, v in feat.items():
-            tick = "✅" if v else "⬜"
-            lines.append(f"- {tick} `{k}`")
+        if feat:
+            for k, v in feat.items():
+                tick = "✅" if v else "⬜"
+                lines.append(f"- {tick} `{k}`")
+        else:
+            lines.append("- No feature metadata available")
 
         lines += [
             "",
@@ -88,6 +162,7 @@ def build_markdown(report: dict) -> str:
             "",
             "| Metric | Value |",
             "|--------|-------|",
+            f"| Detected Language | {fmt(stage.get('detected_language'))} |",
             f"| TTFT Partial | {fmt(m.get('ttft_partial_ms'), ' ms')} |",
             f"| TTFT Final   | {fmt(m.get('ttft_final_ms'), ' ms')} |",
             f"| Total Time   | {fmt(m.get('total_time_sec'), ' sec')} |",
@@ -97,15 +172,18 @@ def build_markdown(report: dict) -> str:
             f"| Avg Confidence | {fmt(m.get('avg_confidence'))} |",
             f"| Min Confidence | {fmt(m.get('min_confidence'))} |",
             f"| Max Confidence | {fmt(m.get('max_confidence'))} |",
+            f"| Partial Count | {fmt(m.get('partial_count'))} |",
             "",
         ]
+
+        transcript = stage.get("transcript", "(empty)")
 
         lines += [
             "### Transcript",
             "",
             "```",
-            stage.get("transcript", "(empty)")[:800],
-            "```" if len(stage.get("transcript", "")) <= 800 else "…(truncated)\n```",
+            transcript[:800],
+            "```" if len(transcript) <= 800 else "...(truncated)\n```",
             "",
         ]
 
@@ -116,19 +194,23 @@ def build_markdown(report: dict) -> str:
                 "| Metric | Before | After | Change | Signal |",
                 "|--------|--------|-------|--------|--------|",
             ]
-            for metric, d in comp["metric_deltas"].items():
-                if d["change"] is None:
+
+            for metric, d in comp.get("metric_deltas", {}).items():
+                if d.get("change") is None:
                     continue
+
                 sign = "+" if d["change"] > 0 else ""
-                sym  = direction_symbol(d["direction"])
+                sym = direction_symbol(d.get("direction"))
+
                 lines.append(
-                    f"| {metric} | {fmt(d['prev'])} | {fmt(d['curr'])} "
-                    f"| {sign}{d['change']} | {sym} {d['direction']} |"
+                    f"| {metric} | {fmt(d.get('prev'))} | {fmt(d.get('curr'))} "
+                    f"| {sign}{d.get('change')} | {sym} {d.get('direction')} |"
                 )
 
             lines += [""]
 
             td = comp.get("transcript_diff", {})
+
             lines += [
                 f"**Transcript similarity vs previous:** {fmt(td.get('similarity_pct'), '%')}",
                 f"**Word-level changes:** {fmt(td.get('change_count'))}",
@@ -138,13 +220,22 @@ def build_markdown(report: dict) -> str:
             changes = td.get("changes", [])
             if changes:
                 lines += ["**Sample word changes:**", ""]
+
                 for c in changes[:10]:
-                    lines.append(f"- `[{c['type']}]` `{c['before'] or '(nothing)'}` → `{c['after'] or '(nothing)'}`")
+                    before = c.get("before") or "(nothing)"
+                    after = c.get("after") or "(nothing)"
+
+                    lines.append(
+                        f"- `[{c.get('type')}]` `{before}` → `{after}`"
+                    )
+
                 lines.append("")
 
             lines += ["### Observations", ""]
+
             for note in comp.get("observation_notes", []):
                 lines.append(f"- {note}")
+
             lines.append("")
 
         else:
@@ -158,50 +249,68 @@ def build_markdown(report: dict) -> str:
 
         lines += ["---", ""]
 
-    # ── Net gain summary table ─────────────────────────────────────────
+    # Net gain summary
     if len(stages) >= 2:
         baseline = stages[0]
-        latest   = stages[-1]
-        bm       = baseline["metrics"]
-        lm       = latest["metrics"]
+        latest = stages[-1]
+
+        bm = get_metrics(baseline)
+        lm = get_metrics(latest)
+
+        baseline_name = get_stage_name(baseline, 0)
+        latest_name = get_stage_name(latest, len(stages) - 1)
 
         lines += [
             "## Net Gain: Baseline → Latest Stage",
             "",
-            f"Comparing **{baseline['stage']}** → **{latest['stage']}**",
+            f"Comparing **{baseline_name}** → **{latest_name}**",
             "",
             "| Metric | Baseline | Latest | Net Change |",
             "|--------|----------|--------|------------|",
         ]
 
-        for metric in ["word_count", "segment_count", "avg_confidence",
-                        "min_confidence", "ttft_final_ms", "ttft_partial_ms",
-                        "empty_segments", "total_time_sec"]:
+        for metric in [
+            "word_count",
+            "segment_count",
+            "avg_confidence",
+            "min_confidence",
+            "ttft_final_ms",
+            "ttft_partial_ms",
+            "empty_segments",
+            "total_time_sec"
+        ]:
             bv = bm.get(metric)
             lv = lm.get(metric)
+
             if bv is None and lv is None:
                 continue
+
             diff = None
             if bv is not None and lv is not None:
                 diff = round(lv - bv, 4)
+
             sign = "+" if (diff or 0) > 0 else ""
+
             lines.append(
                 f"| {metric} | {fmt(bv)} | {fmt(lv)} | {sign}{fmt(diff)} |"
             )
 
         lines += ["", "---", ""]
 
-    # ── Stage progression table ────────────────────────────────────────
+    # Stage progression summary
     lines += [
         "## Stage Progression Summary",
         "",
         "| Stage | Words | Segs | Avg Conf | TTFT Final (ms) | Total Time (s) |",
         "|-------|-------|------|----------|-----------------|----------------|",
     ]
-    for stage in stages:
-        m = stage["metrics"]
+
+    for idx, stage in enumerate(stages):
+        m = get_metrics(stage)
+        stage_name = get_stage_name(stage, idx)
+
         lines.append(
-            f"| {stage['stage']} "
+            f"| {stage_name} "
             f"| {fmt(m.get('word_count'))} "
             f"| {fmt(m.get('segment_count'))} "
             f"| {fmt(m.get('avg_confidence'))} "
@@ -209,38 +318,13 @@ def build_markdown(report: dict) -> str:
             f"| {fmt(m.get('total_time_sec'))} |"
         )
 
-    lines += [
-        "",
-        "---",
-        "",
-        "## How to Read This Document",
-        "",
-        "- **TTFT Partial** — time to first interim (partial) transcript. Lower = more real-time feel.",
-        "- **TTFT Final** — time to first committed segment. Critical for IVR turn-taking.",
-        "- **Avg Confidence** — Azure's certainty score (0–1). Higher = more accurate recognition.",
-        "- **Empty Segments** — segments with no recognised text. Ideally zero.",
-        "- **Transcript similarity** — how similar the transcript is to the previous stage (word-level).",
-        "- **Word-level changes** — actual words that changed between stages.",
-        "",
-        "### Confidence Interpretation",
-        "| Range | Signal |",
-        "|-------|--------|",
-        "| > 0.90 | Excellent — clear, confident recognition |",
-        "| 0.75–0.90 | Good — minor uncertainty |",
-        "| 0.65–0.75 | Moderate — possible misrecognition |",
-        "| < 0.65 | Low — stressed speech, noise, or wrong language |",
-        "",
-        f"*Report generated by generate_observation_doc.py on {datetime.now().strftime('%Y-%m-%d %H:%M')}*",
-    ]
-
     return "\n".join(lines)
 
 
-def build_plain_text(report: dict) -> str:
-    """Plain text version for copy-paste into email or Slack."""
-    stages      = report.get("stages", [])
+def build_plain_text(report):
+    stages = report.get("stages", [])
     comparisons = report.get("comparisons", [])
-    lines       = []
+    lines = []
 
     lines += [
         "AZURE STT — INCREMENTAL IMPROVEMENT OBSERVATIONS",
@@ -251,12 +335,21 @@ def build_plain_text(report: dict) -> str:
     ]
 
     for i, stage in enumerate(stages):
-        m    = stage["metrics"]
-        comp = next((c for c in comparisons if c["to_stage"] == stage["stage"]), None)
+        m = get_metrics(stage)
+        stage_name = get_stage_name(stage, i)
+        stage_desc = get_stage_description(stage)
+
+        comp = next(
+            (
+                c for c in comparisons
+                if c.get("to_stage") == stage.get("stage")
+            ),
+            None
+        )
 
         lines += [
-            f"STAGE {i}: {stage['stage'].upper()}",
-            f"  What was added: {stage['stage_description']}",
+            f"STAGE {i}: {stage_name.upper()}",
+            f"  What was added: {stage_desc}",
             "",
             f"  TTFT Partial : {fmt(m.get('ttft_partial_ms'), ' ms')}",
             f"  TTFT Final   : {fmt(m.get('ttft_final_ms'), ' ms')}",
@@ -270,38 +363,70 @@ def build_plain_text(report: dict) -> str:
 
         if comp:
             lines.append("  CHANGES VS PREVIOUS STAGE:")
-            for metric, d in comp["metric_deltas"].items():
-                if d["change"] is None:
+
+            for metric, d in comp.get("metric_deltas", {}).items():
+                if d.get("change") is None:
                     continue
-                arrow = {"improved": "↑", "worse": "↓", "same": "→"}.get(d["direction"], "?")
-                sign  = "+" if d["change"] > 0 else ""
-                lines.append(f"    {metric:<22}: {fmt(d['prev'])} → {fmt(d['curr'])}  ({sign}{d['change']})  {arrow}")
+
+                arrow = {
+                    "improved": "↑",
+                    "worse": "↓",
+                    "same": "→"
+                }.get(d.get("direction"), "?")
+
+                sign = "+" if d["change"] > 0 else ""
+
+                lines.append(
+                    f"    {metric:<22}: "
+                    f"{fmt(d.get('prev'))} → {fmt(d.get('curr'))} "
+                    f"({sign}{d.get('change')}) {arrow}"
+                )
 
             lines += ["", "  OBSERVATIONS:"]
+
             for note in comp.get("observation_notes", []):
                 lines.append(f"    {note}")
+
         else:
-            lines += ["  OBSERVATIONS:", "    Baseline stage — all future stages compared to this."]
+            lines += [
+                "  OBSERVATIONS:",
+                "    Baseline stage — all future stages compared to this."
+            ]
 
         lines += ["", "-" * 60, ""]
 
     if len(stages) >= 2:
         baseline = stages[0]
-        latest   = stages[-1]
-        bm       = baseline["metrics"]
-        lm       = latest["metrics"]
+        latest = stages[-1]
+
+        bm = get_metrics(baseline)
+        lm = get_metrics(latest)
+
         lines += [
-            f"NET GAIN: {baseline['stage']} → {latest['stage']}",
+            f"NET GAIN: {get_stage_name(baseline, 0)} → "
+            f"{get_stage_name(latest, len(stages)-1)}",
             "",
         ]
-        for metric in ["word_count", "avg_confidence", "ttft_final_ms", "empty_segments"]:
+
+        for metric in [
+            "word_count",
+            "avg_confidence",
+            "ttft_final_ms",
+            "empty_segments"
+        ]:
             bv = bm.get(metric)
             lv = lm.get(metric)
+
             if bv is None or lv is None:
                 continue
+
             diff = round(lv - bv, 4)
             sign = "+" if diff > 0 else ""
-            lines.append(f"  {metric:<22}: {bv} → {lv}  ({sign}{diff})")
+
+            lines.append(
+                f"  {metric:<22}: {bv} → {lv} ({sign}{diff})"
+            )
+
         lines += ["", "=" * 60]
 
     return "\n".join(lines)
@@ -310,8 +435,10 @@ def build_plain_text(report: dict) -> str:
 def main():
     report = load_report()
 
-    md_content  = build_markdown(report)
+    md_content = build_markdown(report)
     txt_content = build_plain_text(report)
+
+    os.makedirs("observations", exist_ok=True)
 
     with open(MD_OUT, "w", encoding="utf-8") as f:
         f.write(md_content)
@@ -319,15 +446,16 @@ def main():
     with open(TXT_OUT, "w", encoding="utf-8") as f:
         f.write(txt_content)
 
-    print(f"Observation report generated:")
+    print("Observation report generated:")
     print(f"  Markdown → {MD_OUT}")
     print(f"  Text     → {TXT_OUT}")
     print()
+
     print(txt_content[:2000])
+
     if len(txt_content) > 2000:
-        print("…(see full file for rest)")
+        print("...(see full file for rest)")
 
 
 if __name__ == "__main__":
     main()
-
