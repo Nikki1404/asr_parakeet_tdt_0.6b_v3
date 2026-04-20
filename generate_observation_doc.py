@@ -330,3 +330,16 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> python generate_observation_doc.py
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\generate_observation_doc.py", line 332, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\generate_observation_doc.py", line 313, in main
+    md_content  = build_markdown(report)
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\generate_observation_doc.py", line 68, in build_markdown
+    m    = stage["metrics"]
+           ~~~~~^^^^^^^^^^^
+KeyError: 'metrics'
