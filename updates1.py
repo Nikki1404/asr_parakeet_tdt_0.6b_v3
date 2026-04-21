@@ -2240,3 +2240,62 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> python .\azure_incremental.py --all
+
+  Azure STT — 12-Stage Incremental Improvement
+  ─────────────────────────────────────────────
+     0  baseline               [Baseline] Original working script
+     1  asr_config             [Setup] ASR Config Finalization
+     2  vad_tuning             [Audio] VAD Evaluation & Tuning
+     3  phrase_boost           [Accuracy] Word / Phrase Boosting
+     4  vocab_tuning           [Accuracy] Transcript-Based Vocabulary Tuning
+     5  numeric_handling       [Logic] Numeric Handling Validation
+     6  dictation_mode         [Accuracy] Dictation Mode
+     7  emotion_tone           [Quality] Emotion / Tone Evaluation
+     8  latency_testing        [Testing] Latency & Timeout Testing
+     9  realtime_socket        [Integration] Real-Time Socket Integration
+    10  concurrency            [Testing] Load & Concurrency Testing
+    11  logging_alerts         [Monitoring] Logging & Alerts Setup
+    12  fallback               [Go-Live] Fallback Validation
+
+  Usage:
+    python azure_incremental.py --stage 0
+    python azure_incremental.py --stage 1
+    ...
+    python azure_incremental.py --stage 12
+    python azure_incremental.py --all
+
+
+  Converting audio/maria1.mp3 → audio\maria1.wav
+  Conversion done.
+
+================================================================================
+  STAGE 0 / 12 — BASELINE
+  Phase: Baseline | Task: Original working script
+================================================================================
+
+  Running baseline (no improvement features).
+
+  [SESSION STOPPED]
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2242, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2228, in main
+    run_all()
+    ~~~~~~~^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2184, in run_all
+    result = STAGE_RUNNERS[stage_num](wav_file)
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 1189, in run_stage_0_baseline
+    return run_recognition(wav_file, stage_num=0)
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 1160, in run_recognition
+    quality = score_transcript_quality(full_text, final_results)
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 942, in score_transcript_quality
+    meaning = validate_meaning_preservation(text, segments)
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 921, in validate_meaning_preservation
+    if read["repeated_immediate_count"] >= 3:
+       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'repeated_immediate_count'
