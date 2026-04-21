@@ -52,11 +52,8 @@ from pathlib import Path
 
 import azure.cognitiveservices.speech as speechsdk
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  CONFIG  —  edit these before running
-# ══════════════════════════════════════════════════════════════════════
-
-SPEECH_KEY    = "YOUR_AZURE_SPEECH_KEY"
+#  CONFIG
+SPEECH_KEY    = "a919211feda747e0b8f792278dcc9363"
 SPEECH_REGION = "eastus"
 
 CANDIDATE_LANGUAGES = ["en-US", "es-ES"]
@@ -88,9 +85,7 @@ DOMAIN_PHRASES = [
     "one moment", "hold on", "just a second",
 ]
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  NUMERIC POST-PROCESSOR
-# ══════════════════════════════════════════════════════════════════════
+#  NUMERIC POST-PROCESSOR
 
 _NEVER_CONVERT = frozenset({
     # Prepositions / articles — NEVER convert (user's explicit requirement)
@@ -108,7 +103,7 @@ _NEVER_CONVERT = frozenset({
 })
 
 _WORD_TO_DIGIT = {
-    "zero": "0", "oh": "0",
+    "zero": "0",
     "one":  "1",
     # "two" handled conservatively (homophones: to/too)
     "two":  "2",        # only converted in strong numeric context
@@ -175,10 +170,7 @@ def numeric_postprocess(text: str, language: str = "en-US") -> str:
     return " ".join(result)
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  AUDIO CONVERSION
-# ══════════════════════════════════════════════════════════════════════
-
+#  AUDIO CONVERSION
 def _ffmpeg_convert(src: str, dest: str, rate: int) -> str:
     cmd = ["ffmpeg", "-y", "-i", src,
            "-ar", str(rate), "-ac", "1", "-sample_fmt", "s16", dest]
@@ -203,10 +195,7 @@ def convert_to_wav_8k(src: str) -> str:
     return _ffmpeg_convert(src, out, 8000)
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  STRUCTURED LOGGER  (Stage 11)
-# ══════════════════════════════════════════════════════════════════════
-
+#   STRUCTURED LOGGER  (Stage 11)
 _audit_log: list[dict] = []          # in-memory audit records
 _alert_log: list[dict] = []          # triggered alerts
 
@@ -257,9 +246,7 @@ def flush_audit_log(path: str = "transcription_audit.log"):
     print(f"  ✓ Audit log → {path}  ({len(_audit_log)} records, {len(_alert_log)} alerts)")
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  CORE TRANSCRIPTION ENGINE  (file-based, parameterized)
-# ══════════════════════════════════════════════════════════════════════
+#   CORE TRANSCRIPTION ENGINE  (file-based, parameterized)
 
 def _build_speech_config(cfg: dict) -> speechsdk.SpeechConfig:
     sc = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
@@ -482,10 +469,7 @@ def run_file_transcription(
     return metrics
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  STREAMING ENGINE  (Stage 3 — PushAudioInputStream)
-# ══════════════════════════════════════════════════════════════════════
-
+# STREAMING ENGINE  (Stage 3 — PushAudioInputStream)
 def run_streaming_transcription(
     wav_file: str,
     cfg: dict,
@@ -658,10 +642,7 @@ def run_streaming_transcription(
     }
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  CONCURRENCY RUNNER  (Stages 2 & 10)
-# ══════════════════════════════════════════════════════════════════════
-
+# CONCURRENCY RUNNER  (Stages 2 & 10)
 def run_concurrent_sessions(
     wav_file: str,
     cfg: dict,
@@ -734,9 +715,7 @@ def run_concurrent_sessions(
     return agg
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  HELPERS
-# ══════════════════════════════════════════════════════════════════════
+#  HELPERS
 
 def extract_baseline_phrases(transcript: str, min_len=4, min_freq=2) -> list[str]:
     stopwords = {
@@ -760,10 +739,7 @@ def _percentile(values: list[float], pct: int) -> float | None:
     return s[min(int(len(s)*pct/100), len(s)-1)]
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  STAGE CONFIG BUILDER
-# ══════════════════════════════════════════════════════════════════════
-
+#  STAGE CONFIG BUILDER
 def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dict:
     """Returns a dict of all stage configs keyed by stage_id."""
 
@@ -1409,9 +1385,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
     }
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  REPORT GENERATOR  (transcription_report.md — metrics-focused)
-# ══════════════════════════════════════════════════════════════════════
+#  REPORT GENERATOR  (transcription_report.md — metrics-focused)
 
 def generate_report(all_results: dict, audio_file: str) -> str:
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1604,9 +1578,7 @@ def generate_report(all_results: dict, audio_file: str) -> str:
     return "\n".join(lines)
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  DOCUMENTATION GUIDE GENERATOR  (transcription_doc_guide.md)
-# ══════════════════════════════════════════════════════════════════════
+#  DOCUMENTATION GUIDE GENERATOR  (transcription_doc_guide.md)
 
 def generate_doc_guide(all_results: dict, audio_file: str) -> str:
     """
@@ -2131,9 +2103,7 @@ def generate_doc_guide(all_results: dict, audio_file: str) -> str:
     return "\n".join(lines)
 
 
-# ══════════════════════════════════════════════════════════════════════
-# ██  MAIN RUNNER
-# ══════════════════════════════════════════════════════════════════════
+#  MAIN RUNNER
 
 ORDERED_STAGE_IDS = [
     "stage_0", "stage_1", "stage_1b", "stage_2",  "stage_3",
@@ -2410,9 +2380,7 @@ def main():
             f"{bl:7s}"
         )
 
-    # ══════════════════════════════════════════════════════════════
-    # ██  SAVE ALL OUTPUTS
-    # ══════════════════════════════════════════════════════════════
+    #  SAVE ALL OUTPUTS
 
     # JSON results
     def _clean(obj):
