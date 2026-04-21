@@ -2420,3 +2420,36 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+(azure_test_env) PS C:\Users\re_nikitav\Documents\azure_asr_test> python .\azure_incremental.py
+
+════════════════════════════════════════════════════════════════════
+  AZURE STT TRANSCRIPTION QUALITY LAB  —  ALL 12 STAGES
+  Audio   : audio/maria1.mp3
+  Stages  : 20
+  SLA     : 800ms TTFT
+  Started : 2026-04-22 02:27:45
+════════════════════════════════════════════════════════════════════
+
+  Converting → 16kHz WAV: audio\maria1.16k.wav
+  Converting → 8kHz WAV (telephony): audio\maria1.8k.wav
+
+════════════════════════════════════════════════════════════════════
+  [ 1/20]  STAGE_0  —  Baseline
+  [██░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]  5%
+════════════════════════════════════════════════════════════════════
+
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2422, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2169, in main
+    r0 = run_file_transcription(wav_16k, s0_cfg, stage_id="stage_0")
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 302, in run_file_transcription
+    sc = _build_speech_config(cfg)
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 262, in _build_speech_config
+    speechsdk.PropertyId.SpeechServiceConnection_RecognitionMode,
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'PropertyId' has no attribute 'SpeechServiceConnection_RecognitionMode'. Did you mean: 'SpeechServiceConnection_RecoMode'?
