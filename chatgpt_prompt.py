@@ -23,10 +23,11 @@ Maps exactly to the requirements table:
   Stage C2 : Combined All                — Everything together
 
 Outputs:
-  transcription_report.md   Full documentation + comparison table
-  results.json              Machine-readable metrics
-  transcription_audit.log   Structured JSON log (Stage 11+)
-  Console                   Live partials, finals, per-stage summaries
+  transcription_report.md      Full per-stage metrics comparison table
+  transcription_doc_guide.md   Human-readable documentation guide (how-to, param refs, observations)
+  results.json                 Machine-readable metrics
+  transcription_audit.log      Structured JSON log (Stage 11+)
+  Console                      Live partials, finals, per-stage summaries
 
 Usage:
   python transcription_stages_lab.py                        # all stages
@@ -495,10 +496,6 @@ def run_streaming_transcription(
     """
     Streams audio in real-time chunks via PushAudioInputStream,
     simulating a WebSocket / live microphone feed.
-
-    chunk_ms: millisecond size of each pushed chunk (default 100ms)
-    At 16kHz, 16-bit mono: 1ms = 32 bytes → 100ms chunk = 3200 bytes.
-    At 8kHz,  16-bit mono: 1ms = 16 bytes → 100ms chunk = 1600 bytes.
     """
     session_id = f"{stage_id}_{int(time.time()*1000)}"
 
@@ -507,7 +504,6 @@ def run_streaming_transcription(
     # Detect sample rate from WAV header
     with open(wav_file, "rb") as f:
         header = f.read(44)
-    # bytes 24-27 = sample rate (little-endian uint32)
     sample_rate = int.from_bytes(header[24:28], "little") if len(header) >= 28 else 16000
     bytes_per_ms = (sample_rate // 1000) * 2  # 16-bit mono
     chunk_bytes  = bytes_per_ms * chunk_ms
@@ -601,7 +597,6 @@ def run_streaming_transcription(
 
     recognizer.start_continuous_recognition()
 
-    # ── Push audio in real-time chunks ────────────────────────────
     print(f"    Pushing audio in {chunk_ms}ms chunks ({chunk_bytes} bytes each)…")
 
     def push_audio():
@@ -615,7 +610,7 @@ def run_streaming_transcription(
                         break
                     stream.write(chunk)
                     chunks_pushed += 1
-                    time.sleep(chunk_ms / 1000.0)  # real-time pacing
+                    time.sleep(chunk_ms / 1000.0)
             print(f"    All audio pushed ({chunks_pushed} chunks × {chunk_ms}ms)")
         finally:
             stream.close()
@@ -625,7 +620,6 @@ def run_streaming_transcription(
     push_thread.start()
     push_thread.join()
 
-    # Wait for recognition to finish
     timeout_at = time.time() + 30
     while not done and time.time() < timeout_at:
         time.sleep(0.2)
@@ -674,10 +668,7 @@ def run_concurrent_sessions(
     n_sessions: int,
     stage_id: str,
 ) -> dict:
-    """
-    Runs N recognition sessions simultaneously.
-    Returns aggregate metrics: success rate, avg/p95 latency, throttle errors.
-    """
+    """Runs N recognition sessions simultaneously."""
     print(f"    Launching {n_sessions} concurrent sessions…")
 
     results_list: list[dict] = []
@@ -709,7 +700,7 @@ def run_concurrent_sessions(
     with ThreadPoolExecutor(max_workers=n_sessions) as pool:
         futures = [pool.submit(one_session, i) for i in range(n_sessions)]
         for f in as_completed(futures):
-            pass  # results captured via lock
+            pass
     wall_time = time.time() - start_t
 
     successes    = [r for r in results_list if r["success"]]
@@ -778,9 +769,6 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
 
     return {
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 0 — Baseline
-        # ─────────────────────────────────────────────────────────
         "stage_0": {
             "_meta": {
                 "id":          "stage_0",
@@ -817,20 +805,13 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 1 — ASR Config Finalization
-        # ─────────────────────────────────────────────────────────
         "stage_1": {
             "_meta": {
                 "id":          "stage_1",
                 "name":        "Stage 1 — ASR Config Finalization",
                 "phase":       "Setup",
                 "task":        "Lock language/locale, audio format (telephony/broadband), disable auto-detect",
-                "description": "Three sub-tests: "
-                               "(1a) lock language + profanity raw, "
-                               "(1b) telephony 8kHz audio format, "
-                               "(1c) locked + broadband 16kHz. "
-                               "Disabling auto-detect removes per-utterance scoring overhead.",
+                "description": "Locks language to detected. Sets profanity to raw. Eliminates auto-detect overhead.",
                 "parameters_changed":
                     "locked_language (auto→detected), profanity (masked→raw), audio format test",
                 "parameters": {
@@ -861,16 +842,13 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # Stage 1b — same but runs on 8kHz (telephony) audio
         "stage_1b": {
             "_meta": {
                 "id":          "stage_1b",
                 "name":        "Stage 1b — ASR Config: Telephony 8kHz Format",
                 "phase":       "Setup",
                 "task":        "Test telephony audio format (8kHz) vs broadband (16kHz)",
-                "description": "Runs same locked-language config on 8kHz downsampled audio. "
-                               "Phone call audio is typically 8kHz; broadband is 16kHz. "
-                               "Compare accuracy to Stage 1 (16kHz) to decide which format to lock.",
+                "description": "Runs same locked-language config on 8kHz downsampled audio.",
                 "parameters_changed": "audio_format: 16kHz → 8kHz (telephony)",
                 "parameters": {
                     "locked_language":    f"{detected_language}",
@@ -885,7 +863,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "If source is phone call audio → 8kHz may score equally or better.",
                 "what_to_observe":
                     "Word count and digit accuracy vs Stage 1 (16kHz). "
-                    "If 8kHz ≥ 16kHz in word count → use 8kHz in production (smaller payloads).",
+                    "If 8kHz ≥ 16kHz in word count → use 8kHz in production.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -896,22 +874,17 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "output_format":      "detailed",
             "phrase_list":        [],
             "apply_numeric_pp":   False,
-            "_audio_format":      "8k",   # special flag — main runner uses 8kHz wav
+            "_audio_format":      "8k",
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 2 — Concurrency & Quota Validation
-        # ─────────────────────────────────────────────────────────
         "stage_2": {
             "_meta": {
                 "id":          "stage_2",
                 "name":        "Stage 2 — Concurrency & Quota Validation",
                 "phase":       "Setup",
                 "task":        "Validate concurrency limits, rate limits, and quotas",
-                "description": "Runs the same audio recognition across multiple concurrent "
-                               f"sessions: {CONCURRENCY_LEVELS}. "
-                               "Measures: success rate, throttle (429) errors, "
-                               "avg/P50/P95 TTFT per concurrency level.",
+                "description": f"Runs simultaneous sessions at levels: {CONCURRENCY_LEVELS}. "
+                               "Measures success rate, throttle errors, avg/P50/P95 TTFT.",
                 "parameters_changed": "N/A — tests infrastructure, not ASR config",
                 "parameters": {
                     "concurrency_levels": str(CONCURRENCY_LEVELS),
@@ -920,34 +893,27 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 },
                 "expected_outcome": "No throttling errors. P95 TTFT < SLA threshold.",
                 "what_to_observe":
-                    "At which concurrency level do errors appear? "
-                    f"Is P95 TTFT within {LATENCY_SLA_MS}ms SLA? "
-                    "Use to determine max concurrent sessions for your Azure tier.",
+                    f"At which concurrency level do errors appear? "
+                    f"Is P95 TTFT within {LATENCY_SLA_MS}ms SLA?",
             },
-            # base config for concurrent sessions
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
             "initial_silence_ms": 5000,
             "seg_silence_ms":     600,
-            "output_format":      "simple",   # simpler format reduces payload for concurrency test
+            "output_format":      "simple",
             "phrase_list":        [],
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 3 — Real-Time Socket Integration
-        # ─────────────────────────────────────────────────────────
         "stage_3": {
             "_meta": {
                 "id":          "stage_3",
                 "name":        "Stage 3 — Real-Time Socket Integration",
                 "phase":       "Integration",
                 "task":        "Implement and validate WebSocket/streaming ingestion",
-                "description": "Uses PushAudioInputStream to push audio in real-time chunks "
-                               "(100ms chunks at 16kHz). Simulates a live microphone / "
-                               "WebSocket audio feed. Validates streaming latency vs file-based.",
+                "description": "Uses PushAudioInputStream to push audio in 100ms real-time chunks.",
                 "parameters_changed": "audio_input: file → PushAudioInputStream (streaming chunks)",
                 "parameters": {
                     "locked_language":    f"{detected_language}",
@@ -963,8 +929,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Low-latency real-time ASR. Partials appear within 300ms of speech.",
                 "what_to_observe":
                     "TTFT-Partial vs Stage 0 (file-based). "
-                    "Transcript quality should match Stage 1 (no degradation from streaming). "
-                    "Verify no chunk-boundary truncation artifacts.",
+                    "Transcript quality should match Stage 1.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -977,17 +942,13 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 4 — VAD Evaluation & Tuning  (3 sub-stages)
-        # ─────────────────────────────────────────────────────────
         "stage_4a": {
             "_meta": {
                 "id":          "stage_4a",
                 "name":        "Stage 4a — VAD: Default (800ms)",
                 "phase":       "Audio",
                 "task":        "VAD baseline — built-in default settings",
-                "description": "Same as Stage 1 but isolates VAD behaviour at default 800ms. "
-                               "Used as VAD sub-baseline before tuning.",
+                "description": "Same as Stage 1. Isolates VAD behaviour at default 800ms.",
                 "parameters_changed": "None from Stage 1 — VAD baseline",
                 "parameters": {
                     "end_silence_ms":     "800  (default)",
@@ -1013,19 +974,17 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "name":        "Stage 4b — VAD: Conservative (1200ms)",
                 "phase":       "Audio",
                 "task":        "VAD conservative — reduce truncation and false cut-offs",
-                "description": "Increases end-silence to 1200ms (+50%). Best for speakers who "
-                               "pause mid-sentence or read numbers slowly.",
+                "description": "Increases end-silence to 1200ms (+50%). Best for speakers who pause mid-sentence.",
                 "parameters_changed": "end_silence_ms: 800→1200, seg_silence_ms: 600→1000, initial_silence_ms: 5000→8000",
                 "parameters": {
                     "end_silence_ms":     "1200  ← INCREASED (was: 800)",
                     "initial_silence_ms": "8000  ← INCREASED (was: 5000)",
                     "seg_silence_ms":     "1000  ← INCREASED (was: 600)",
                 },
-                "expected_outcome": "Fewer mid-sentence truncations. Words previously cut-off now appear.",
+                "expected_outcome": "Fewer mid-sentence truncations.",
                 "what_to_observe":
-                    "Segment count vs 4a (should decrease = fewer false cuts). "
-                    "Word count vs 4a (should increase or equal = recovered words). "
-                    "Total time slightly higher (waiting longer for silence).",
+                    "Segment count vs 4a (should decrease). "
+                    "Word count vs 4a (should increase or equal).",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -1043,8 +1002,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "name":        "Stage 4c — VAD: Aggressive (2000ms)",
                 "phase":       "Audio",
                 "task":        "VAD aggressive — maximum pause tolerance",
-                "description": "End-silence 2000ms. For very slow/deliberate speakers. "
-                               "Risk: may merge two utterances if speaker pauses < 2s between them.",
+                "description": "End-silence 2000ms. Risk: may merge two utterances if speaker pauses < 2s.",
                 "parameters_changed": "end_silence_ms: 1200→2000, seg_silence_ms: 1000→1500, initial_silence_ms: 8000→15000",
                 "parameters": {
                     "end_silence_ms":     "2000  ← INCREASED (was: 1200)",
@@ -1053,8 +1011,6 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 },
                 "expected_outcome": "Maximum pause tolerance. Best for slow/hesitant speakers.",
                 "what_to_observe":
-                    "Compare segment count with 4b. "
-                    "If same/fewer segments + same/more words → use 4c for this audio. "
                     "If segment count drops drastically → utterances are merging (avoid 4c).",
             },
             "locked_language":    detected_language,
@@ -1068,19 +1024,13 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 5 — Word / Phrase Boosting
-        # ─────────────────────────────────────────────────────────
         "stage_5": {
             "_meta": {
                 "id":          "stage_5",
                 "name":        "Stage 5 — Word / Phrase Boosting",
                 "phase":       "Accuracy",
                 "task":        "Boost digits, identifiers, domain terms via PhraseListGrammar",
-                "description": "Adds domain-specific phrases to PhraseListGrammar. "
-                               "Soft vocabulary injection — increases prior probability for "
-                               "these phrases when acoustic evidence is ambiguous. "
-                               f"Adding {len(DOMAIN_PHRASES)} phrases.",
+                "description": f"Adds {len(DOMAIN_PHRASES)} domain-specific phrases to PhraseListGrammar.",
                 "parameters_changed": f"phrase_list: none → {len(DOMAIN_PHRASES)} entries",
                 "parameters": {
                     "locked_language":    f"{detected_language}",
@@ -1094,10 +1044,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "numeric_pp":         False,
                 },
                 "expected_outcome": "Improved numeric accuracy. Short words (ID, OK) less dropped.",
-                "what_to_observe":
-                    "digit_token_count vs Stage 0. "
-                    "short_word_count vs Stage 0. "
-                    "Do 'account number', 'press one' appear correctly?",
+                "what_to_observe":  "digit_token_count vs Stage 0. short_word_count vs Stage 0.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -1110,18 +1057,14 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 6 — Transcript-Based Vocabulary Tuning
-        # ─────────────────────────────────────────────────────────
         "stage_6": {
             "_meta": {
                 "id":          "stage_6",
                 "name":        "Stage 6 — Transcript-Based Vocabulary Tuning",
                 "phase":       "Accuracy",
                 "task":        "Use sample transcripts to refine vocabulary/style boosting",
-                "description": "Extracts words that appeared ≥2 times in the baseline transcript "
-                               f"({len(baseline_phrases)} phrases found) and adds them to the "
-                               "phrase list on top of Stage 5. Self-bootstraps from your domain audio.",
+                "description": f"Extracts words ≥2 appearances from baseline ({len(baseline_phrases)} found) "
+                               "and adds to phrase list on top of Stage 5.",
                 "parameters_changed":
                     f"phrase_list: Stage5 list + {len(baseline_phrases)} baseline-extracted phrases",
                 "parameters": {
@@ -1136,8 +1079,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 },
                 "expected_outcome": "Domain-specific words from your audio get a recognition boost.",
                 "what_to_observe":
-                    "Check if any word that was mis-recognised in Stage 0 is now correct. "
-                    "Compare similarity_pct to Stage 5 — lower = Stage 6 changed more words.",
+                    "Check if any word mis-recognised in Stage 0 is now correct. "
+                    "Compare similarity_pct to Stage 5.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -1150,24 +1093,20 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 7 — Numeric Handling Validation  (3 sub-stages)
-        # ─────────────────────────────────────────────────────────
         "stage_7a": {
             "_meta": {
                 "id":          "stage_7a",
                 "name":        "Stage 7a — Numeric: Conversation Mode (Azure native)",
                 "phase":       "Logic",
                 "task":        "Validate digit-by-digit vs grouped digit behavior — baseline",
-                "description": "Measures how Azure natively outputs numbers in conversation mode "
-                               "without any post-processing. Reference for numeric comparison.",
+                "description": "Measures how Azure natively outputs numbers in conversation mode without post-processing.",
                 "parameters_changed": "None from Stage 5 — numeric baseline",
                 "parameters": {
                     "recognition_mode": "conversation",
                     "numeric_pp":       False,
                     "phrase_list":      f"{len(DOMAIN_PHRASES)} entries",
                 },
-                "expected_outcome": "Mixed output — some words, some digits, depends on context.",
+                "expected_outcome": "Mixed output — some words, some digits.",
                 "what_to_observe":  "digit_token_count. How many numbers appear as words vs digits?",
             },
             "locked_language":    detected_language,
@@ -1183,22 +1122,19 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
         "stage_7b": {
             "_meta": {
                 "id":          "stage_7b",
-                "name":        "Stage 7b — Numeric: Dictation Mode (Azure native digit output)",
+                "name":        "Stage 7b — Numeric: Dictation Mode",
                 "phase":       "Logic",
                 "task":        "Test dictation mode for improved digit-by-digit output",
-                "description": "Switches to Azure dictation mode. Azure's dictation model is "
-                               "optimised to output spoken numbers as digit tokens. "
-                               "No post-processing — testing native Azure output only.",
+                "description": "Switches to Azure dictation mode, optimised to output spoken numbers as digit tokens.",
                 "parameters_changed": "recognition_mode: conversation → dictation  ← CHANGED",
                 "parameters": {
                     "recognition_mode": "dictation  ← CHANGED (was: conversation)",
                     "numeric_pp":       False,
                     "phrase_list":      f"{len(DOMAIN_PHRASES)} entries",
                 },
-                "expected_outcome": "More digit tokens in transcript (Azure natively outputs digits).",
+                "expected_outcome": "More digit tokens in transcript.",
                 "what_to_observe":
                     "digit_token_count vs 7a. "
-                    "Check: are 'one two three' → '1 2 3' for 'account number one two three'? "
                     "Check: does 'I need to go' still say 'to' (not '2')?",
             },
             "locked_language":    detected_language,
@@ -1217,10 +1153,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "name":        "Stage 7c — Numeric: Dictation + Context-Aware Post-Processor",
                 "phase":       "Logic",
                 "task":        "Full numeric handling: dictation + context-aware word-to-digit PP",
-                "description": "Dictation mode + post-processor that converts remaining word-numbers "
-                               "to digits only in clear numeric context. "
-                               "SAFETY: 'to/for/a/an/won/ate' NEVER converted. "
-                               "Spanish: complete pass-through.",
+                "description": "Dictation mode + post-processor. SAFETY: 'to/for/a/an/won/ate' NEVER converted. Spanish: pass-through.",
                 "parameters_changed": "numeric_pp: False → True  ← ADDED (on top of Stage 7b)",
                 "parameters": {
                     "recognition_mode": "dictation",
@@ -1229,11 +1162,10 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "spanish_handling": "pass-through (no conversion)",
                     "phrase_list":      f"{len(DOMAIN_PHRASES)} entries",
                 },
-                "expected_outcome": "Maximum digit output. 'to' never becomes '2'. Spanish untouched.",
+                "expected_outcome": "Maximum digit output. 'to' never becomes '2'.",
                 "what_to_observe":
-                    "digit_token_count vs 7b (should be ≥ 7b). "
-                    "Verify 'to'/'for'/'a' stayed as words. "
-                    "Verify Spanish number words unchanged if Spanish audio.",
+                    "digit_token_count vs 7b (should be ≥). "
+                    "Verify 'to'/'for'/'a' stayed as words.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "dictation",
@@ -1246,20 +1178,14 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   True,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 8 — Emotion / Tone Evaluation
-        # ─────────────────────────────────────────────────────────
         "stage_8": {
             "_meta": {
                 "id":          "stage_8",
                 "name":        "Stage 8 — Emotion / Tone Evaluation",
                 "phase":       "Quality",
                 "task":        "Assess ASR behavior under neutral vs stressed speech",
-                "description": "Runs recognition with Detailed output format and parses per-segment "
-                               "confidence scores and NBest alternatives. "
-                               "Low confidence scores indicate segments where Azure was uncertain "
-                               "(noisy audio, stressed speech, fast speech, accent variation). "
-                               "Flags segments below confidence threshold for re-prompt.",
+                "description": "Parses per-segment confidence scores and NBest alternatives. "
+                               f"Flags segments below {CONFIDENCE_REPROMPT_THRESHOLD} for re-prompt.",
                 "parameters_changed": "output_format: detailed (confidence + NBest parsing enabled)",
                 "parameters": {
                     "recognition_mode":   "conversation",
@@ -1272,10 +1198,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 },
                 "expected_outcome": "Robust recognition. Confidence > threshold for most segments.",
                 "what_to_observe":
-                    "confidence_avg and confidence_min per segment. "
-                    "low_conf_segments count (segments below threshold). "
-                    f"Segments with confidence < {CONFIDENCE_REPROMPT_THRESHOLD} should be "
-                    "flagged for human review or re-prompt.",
+                    "confidence_avg and confidence_min. "
+                    f"low_conf_segments count (segments below {CONFIDENCE_REPROMPT_THRESHOLD}).",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -1288,19 +1212,14 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 9 — Latency & Timeout Testing
-        # ─────────────────────────────────────────────────────────
         "stage_9": {
             "_meta": {
                 "id":          "stage_9",
                 "name":        "Stage 9 — Latency & Timeout Testing",
                 "phase":       "Testing",
                 "task":        "Validate response times within conversational SLA",
-                "description": "Runs recognition 3 times and collects TTFT-Partial, TTFT-Final, "
-                               "P50/P95 latency across segments. "
-                               f"SLA target: TTFT-Final < {LATENCY_SLA_MS}ms. "
-                               "Also tests with tight timeout (500ms) to observe behavior.",
+                "description": f"Runs 3 times, collects P50/P95 TTFT. SLA: TTFT-Final < {LATENCY_SLA_MS}ms. "
+                               "Also tests tight timeout (500ms).",
                 "parameters_changed": "3 runs for statistical stability; tight-timeout sub-test",
                 "parameters": {
                     "sla_threshold_ms":   LATENCY_SLA_MS,
@@ -1310,11 +1229,10 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "phrase_list":        f"{len(DOMAIN_PHRASES)} entries",
                     "numeric_pp":         False,
                 },
-                "expected_outcome": f"TTFT-Final P95 < {LATENCY_SLA_MS}ms for smooth turn-taking.",
+                "expected_outcome": f"TTFT-Final P95 < {LATENCY_SLA_MS}ms.",
                 "what_to_observe":
                     "P50 and P95 TTFT across runs. "
-                    "Does tight timeout (500ms) cause truncation vs normal (1200ms)? "
-                    "Alert fires if any run exceeds SLA.",
+                    "Does tight timeout (500ms) cause truncation vs normal (1200ms)?",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -1327,19 +1245,13 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 10 — Load & Concurrency Testing
-        # ─────────────────────────────────────────────────────────
         "stage_10": {
             "_meta": {
                 "id":          "stage_10",
                 "name":        "Stage 10 — Load & Concurrency Testing",
                 "phase":       "Testing",
                 "task":        "Validate peak concurrent real-time streams",
-                "description": f"Runs {CONCURRENCY_LEVELS} concurrent recognition sessions. "
-                               "Measures success rate, throttle errors (HTTP 429), "
-                               "P50/P95 TTFT per concurrency level. "
-                               "Uses ThreadPoolExecutor for simultaneous sessions.",
+                "description": f"Runs {CONCURRENCY_LEVELS} concurrent sessions via ThreadPoolExecutor.",
                 "parameters_changed": "concurrent sessions: 1 → multiple (ThreadPoolExecutor)",
                 "parameters": {
                     "concurrency_levels": str(CONCURRENCY_LEVELS),
@@ -1350,8 +1262,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Stable under load. No throttle errors at expected peak concurrency.",
                 "what_to_observe":
                     "At which concurrency level do throttle errors appear? "
-                    "P95 TTFT degradation as concurrency increases. "
-                    "Use to determine max safe concurrent sessions for your Azure subscription tier.",
+                    "P95 TTFT degradation as concurrency increases.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "conversation",
@@ -1364,21 +1275,15 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   False,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 11 — Logging & Alerts Setup
-        # ─────────────────────────────────────────────────────────
         "stage_11": {
             "_meta": {
                 "id":          "stage_11",
                 "name":        "Stage 11 — Logging & Alerts Setup",
                 "phase":       "Monitoring",
                 "task":        "Enable error, latency, socket-drop monitoring",
-                "description": "Runs full Combined Best transcription while structured JSON "
-                               "logging is active. Emits one JSON record per event (start, "
-                               "segment, complete, error). Alert thresholds: "
-                               f"TTFT > {LATENCY_SLA_MS}ms → HIGH_LATENCY alert; "
-                               "empty transcript → EMPTY_TRANSCRIPT alert; "
-                               "error_code present → RECOGNITION_ERROR alert.",
+                "description": "Runs Combined Best config while JSON logging is active. "
+                               f"Alerts: TTFT > {LATENCY_SLA_MS}ms → HIGH_LATENCY; "
+                               "empty → EMPTY_TRANSCRIPT; error → RECOGNITION_ERROR.",
                 "parameters_changed": "Logging + alerts layer enabled. No ASR config changes.",
                 "parameters": {
                     "log_file":           "transcription_audit.log",
@@ -1389,11 +1294,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "base_config":        "Combined Best (Stage C1)",
                 },
                 "expected_outcome": "Audit log populated. Alerts file shows triggered thresholds.",
-                "what_to_observe":
-                    "transcription_audit.log record count. "
-                    "Any HIGH_LATENCY or RECOGNITION_ERROR alerts triggered?",
+                "what_to_observe":  "transcription_audit.log record count. Any alerts triggered?",
             },
-            # Same as Combined Best — we're testing the logging layer
             "locked_language":    detected_language,
             "recognition_mode":   "dictation",
             "profanity":          "raw",
@@ -1405,20 +1307,14 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   True,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE 12 — Fallback Validation
-        # ─────────────────────────────────────────────────────────
         "stage_12": {
             "_meta": {
                 "id":          "stage_12",
                 "name":        "Stage 12 — Fallback Validation",
                 "phase":       "Go-Live",
                 "task":        "Test re-prompt / DTMF / alternate flow",
-                "description": "Validates fallback handling in three scenarios: "
-                               "(a) Normal audio → should produce transcript; "
-                               "(b) Low-confidence segments → flagged for re-prompt; "
-                               "(c) Empty/silence response → fallback triggered. "
-                               f"Re-prompt threshold: confidence < {CONFIDENCE_REPROMPT_THRESHOLD}.",
+                "description": f"Validates fallback: low-conf segments flagged for re-prompt "
+                               f"(threshold: {CONFIDENCE_REPROMPT_THRESHOLD}); empty → DTMF fallback.",
                 "parameters_changed": "Fallback logic layer (post-processing). No ASR config changes.",
                 "parameters": {
                     "reprompt_threshold":   CONFIDENCE_REPROMPT_THRESHOLD,
@@ -1428,9 +1324,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 },
                 "expected_outcome": "Resilient failure handling. No silent failures.",
                 "what_to_observe":
-                    "low_conf_segments count. "
-                    "Were any segments flagged for re-prompt? "
-                    "Empty-audio fallback: does system handle gracefully without crashing?",
+                    "low_conf_segments count. fallback_report.reprompt_flagged. "
+                    "fallback_report.dtmf_fallback.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "dictation",
@@ -1443,20 +1338,14 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   True,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE C1 — Combined Best  ← PRODUCTION RECOMMENDATION
-        # ─────────────────────────────────────────────────────────
         "stage_c1": {
             "_meta": {
                 "id":          "stage_c1",
                 "name":        "Stage C1 — Combined Best  ✅ PRODUCTION RECOMMENDATION",
                 "phase":       "Production",
                 "task":        "All effective stages combined",
-                "description": "Combines Stage1 (locked lang + raw profanity) + "
-                               "Stage 4b (conservative VAD) + "
-                               "Stage 5 (phrase boosting) + "
-                               "Stage 7c (dictation + numeric PP). "
-                               "This is the recommended production configuration.",
+                "description": "Stage1 (locked lang + raw profanity) + Stage 4b (conservative VAD) + "
+                               "Stage 5 (phrase boosting) + Stage 7c (dictation + numeric PP).",
                 "parameters_changed": "All effective stages applied together",
                 "parameters": {
                     "locked_language":    f"{detected_language}  (Stage1)",
@@ -1470,10 +1359,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 },
                 "expected_outcome": "Best overall accuracy. All individual improvements compounded.",
                 "what_to_observe":
-                    "similarity_pct vs Stage 0 (expect lower = more improvements). "
-                    "digit_token_count (expect highest). "
-                    "TTFT (expect ≤ Stage 0 due to locked language). "
-                    "word_count (expect ≥ Stage 0 due to better VAD).",
+                    "similarity_pct vs Stage 0. digit_token_count (expect highest). "
+                    "TTFT (expect ≤ Stage 0). word_count (expect ≥ Stage 0).",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "dictation",
@@ -1486,17 +1373,13 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
             "apply_numeric_pp":   True,
         },
 
-        # ─────────────────────────────────────────────────────────
-        # STAGE C2 — Combined All
-        # ─────────────────────────────────────────────────────────
         "stage_c2": {
             "_meta": {
                 "id":          "stage_c2",
                 "name":        "Stage C2 — Combined All Stages",
                 "phase":       "Production",
                 "task":        "Every stage combined for maximum coverage",
-                "description": "C1 + Stage 4c (aggressive VAD) + Stage 6 (extended vocab). "
-                               "Useful if Stage C1 still shows truncation or missing domain terms.",
+                "description": "C1 + Stage 4c (aggressive VAD) + Stage 6 (extended vocab).",
                 "parameters_changed": "Stage C1 + aggressive VAD + extended vocab",
                 "parameters": {
                     "locked_language":    f"{detected_language}",
@@ -1511,7 +1394,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Maximum coverage. Compare to C1 to check if aggressive VAD helps.",
                 "what_to_observe":
                     "If segment_count same as C1 → no benefit from aggressive VAD. "
-                    "If word_count higher than C1 → C2 recovered words → use C2. ",
+                    "If word_count higher than C1 → C2 recovered words → use C2.",
             },
             "locked_language":    detected_language,
             "recognition_mode":   "dictation",
@@ -1527,7 +1410,7 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
 
 
 # ══════════════════════════════════════════════════════════════════════
-# ██  REPORT GENERATOR
+# ██  REPORT GENERATOR  (transcription_report.md — metrics-focused)
 # ══════════════════════════════════════════════════════════════════════
 
 def generate_report(all_results: dict, audio_file: str) -> str:
@@ -1542,7 +1425,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
                  f"**Re-prompt Threshold:** confidence < {CONFIDENCE_REPROMPT_THRESHOLD}\n")
     lines.append("---\n")
 
-    # ── Stage-by-stage ────────────────────────────────────────────
     lines.append("## Stage-by-Stage Analysis\n")
 
     ordered = [
@@ -1575,7 +1457,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
         lines.append("| Metric | Value |")
         lines.append("|--------|-------|")
 
-        # Regular transcription metrics
         for key, label in [
             ("detected_language",    "Detected Language"),
             ("segment_count",        "Segments"),
@@ -1598,7 +1479,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
                 val = f"{val}%"
             lines.append(f"| {label} | `{val}` |")
 
-        # Concurrency metrics (Stage 2 / 10)
         if "concurrency_results" in res:
             lines.append("\n#### Concurrency Results\n")
             lines.append("| Sessions | Success% | Throttled | TTFT Avg | P50 | P95 | P Max |")
@@ -1614,7 +1494,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
                     f"| {cr.get('ttft_max_ms')} ms |"
                 )
 
-        # Latency multi-run metrics (Stage 9)
         if "latency_runs" in res:
             lines.append("\n#### Latency Runs\n")
             lines.append("| Run | TTFT-P (ms) | TTFT-F (ms) | Total (s) | SLA Pass? |")
@@ -1629,7 +1508,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
                     f"| {sla} |"
                 )
 
-        # Fallback (Stage 12)
         if "fallback_report" in res:
             fb = res["fallback_report"]
             lines.append("\n#### Fallback Report\n")
@@ -1655,7 +1533,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
 
         lines.append("---\n")
 
-    # ── Comparison Table ─────────────────────────────────────────
     lines.append("## 📊 Full Comparison Table\n")
     lines.append(
         "| Stage | Phase | Seg | Words | Digits | Short | TTFT-P | TTFT-F | "
@@ -1670,7 +1547,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
             continue
         r    = all_results[sid]
         meta = r.get("_meta", {})
-        name = meta.get("name", sid).split("—")[-1].strip()[:30]
         lines.append(
             f"| {sid} | {meta.get('phase','')[:8]} "
             f"| {r.get('segment_count','?')} "
@@ -1684,7 +1560,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
             f"| {str(r.get('similarity_pct','—'))+'%' if r.get('similarity_pct') is not None else '—'} |"
         )
 
-    # ── Alerts ────────────────────────────────────────────────────
     if _alert_log:
         lines.append("\n## ⚠️ Alerts Triggered\n")
         lines.append("| Alert | Stage | Session | Detail |")
@@ -1696,7 +1571,6 @@ def generate_report(all_results: dict, audio_file: str) -> str:
     else:
         lines.append("\n## ✅ No Alerts Triggered\n")
 
-    # ── Production Recommendation ─────────────────────────────────
     lines.append("## ✅ Production Recommendation\n")
     lines.append("""
 **Use Stage C1 (Combined Best)** for production.
@@ -1711,19 +1585,9 @@ def generate_report(all_results: dict, audio_file: str) -> str:
 | Spanish | Pass-through | Spanish words preserved |
 
 **Stage C2** if audio has very long pauses (>1.5s within a sentence).
-
-### Which stages to skip in production
-
-| Stage | Reason |
-|-------|--------|
-| Stage 4c alone | Risk of merging separate utterances |
-| Stage 6 alone | Only valuable with large corpus |
-| Stage 2 / 10 | Validation stages, not production config changes |
-| Stage 9 / 11 | Monitoring — run as health checks, not config changes |
 ---
 """)
 
-    # ── Transcripts (once at end) ─────────────────────────────────
     lines.append("## 📝 Final Transcripts\n")
     lines.append("> Shown once here. 'processed' = after numeric PP (where applied).\n")
     for sid in ordered:
@@ -1736,6 +1600,533 @@ def generate_report(all_results: dict, audio_file: str) -> str:
         if r.get("numeric_pp_applied") and r.get("raw_transcript") != r.get("processed_transcript"):
             lines.append("**After numeric post-processor:**")
             lines.append(f"```\n{r.get('processed_transcript','')}\n```\n")
+
+    return "\n".join(lines)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# ██  DOCUMENTATION GUIDE GENERATOR  (transcription_doc_guide.md)
+# ══════════════════════════════════════════════════════════════════════
+
+def generate_doc_guide(all_results: dict, audio_file: str) -> str:
+    """
+    Generates a comprehensive human-readable documentation guide after all stages complete.
+    Includes: quick-reference table, setup, per-stage how-to, actual results filled in,
+    parameter reference, improvement identification guide, and production config.
+    """
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    lines = []
+
+    # ── Header ───────────────────────────────────────────────────
+    lines.append("# Azure STT Transcription Quality Lab — Documentation Guide")
+    lines.append(f"\n> **Audio:** `{audio_file}`  |  **Generated:** {now}  |  **Region:** `{SPEECH_REGION}`")
+    lines.append(f"> **Languages Tested:** {CANDIDATE_LANGUAGES}  |  "
+                 f"**SLA:** {LATENCY_SLA_MS}ms  |  "
+                 f"**Re-prompt threshold:** confidence < {CONFIDENCE_REPROMPT_THRESHOLD}\n")
+    lines.append("---\n")
+
+    # ── Quick Reference Table ─────────────────────────────────────
+    lines.append("## Quick Reference: Stage → Requirements Table Mapping\n")
+    lines.append("| Script Stage | Phase | Task | Priority |")
+    lines.append("|---|---|---|---|")
+    stage_ref = [
+        ("Stage 0",          "Reference",   "Baseline (original script)",                                                  "—"),
+        ("Stage 1 / 1b",     "Setup",       "**ASR Config Finalization** — lock lang/locale, audio format, disable auto-detect", "High"),
+        ("Stage 2",          "Setup",       "**Concurrency & Quota Validation** — validate limits, rates, quotas",         "High"),
+        ("Stage 3",          "Integration", "**Real-Time Socket Integration** — WebSocket/streaming ingestion",            "High"),
+        ("Stage 4a / 4b / 4c","Audio",      "**VAD Evaluation & Tuning** — silence thresholds, endpointing",              "—"),
+        ("Stage 5",          "Accuracy",    "**Word / Phrase Boosting** — boost digits, identifiers, domain terms",        "High"),
+        ("Stage 6",          "Accuracy",    "**Transcript-Based Vocabulary Tuning** — sample transcript vocab",            "High"),
+        ("Stage 7a / 7b / 7c","Logic",      "**Numeric Handling Validation** — digit-by-digit vs grouped",                "High"),
+        ("Stage 8",          "Quality",     "**Emotion / Tone Evaluation** — neutral vs stressed speech",                  "High"),
+        ("Stage 9",          "Testing",     "**Latency & Timeout Testing** — response times, SLA",                         "High"),
+        ("Stage 10",         "Testing",     "**Load & Concurrency Testing** — peak concurrent streams",                    "High"),
+        ("Stage 11",         "Monitoring",  "**Logging & Alerts Setup** — error, latency, socket-drop",                    "High"),
+        ("Stage 12",         "Go-Live",     "**Fallback Validation** — re-prompt, DTMF, alternate flow",                   "High"),
+        ("Stage C1",         "Production",  "Combined Best ← **USE THIS IN PRODUCTION**",                                  "—"),
+        ("Stage C2",         "Production",  "Combined All",                                                                 "—"),
+    ]
+    for s, ph, task, pri in stage_ref:
+        lines.append(f"| {s} | {ph} | {task} | {pri} |")
+
+    lines.append("")
+
+    # ── Setup ─────────────────────────────────────────────────────
+    lines.append("---\n")
+    lines.append("## 1. Setup\n")
+    lines.append("```bash")
+    lines.append("pip install azure-cognitiveservices-speech")
+    lines.append("")
+    lines.append("# FFmpeg (for audio conversion)")
+    lines.append("winget install ffmpeg          # Windows")
+    lines.append("brew install ffmpeg            # macOS")
+    lines.append("sudo apt install ffmpeg        # Ubuntu/Linux")
+    lines.append("")
+    lines.append("# Edit config at top of script")
+    lines.append('SPEECH_KEY    = "YOUR_AZURE_SPEECH_KEY"')
+    lines.append('SPEECH_REGION = "eastus"')
+    lines.append('INPUT_AUDIO_FILE = "audio/your_file.mp3"')
+    lines.append("```")
+    lines.append("\nCustomize `DOMAIN_PHRASES` with terms specific to your domain (product names, IVR menus, identifiers).\n")
+
+    # ── How to Run ────────────────────────────────────────────────
+    lines.append("---\n")
+    lines.append("## 2. How to Run\n")
+    lines.append("```bash")
+    lines.append("# All 12 stages (recommended for full documentation)")
+    lines.append("python transcription_stages_lab.py")
+    lines.append("")
+    lines.append("# Single stage")
+    lines.append("python transcription_stages_lab.py --stage stage_5")
+    lines.append("")
+    lines.append("# Custom audio file")
+    lines.append("python transcription_stages_lab.py --file audio/call2.mp3")
+    lines.append("")
+    lines.append("# Override max concurrency for Stages 2 & 10")
+    lines.append("python transcription_stages_lab.py --concurrency 10")
+    lines.append("")
+    lines.append("# Skip audio conversion (if already 16kHz PCM WAV)")
+    lines.append("python transcription_stages_lab.py --skip-wav")
+    lines.append("```\n")
+
+    lines.append("**Output files generated:**\n")
+    lines.append("| File | Contents |")
+    lines.append("|------|----------|")
+    lines.append("| `transcription_report.md` | Full per-stage documentation, comparison table, transcripts |")
+    lines.append("| `transcription_doc_guide.md` | This documentation guide with actual results filled in |")
+    lines.append("| `results.json` | Machine-readable metrics for all stages |")
+    lines.append("| `transcription_audit.log` | Structured JSON log records (one per line) |")
+    lines.append("| Console | Live partials + finals + stage summaries |\n")
+
+    # ── Per-Stage Detail ──────────────────────────────────────────
+    lines.append("---\n")
+    lines.append("## 3. Stage-by-Stage: What It Does, Parameters, Actual Results\n")
+
+    ordered = [
+        "stage_0","stage_1","stage_1b","stage_2","stage_3",
+        "stage_4a","stage_4b","stage_4c",
+        "stage_5","stage_6",
+        "stage_7a","stage_7b","stage_7c",
+        "stage_8","stage_9","stage_10","stage_11","stage_12",
+        "stage_c1","stage_c2",
+    ]
+
+    stage_doc = {
+        "stage_0": {
+            "what_it_does": "Your original script, unchanged. Auto-detects language between en-US and es-ES. All Azure default settings. This is the reference every other stage compares against.",
+            "extra": "",
+        },
+        "stage_1": {
+            "what_it_does": "Locks language to whatever Stage 0 detected. Sets profanity to `raw` so no words are masked. Eliminates auto-detect overhead per utterance.",
+            "extra": "**Stage 1b** runs the same config on 8kHz (telephony) audio to compare formats.",
+        },
+        "stage_1b": {
+            "what_it_does": "Same locked-language config as Stage 1, but audio is downsampled to 8kHz. Tests whether your source audio is better matched to telephony or broadband format.",
+            "extra": "If Stage 1b word count ≥ Stage 1 → source is phone call audio → use 8kHz in production.",
+        },
+        "stage_2": {
+            "what_it_does": f"Runs {CONCURRENCY_LEVELS} simultaneous recognition sessions. Tests whether your Azure subscription tier handles concurrent streams without throttling (HTTP 429).",
+            "extra": "This stage validates infrastructure limits, not transcription quality.",
+        },
+        "stage_3": {
+            "what_it_does": "Uses `PushAudioInputStream` to push audio in 100ms real-time chunks, simulating a live WebSocket or microphone feed. Validates streaming latency vs file-based.",
+            "extra": "Watch for chunk-boundary artifacts — words split across 100ms boundaries.",
+        },
+        "stage_4a": {
+            "what_it_does": "Same as Stage 1. Isolates VAD behaviour at the default 800ms end-silence. Reference point for VAD comparison.",
+            "extra": "",
+        },
+        "stage_4b": {
+            "what_it_does": "Increases end-silence to 1200ms (+50%). Best for speakers who pause mid-sentence or read numbers slowly. Reduces false cut-offs.",
+            "extra": "**Decision rule:** If 4b segment count < 4a AND word count ≥ 4a → use 4b.",
+        },
+        "stage_4c": {
+            "what_it_does": "End-silence 2000ms. Maximum pause tolerance for very slow/deliberate speakers.",
+            "extra": "**Risk:** If speaker pauses > 2s between sentences, 4c may merge them. If segment count drops drastically → stick with 4b.",
+        },
+        "stage_5": {
+            "what_it_does": f"Adds `PhraseListGrammar` with {len(DOMAIN_PHRASES)} domain-specific entries. Soft vocabulary injection — increases recognizer's prior for these phrases when acoustic evidence is ambiguous.",
+            "extra": "Phrase categories: digit sequences, identifiers (account/PIN/ZIP), short words (ID/OK), IVR patterns (press one/two).",
+        },
+        "stage_6": {
+            "what_it_does": "Extracts words that appeared ≥2 times in the baseline transcript and adds them to the phrase list on top of Stage 5. Self-bootstraps vocabulary from your domain audio.",
+            "extra": "Best used when domain has unusual proper nouns or technical terms.",
+        },
+        "stage_7a": {
+            "what_it_does": "Measures how Azure natively outputs numbers in conversation mode without any post-processing. Reference for numeric comparison.",
+            "extra": "",
+        },
+        "stage_7b": {
+            "what_it_does": "Switches to Azure dictation mode, which is trained to output spoken numbers as digit tokens natively. No post-processing added yet.",
+            "extra": "Check: does `\"I need to go\"` still say `\"to\"` (not `\"2\"`)?",
+        },
+        "stage_7c": {
+            "what_it_does": "Dictation mode + context-aware post-processor that converts remaining word-numbers to digits only in clear numeric context.",
+            "extra": (
+                "**Safety rules:**\n\n"
+                "| Word | Converted? | Rule |\n"
+                "|------|-----------|------|\n"
+                "| `\"to\"` | ❌ NEVER | Preposition |\n"
+                "| `\"for\"` | ❌ NEVER | Preposition |\n"
+                "| `\"a\"` / `\"an\"` | ❌ NEVER | Article |\n"
+                "| `\"won\"` | ❌ NEVER | Past tense |\n"
+                "| `\"ate\"` | ❌ NEVER | Past tense |\n"
+                "| `\"one\"` → `\"1\"` | ✅ numeric context | After `number`, `press`, etc. |\n"
+                "| Spanish words | ❌ NEVER | Pass-through |\n\n"
+                "**Examples:**\n"
+                "```\n"
+                "\"I need to go\"                  → \"I need to go\"        (to: NEVER)\n"
+                "\"press one for English\"          → \"press 1 for English\" (after 'press')\n"
+                "\"account number one two three\"   → \"account number 1 2 3\"\n"
+                "\"there are two people\"           → \"there are 2 people\"  ('people' = quantity)\n"
+                "Spanish: \"presione dos\"          → \"presione dos\"        (pass-through)\n"
+                "```"
+            ),
+        },
+        "stage_8": {
+            "what_it_does": "Parses per-segment confidence scores and NBest alternatives from Azure's Detailed output. Low confidence indicates uncertainty from noise, stressed speech, accent variation.",
+            "extra": f"Azure confidence ranges 0.0–1.0. Clean call-centre audio: 0.85–0.97. Values < {CONFIDENCE_REPROMPT_THRESHOLD} → human review.",
+        },
+        "stage_9": {
+            "what_it_does": f"Runs 3 recognition passes and collects P50/P95 TTFT statistics. SLA target: TTFT-Final P95 < {LATENCY_SLA_MS}ms. Also tests with tight timeout (500ms) to check truncation risk.",
+            "extra": "Alert fires in `transcription_audit.log` if any run exceeds SLA.",
+        },
+        "stage_10": {
+            "what_it_does": f"Runs multiple concurrent sessions at increasing levels via `ThreadPoolExecutor`. Tests system stability under peak load. Azure Free tier: 1 concurrent; S0 tier: 20 concurrent.",
+            "extra": "Use `wall_time_sec` to calculate throughput (sessions/second).",
+        },
+        "stage_11": {
+            "what_it_does": "Runs Combined Best config while structured JSON logging is active. Every event (start, segment, complete, error) is logged to `transcription_audit.log`.",
+            "extra": (
+                "**Alert thresholds:**\n\n"
+                "| Alert | Trigger |\n"
+                "|-------|---------|\n"
+                f"| `HIGH_LATENCY` | `ttft_final_ms > {LATENCY_SLA_MS}ms` |\n"
+                "| `EMPTY_TRANSCRIPT` | `segment_count == 0` |\n"
+                "| `RECOGNITION_ERROR` | `error_code` in cancellation details |\n\n"
+                "**Log record format:**\n"
+                "```json\n"
+                '{"ts": "2025-01-15T10:23:45.123Z", "stage": "stage_11",\n'
+                ' "event": "COMPLETE", "segment_count": 7,\n'
+                ' "ttft_final_ms": 412.5, "total_time_sec": 18.3}\n'
+                "```"
+            ),
+        },
+        "stage_12": {
+            "what_it_does": f"Validates fallback handling. Segments with confidence < {CONFIDENCE_REPROMPT_THRESHOLD} are flagged for re-prompt. Empty transcripts trigger DTMF fallback.",
+            "extra": (
+                "**Fallback logic:**\n"
+                "```\n"
+                "IF transcript == '' or segment_count == 0  → DTMF fallback\n"
+                f"IF any segment confidence < {CONFIDENCE_REPROMPT_THRESHOLD}     → flag for re-prompt\n"
+                "IF error_code present                      → log + alert + fallback\n"
+                "```"
+            ),
+        },
+        "stage_c1": {
+            "what_it_does": "Combines all stages that show measurable improvement: locked language, raw profanity, conservative VAD, phrase boosting, dictation mode, numeric PP.",
+            "extra": (
+                "| Component | From Stage | Config |\n"
+                "|-----------|-----------|--------|\n"
+                "| Locked language | Stage 1 | `speech_recognition_language` |\n"
+                "| Profanity raw | Stage 1 | `ProfanityOption.Raw` |\n"
+                "| Conservative VAD | Stage 4b | `end_silence_ms=1200` |\n"
+                "| Phrase boosting | Stage 5 | `PhraseListGrammar` |\n"
+                "| Dictation mode | Stage 7b | `enable_dictation()` |\n"
+                "| Numeric PP | Stage 7c | `apply_numeric_pp=True` |"
+            ),
+        },
+        "stage_c2": {
+            "what_it_does": "C1 + aggressive VAD (Stage 4c) + extended vocabulary (Stage 6).",
+            "extra": (
+                "**Use C2 over C1 when:** Audio has very long pauses (>1.5s within a sentence) "
+                "or Stage C2 word count > C1.\n\n"
+                "**Stick with C1 when:** Stage C2 segment count << C1 (utterances merging)."
+            ),
+        },
+    }
+
+    for sid in ordered:
+        if sid not in all_results:
+            continue
+        res  = all_results[sid]
+        meta = res.get("_meta", {})
+        doc  = stage_doc.get(sid, {})
+
+        lines.append(f"### {meta.get('name', sid)}\n")
+        lines.append(f"**Requirements phase:** {meta.get('phase','')}  \n")
+
+        if doc.get("what_it_does"):
+            lines.append(f"**What it does:** {doc['what_it_does']}\n")
+
+        # Parameters Changed table
+        if meta.get("parameters", {}):
+            lines.append("**Parameters:**\n")
+            lines.append("| Parameter | Value |")
+            lines.append("|-----------|-------|")
+            for k, v in meta["parameters"].items():
+                lines.append(f"| `{k}` | `{v}` |")
+            lines.append("")
+
+        if doc.get("extra"):
+            lines.append(doc["extra"])
+            lines.append("")
+
+        # Actual results from this run
+        lines.append("**Actual Results from This Run:**\n")
+        if res.get("segment_count") is not None:
+            lines.append(f"- Segments: **{res['segment_count']}**")
+        if res.get("word_count") is not None:
+            lines.append(f"- Words: **{res['word_count']}**")
+        if res.get("digit_token_count") is not None:
+            lines.append(f"- Digit tokens: **{res['digit_token_count']}**")
+        if res.get("short_word_count") is not None:
+            lines.append(f"- Short words: **{res['short_word_count']}**")
+        if res.get("ttft_partial_ms") is not None:
+            lines.append(f"- TTFT Partial: **{res['ttft_partial_ms']} ms**")
+        if res.get("ttft_final_ms") is not None:
+            sla_icon = "✅" if res["ttft_final_ms"] < LATENCY_SLA_MS else "❌"
+            lines.append(f"- TTFT Final: **{res['ttft_final_ms']} ms** {sla_icon}")
+        if res.get("total_time_sec") is not None:
+            lines.append(f"- Total time: **{res['total_time_sec']} s**")
+        if res.get("confidence_avg") is not None:
+            lines.append(f"- Confidence avg/min: **{res['confidence_avg']} / {res['confidence_min']}**")
+        if res.get("low_conf_segments") is not None:
+            lines.append(f"- Low-conf segments: **{res['low_conf_segments']}**")
+        if res.get("similarity_pct") is not None:
+            diff = round(100 - res["similarity_pct"], 1)
+            lines.append(f"- vs Baseline: **{res['similarity_pct']}% similar** ({diff}% different)")
+
+        # Concurrency results
+        if "concurrency_results" in res:
+            lines.append("\n**Concurrency Results:**\n")
+            lines.append("| Sessions | Success% | Throttled | TTFT Avg | P50 | P95 | Max |")
+            lines.append("|----------|----------|-----------|----------|-----|-----|-----|")
+            for cr in res["concurrency_results"]:
+                throttle_flag = " ⚠️" if cr.get("throttle_errors", 0) > 0 else ""
+                lines.append(
+                    f"| {cr.get('n_sessions')} "
+                    f"| {cr.get('success_rate_pct')}% "
+                    f"| {cr.get('throttle_errors')}{throttle_flag} "
+                    f"| {cr.get('ttft_avg_ms')} ms "
+                    f"| {cr.get('ttft_p50_ms')} ms "
+                    f"| {cr.get('ttft_p95_ms')} ms "
+                    f"| {cr.get('ttft_max_ms')} ms |"
+                )
+
+        # Latency runs
+        if "latency_runs" in res:
+            p50 = res.get("ttft_p50_ms")
+            p95 = res.get("ttft_p95_ms")
+            sla_pass = "✅ PASS" if res.get("sla_pass") else "❌ FAIL"
+            lines.append(f"\n**Latency Statistics:** P50={p50}ms | P95={p95}ms | SLA {sla_pass}\n")
+            lines.append("| Run | TTFT-P (ms) | TTFT-F (ms) | Total (s) | SLA |")
+            lines.append("|-----|------------|------------|-----------|-----|")
+            for lr in res["latency_runs"]:
+                sla = "✅" if (lr.get("ttft_final_ms") or 9999) < LATENCY_SLA_MS else "❌"
+                lines.append(
+                    f"| {lr.get('run')} "
+                    f"| {lr.get('ttft_partial_ms')} "
+                    f"| {lr.get('ttft_final_ms')} "
+                    f"| {lr.get('total_time_sec')} "
+                    f"| {sla} |"
+                )
+
+        # Fallback report
+        if "fallback_report" in res:
+            fb = res["fallback_report"]
+            lines.append(f"\n**Fallback Report:**")
+            lines.append(f"- Low-confidence segments: **{fb.get('low_conf_count', 0)}**")
+            lines.append(f"- Re-prompt flagged: **{fb.get('reprompt_flagged', False)}**")
+            lines.append(f"- DTMF fallback triggered: **{fb.get('dtmf_fallback', False)}**")
+
+        lines.append(f"\n**What to observe:** {meta.get('what_to_observe','')}\n")
+        lines.append("---\n")
+
+    # ── Parameters Reference ──────────────────────────────────────
+    lines.append("## 4. Parameters Reference\n")
+    lines.append("| Parameter | Azure Property / Method | Default | Stage C1 Value | Effect |")
+    lines.append("|-----------|------------------------|---------|----------------|--------|")
+    params_ref = [
+        ("`locked_language`",  "`speech_config.speech_recognition_language`", "None", "detected",      "Removes auto-detect latency"),
+        ("`recognition_mode`", "`enable_dictation()`",                        "conversation", "dictation", "Better native digit output"),
+        ("`profanity`",        "`set_profanity(ProfanityOption.Raw)`",        "masked", "raw",          "No words censored"),
+        ("`end_silence_ms`",   "`SpeechServiceConnection_EndSilenceTimeoutMs`", "800", "1200",          "Tolerate natural pauses"),
+        ("`initial_silence_ms`","`SpeechServiceConnection_InitialSilenceTimeoutMs`","5000","8000",      "More time before speech"),
+        ("`seg_silence_ms`",   "`Speech_SegmentationSilenceTimeoutMs`",       "600", "1000",           "Mid-sentence pause tolerance"),
+        ("`phrase_list`",      "`PhraseListGrammar.addPhrase()`",             "none", "30+ entries",   "Soft vocabulary boost"),
+        ("`apply_numeric_pp`", "Python post-processor",                       "False", "True",         "Word→digit (contextual)"),
+        ("`output_format`",    "`OutputFormat.Detailed`",                     "Detailed", "Detailed",  "Confidence + NBest parsing"),
+    ]
+    for row in params_ref:
+        lines.append(f"| {row[0]} | {row[1]} | `{row[2]}` | `{row[3]}` | {row[4]} |")
+    lines.append("")
+
+    # ── Observation Log (filled in from actual results) ───────────
+    lines.append("---\n")
+    lines.append("## 5. Results Summary Table\n")
+    lines.append("> Auto-filled from this run. Use to compare improvements across stages.\n")
+    lines.append("| Stage | Phase | Seg | Words | Digits | Short | TTFT-P | TTFT-F | Conf | vs BL | Key Finding |")
+    lines.append("|-------|-------|-----|-------|--------|-------|--------|--------|------|-------|-------------|")
+
+    baseline_words  = all_results.get("stage_0", {}).get("word_count", 0) or 0
+    baseline_digits = all_results.get("stage_0", {}).get("digit_token_count", 0) or 0
+
+    for sid in ordered:
+        if sid not in all_results:
+            continue
+        r    = all_results[sid]
+        meta = r.get("_meta", {})
+        bl   = f"{r['similarity_pct']}%" if r.get("similarity_pct") is not None else "—"
+        cf   = f"{r['confidence_avg']:.2f}" if r.get("confidence_avg") is not None else "—"
+        seg  = str(r.get("segment_count", "—"))
+        wc   = str(r.get("word_count", "—"))
+        dig  = str(r.get("digit_token_count", "—"))
+        sht  = str(r.get("short_word_count", "—"))
+        tp   = str(r.get("ttft_partial_ms", "—"))
+        tf   = str(r.get("ttft_final_ms", "—"))
+
+        # Auto-generate a key finding
+        finding = ""
+        if sid == "stage_0":
+            finding = "Baseline reference"
+        elif r.get("similarity_pct") == 100:
+            finding = "No change vs baseline"
+        elif r.get("similarity_pct") is not None:
+            diff = round(100 - r["similarity_pct"], 1)
+            wc_diff = (r.get("word_count") or 0) - baseline_words
+            wc_str  = f"+{wc_diff} words" if wc_diff > 0 else (f"{wc_diff} words" if wc_diff < 0 else "same words")
+            dig_diff = (r.get("digit_token_count") or 0) - baseline_digits
+            dig_str  = f"+{dig_diff} digits" if dig_diff > 0 else ""
+            finding = f"{diff}% change; {wc_str}" + (f"; {dig_str}" if dig_str else "")
+        elif "concurrency_results" in r:
+            throttled = sum(c.get("throttle_errors", 0) for c in r["concurrency_results"])
+            finding = "No throttle errors" if throttled == 0 else f"⚠️ {throttled} throttle error(s)"
+        elif "latency_runs" in r:
+            sla_pass = r.get("sla_pass")
+            finding = f"P95={r.get('ttft_p95_ms')}ms — SLA {'✅' if sla_pass else '❌'}"
+
+        lines.append(
+            f"| {sid} | {meta.get('phase','')[:8]} | {seg} | {wc} | {dig} | {sht} "
+            f"| {tp} | {tf} | {cf} | {bl} | {finding} |"
+        )
+
+    lines.append("")
+
+    # ── Improvement Identification ────────────────────────────────
+    lines.append("---\n")
+    lines.append("## 6. Identifying Improvement at Each Stage\n")
+    lines.append("| Stage | ✅ Improvement means... | ❌ No improvement means... |")
+    lines.append("|-------|----------------------|--------------------------|")
+    improvement_guide = [
+        ("Stage 1",   "TTFT-P lower than Stage 0",               "TTFT same — network latency dominates"),
+        ("Stage 1b",  "Word count ≥ Stage 1",                    "Word count < Stage 1 — 8kHz loses quality"),
+        ("Stage 2",   "100% success at expected concurrency",     "Any 429 errors at expected peak"),
+        ("Stage 3",   "Transcript ≈ Stage 1 quality",            "Words dropped at chunk boundaries"),
+        ("Stage 4b",  "Fewer segments, same/more words",          "Same segments & words — VAD was fine"),
+        ("Stage 5",   "More digit tokens, short words preserved", "Same as Stage 4b — phrases not in audio"),
+        ("Stage 6",   "Mis-recognised words now correct",        "Identical to Stage 5"),
+        ("Stage 7c",  "More digit tokens than 7b",               "Same as 7b — PP had nothing to convert"),
+        ("Stage 8",   "Low `low_conf_segments`",                 "Many low-conf segs → noisy/stressed audio"),
+        ("Stage 9",   "P95 TTFT < SLA threshold",               "P95 > SLA → consider closer Azure region"),
+        ("Stage C1",  "All gains from above compounded",         "Identical to Stage 0 → audio already optimal"),
+    ]
+    for s, good, bad in improvement_guide:
+        lines.append(f"| {s} | {good} | {bad} |")
+    lines.append("")
+
+    lines.append("**Interpreting `vs BL` (similarity to baseline):**\n")
+    lines.append("| Similarity | Meaning |")
+    lines.append("|-----------|---------|")
+    lines.append("| `100%` | Transcript unchanged — stage had no effect on this audio |")
+    lines.append("| `95–99%` | Minor wording changes (a few words) |")
+    lines.append("| `85–94%` | Noticeable changes (digit conversions, recovered words) |")
+    lines.append("| `< 85%` | Major changes — verify whether they are improvements |")
+    lines.append("")
+
+    # ── Production Config ─────────────────────────────────────────
+    lines.append("---\n")
+    lines.append("## 7. Production Configuration (Copy-Paste)\n")
+    lines.append("```python")
+    lines.append("import azure.cognitiveservices.speech as speechsdk")
+    lines.append("")
+    lines.append('SPEECH_KEY    = "YOUR_KEY"')
+    lines.append('SPEECH_REGION = "eastus"')
+    lines.append("")
+    lines.append("def build_production_recognizer(wav_file: str, language: str = \"en-US\"):")
+    lines.append('    """Stage C1 — Production configuration."""')
+    lines.append("    sc = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)")
+    lines.append("")
+    lines.append("    # Stage 1: Lock language, raw profanity")
+    lines.append("    sc.speech_recognition_language = language")
+    lines.append("    sc.set_profanity(speechsdk.ProfanityOption.Raw)")
+    lines.append("")
+    lines.append("    # Stage 7b: Dictation mode for better digit output")
+    lines.append("    sc.enable_dictation()")
+    lines.append("")
+    lines.append("    # Detailed output for confidence scores (Stage 8/12)")
+    lines.append("    sc.output_format = speechsdk.OutputFormat.Detailed")
+    lines.append("")
+    lines.append("    # Stage 4b: Conservative VAD")
+    lines.append('    sc.set_property(speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs,     "1200")')
+    lines.append('    sc.set_property(speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "8000")')
+    lines.append('    sc.set_property(speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs,             "1000")')
+    lines.append("")
+    lines.append("    audio_cfg  = speechsdk.audio.AudioConfig(filename=wav_file)")
+    lines.append("    recognizer = speechsdk.SpeechRecognizer(speech_config=sc, audio_config=audio_cfg)")
+    lines.append("")
+    lines.append("    # Stage 5: Phrase boosting")
+    lines.append("    phrase_list = speechsdk.PhraseListGrammar.from_recognizer(recognizer)")
+    lines.append("    for phrase in DOMAIN_PHRASES:")
+    lines.append("        phrase_list.addPhrase(phrase)")
+    lines.append("")
+    lines.append("    return recognizer")
+    lines.append("")
+    lines.append("")
+    lines.append("# After recognition, apply Stage 7c numeric post-processor:")
+    lines.append("# final_text = numeric_postprocess(raw_transcript, language=detected_language)")
+    lines.append("```\n")
+
+    # ── Troubleshooting ───────────────────────────────────────────
+    lines.append("---\n")
+    lines.append("## 8. Troubleshooting\n")
+    lines.append("| Problem | Cause | Fix |")
+    lines.append("|---------|-------|-----|")
+    troubleshooting = [
+        ("`AuthenticationFailure`",                "Wrong SPEECH_KEY or SPEECH_REGION",       "Check Azure portal"),
+        ("`FileNotFoundError`",                    "Audio file path wrong",                   "Check `INPUT_AUDIO_FILE`"),
+        ("`FFmpeg conversion failed`",             "FFmpeg not installed",                    "`winget install ffmpeg`"),
+        ("Empty transcript",                       "Network issue or long silence at start",  "Increase `initial_silence_ms`, check connectivity"),
+        ("Transcript identical across all stages", "Audio already well-handled by Azure defaults", "Test with noisier/faster audio"),
+        ("`\"to\"` converted to `\"2\"`",         "Bug in `_NEVER_CONVERT`",                 "Verify you are using latest script version"),
+        ("Stage 2/10 throttle errors",             "Azure tier limit reached",                "Upgrade to S0+ or add retry-with-backoff"),
+        (f"P95 TTFT > {LATENCY_SLA_MS}ms SLA",   "Network latency to Azure region",          "Switch to closer region (`westus`, `westeurope`)"),
+        ("Low confidence on all segments",         "Very noisy audio",                        "Consider audio pre-processing (noise reduction)"),
+        ("Stage 3 chunk boundary artifacts",       "Chunk too small",                         "Increase `chunk_ms` from 100 to 200"),
+    ]
+    for prob, cause, fix in troubleshooting:
+        lines.append(f"| {prob} | {cause} | {fix} |")
+
+    lines.append("")
+
+    # ── Alerts Summary ────────────────────────────────────────────
+    lines.append("---\n")
+    if _alert_log:
+        lines.append("## ⚠️ Alerts Triggered During This Run\n")
+        lines.append("| Alert Type | Stage | Detail |")
+        lines.append("|-----------|-------|--------|")
+        for a in _alert_log:
+            detail = ", ".join(f"{k}={v}" for k, v in a.items()
+                               if k not in ("ts", "alert", "stage", "session_id"))
+            lines.append(f"| `{a['alert']}` | {a.get('stage')} | {detail} |")
+    else:
+        lines.append("## ✅ No Alerts Triggered During This Run\n")
+        lines.append("All sessions completed within SLA thresholds. No empty transcripts or errors detected.\n")
+
+    lines.append("")
+    lines.append("---\n")
+    lines.append(f"*Azure STT Transcription Quality Lab — Documentation Guide  |  "
+                 f"Generated: {now}  |  Audio: `{audio_file}`*\n")
 
     return "\n".join(lines)
 
@@ -1836,14 +2227,12 @@ def main():
 
         # ── Special stage handlers ────────────────────────────────
 
-        # Stage 1b — telephony 8kHz
         if sid == "stage_1b":
             result = run_file_transcription(
                 wav_8k, cfg,
                 stage_id=sid, baseline_transcript=baseline_transcript
             )
 
-        # Stage 2 — concurrency validation
         elif sid == "stage_2":
             conc_levels = args.concurrency and [args.concurrency] or CONCURRENCY_LEVELS
             conc_results = []
@@ -1869,14 +2258,12 @@ def main():
                 "error_info":           {},
             }
 
-        # Stage 3 — streaming / push stream
         elif sid == "stage_3":
             result = run_streaming_transcription(
                 wav_16k, cfg,
                 stage_id=sid, baseline_transcript=baseline_transcript
             )
 
-        # Stage 9 — latency: 3 runs + stats
         elif sid == "stage_9":
             runs = []
             ttft_f_values = []
@@ -1896,7 +2283,6 @@ def main():
                 if r.get("ttft_final_ms"):
                     ttft_f_values.append(r["ttft_final_ms"])
 
-            # Also test tight timeout (500ms)
             tight_cfg = dict(cfg)
             tight_cfg["end_silence_ms"] = 500
             print("  → Run tight-timeout (500ms end-silence)…")
@@ -1911,7 +2297,7 @@ def main():
                 "total_time_sec":  r_tight.get("total_time_sec"),
             })
 
-            result = dict(runs[-2])  # use last normal run as base
+            result = dict(runs[-2])
             result.update({
                 "latency_runs":      runs,
                 "ttft_p50_ms":       _percentile(sorted(ttft_f_values), 50),
@@ -1925,7 +2311,6 @@ def main():
                 "error_info":        {},
             })
 
-        # Stage 10 — load testing
         elif sid == "stage_10":
             conc_levels = args.concurrency and [args.concurrency] or CONCURRENCY_LEVELS
             conc_results = []
@@ -1951,23 +2336,20 @@ def main():
                 "error_info":           {},
             }
 
-        # Stage 12 — fallback validation
         elif sid == "stage_12":
             result = run_file_transcription(
                 wav_16k, cfg,
                 stage_id=sid, baseline_transcript=baseline_transcript
             )
-            # Build fallback report
             low_conf = result.get("low_conf_segments", 0) or 0
             dtmf     = result.get("segment_count", 1) == 0
             result["fallback_report"] = {
                 "low_conf_count":   low_conf,
                 "reprompt_flagged": low_conf > 0,
                 "dtmf_fallback":    dtmf,
-                "flagged_segments": [],   # populated from segment detail in future
+                "flagged_segments": [],
             }
 
-        # Default — standard file transcription
         else:
             result = run_file_transcription(
                 wav_16k, cfg,
@@ -2028,8 +2410,11 @@ def main():
             f"{bl:7s}"
         )
 
-    # ── Save outputs ──────────────────────────────────────────────
-    # JSON
+    # ══════════════════════════════════════════════════════════════
+    # ██  SAVE ALL OUTPUTS
+    # ══════════════════════════════════════════════════════════════
+
+    # JSON results
     def _clean(obj):
         if isinstance(obj, dict):
             return {k: _clean(v) for k, v in obj.items() if k != "_meta"}
@@ -2038,17 +2423,30 @@ def main():
         json.dump({sid: _clean(r) for sid, r in all_results.items()}, f, indent=2, ensure_ascii=False)
     print(f"\n  ✓ results.json")
 
-    # Markdown report
+    # Metrics report
     report = generate_report(all_results, audio_file)
     with open("transcription_report.md", "w", encoding="utf-8") as f:
         f.write(report)
     print(f"  ✓ transcription_report.md")
 
+    # Documentation guide  ← NEW
+    doc_guide = generate_doc_guide(all_results, audio_file)
+    with open("transcription_doc_guide.md", "w", encoding="utf-8") as f:
+        f.write(doc_guide)
+    print(f"  ✓ transcription_doc_guide.md  ← Documentation guide with actual results")
+
     # Audit log
     flush_audit_log("transcription_audit.log")
 
-    print(f"\n  Done. {len(all_results)} stages completed.  Alerts: {len(_alert_log)}")
-    print(f"{'═'*80}\n")
+    print(f"\n{'═'*68}")
+    print(f"  Done. {len(all_results)} stages completed.  Alerts: {len(_alert_log)}")
+    print(f"")
+    print(f"  Output files:")
+    print(f"    transcription_report.md      ← Stage-by-stage metrics")
+    print(f"    transcription_doc_guide.md   ← Full documentation guide (actual results filled in)")
+    print(f"    results.json                 ← Machine-readable metrics")
+    print(f"    transcription_audit.log      ← Structured JSON event log")
+    print(f"{'═'*68}\n")
     return all_results
 
 
