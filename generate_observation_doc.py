@@ -1,15 +1,47 @@
 """
 OBSERVATION DOC GENERATOR
-=========================
-Reads observations/comparison_report.json and generates a formatted
-documentation report.
+===========================
+Reads observations/comparison_report.json and prints a
+formatted documentation report you can copy into Confluence,
+Notion, Google Docs, or send to your manager.
 
-Enhanced version:
-- Supports old and new report formats
-- Shows stage parameter changes / config changes
-- Shows transcript quality metrics
-- Shows comparison metrics and observations
-- Better aligned to the modified azure_incremental.py script
+Supports BOTH formats:
+
+FORMAT A (old / simple)
+------------------------
+{
+  "stages": [
+    {
+      "stage": "baseline",
+      "stage_description": "...",
+      "metrics": {...},
+      "features": {...},
+      "transcript": "..."
+    }
+  ]
+}
+
+FORMAT B (current 12-stage incremental script)
+-----------------------------------------------
+{
+  "stages": [
+    {
+      "_stage_num":  0,
+      "_stage_name": "baseline",
+      "_phase":      "Baseline",
+      "_task":       "Original working script",
+      "detected_language": "en-US",
+      "ttft_partial_ms": 2505.8,
+      "ttft_final_ms":   3656.8,
+      "total_time_sec":  442.96,
+      "segment_count":   83,
+      "word_count":      1240,
+      "empty_segments":  0,
+      "avg_confidence":  null,
+      "transcript": "..."
+    }
+  ]
+}
 
 Run:
     python generate_observation_doc.py
@@ -24,8 +56,8 @@ import json
 from datetime import datetime
 
 REPORT_PATH = os.path.join("observations", "comparison_report.json")
-MD_OUT = os.path.join("observations", "OBSERVATION_REPORT.md")
-TXT_OUT = os.path.join("observations", "OBSERVATION_REPORT.txt")
+MD_OUT      = os.path.join("observations", "OBSERVATION_REPORT.md")
+TXT_OUT     = os.path.join("observations", "OBSERVATION_REPORT.txt")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -36,16 +68,21 @@ def load_report() -> dict:
     if not os.path.exists(REPORT_PATH):
         print(f"No report found at {REPORT_PATH}")
         print("Run azure_incremental.py first.")
-        raise SystemExit(1)
+        exit(1)
     with open(REPORT_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FIELD RESOLVERS
+# Handles Format A (_stage_name absent) and Format B (_stage_name present)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_stage_num(stage: dict, fallback_index: int) -> str:
+    """
+    Reads _stage_num from JSON (Format B).
+    Falls back to the list position index (Format A).
+    """
     val = stage.get("_stage_num")
     if val is not None:
         return str(val)
@@ -53,6 +90,12 @@ def get_stage_num(stage: dict, fallback_index: int) -> str:
 
 
 def get_stage_name(stage: dict, fallback_index: int) -> str:
+    """
+    Priority:
+      1. _stage_name  ← Format B key (12-stage script)
+      2. stage        ← Format A key (old script)
+      3. stage_N      ← positional fallback
+    """
     if stage.get("_stage_name"):
         return stage["_stage_name"]
     if stage.get("stage"):
@@ -61,14 +104,22 @@ def get_stage_name(stage: dict, fallback_index: int) -> str:
 
 
 def get_phase(stage: dict) -> str:
+    """_phase from Format B, empty string for Format A."""
     return stage.get("_phase", "")
 
 
 def get_task(stage: dict) -> str:
+    """_task from Format B, empty string for Format A."""
     return stage.get("_task", "")
 
 
 def get_description(stage: dict) -> str:
+    """
+    Priority:
+      1. stage_description  (Format A)
+      2. _task + _phase     (Format B)
+      3. detected_language  (last-resort fallback)
+    """
     if stage.get("stage_description"):
         return stage["stage_description"]
     if stage.get("_task"):
@@ -78,12 +129,17 @@ def get_description(stage: dict) -> str:
 
 
 def get_metrics(stage: dict) -> dict:
+    """
+    Format A → stage["metrics"] (nested dict)
+    Format B → metrics are flat keys directly on the stage dict
+    """
     if "metrics" in stage and isinstance(stage["metrics"], dict):
         return stage["metrics"]
     return stage
 
 
 def get_comp_key(stage: dict, fallback_index: int) -> str:
+    """Key that comparison entries store in their 'to_stage' field."""
     return get_stage_name(stage, fallback_index)
 
 
@@ -94,148 +150,10 @@ def fmt(val, suffix="") -> str:
 def direction_symbol(d: str) -> str:
     return {
         "improved": "✅",
-        "worse": "⚠️",
-        "same": "➡️",
-        "unknown": "❓",
+        "worse":    "⚠️",
+        "same":     "➡️",
+        "unknown":  "❓",
     }.get(d, "❓")
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PARAMETER CHANGE EXTRACTOR
-# ─────────────────────────────────────────────────────────────────────────────
-
-def get_stage_parameter_changes(stage: dict) -> list[str]:
-    """
-    Extracts stage-specific changes/configs from result JSON.
-    This is the main enhancement requested.
-    """
-    out = []
-
-    stage_num = stage.get("_stage_num")
-    stage_name = stage.get("_stage_name", "")
-
-    # Common fields
-    if stage.get("detected_language") is not None:
-        out.append(f"Detected language result: {stage.get('detected_language')}")
-
-    if stage_num == 0:
-        out.append("Baseline run — no improvement features enabled")
-        out.append("Default Azure config used for reference measurement")
-
-    if "asr_config_notes" in stage:
-        cfg = stage["asr_config_notes"]
-        out.append(f"Language candidates locked to: {cfg.get('language_locked')}")
-        out.append(f"Audio format fixed to: {cfg.get('audio_format')}")
-        out.append(f"Auto-detect locked: {cfg.get('auto_detect_locked')}")
-        out.append(f"Open-ended detection disabled: {cfg.get('open_ended_detect')}")
-
-    if "vad_config" in stage:
-        cfg = stage["vad_config"]
-        out.append(f"End silence timeout set to: {cfg.get('end_silence_ms')} ms")
-        out.append(f"Initial silence timeout set to: {cfg.get('init_silence_ms')} ms")
-        out.append(f"Segmentation silence timeout set to: {cfg.get('seg_silence_ms')} ms")
-        if cfg.get("note"):
-            out.append(f"VAD note: {cfg.get('note')}")
-
-    if "phrase_boost" in stage:
-        pb = stage["phrase_boost"]
-        out.append(f"Phrase boosting enabled")
-        out.append(f"Total boosted phrases: {pb.get('total_phrases')}")
-        out.append(f"Phrase hits found in transcript: {pb.get('hit_count')}")
-        hits = pb.get("hits_in_transcript") or []
-        if hits:
-            out.append(f"Matched boosted phrases: {', '.join(hits[:10])}")
-
-    if "vocab_tuning" in stage:
-        vt = stage["vocab_tuning"]
-        out.append("Transcript-based vocabulary tuning enabled")
-        out.append(f"Mined vocabulary term count: {vt.get('mined_term_count')}")
-        terms = vt.get("mined_terms") or []
-        if terms:
-            out.append(f"Top mined terms: {', '.join(terms[:10])}")
-
-    if "numeric_analysis" in stage:
-        out.append("Detailed numeric analysis enabled")
-        q = stage.get("quality_scores", {}).get("numeric_quality", {})
-        out.append(f"Numeric context detected: {q.get('numeric_context_detected')}")
-        out.append(f"Grouped numeric candidates: {q.get('grouped_candidate_count')}")
-        amb = q.get("ambiguous_unsafe_cases") or []
-        out.append(f"Ambiguous numeric-risk cases: {len(amb)}")
-
-    if "dictation_analysis" in stage:
-        da = stage["dictation_analysis"]
-        out.append("Dictation mode enabled")
-        out.append(f"Commas inserted: {da.get('commas')}")
-        out.append(f"Periods inserted: {da.get('periods')}")
-        out.append(f"Questions inserted: {da.get('questions')}")
-        out.append(f"Total punctuation count: {da.get('total_punct')}")
-
-    if "emotion_tone" in stage:
-        et = stage["emotion_tone"]
-        out.append("Emotion/tone proxy analysis enabled")
-        out.append(f"Overall tone proxy: {et.get('overall_tone')}")
-        out.append(f"Stress risk proxy: {et.get('stress_risk')}")
-        out.append(f"Low-confidence segments: {et.get('low_confidence_segs')}")
-        out.append(f"Disfluency segments: {et.get('disfluency_segs')}")
-
-    if "latency_multi_run" in stage:
-        lt = stage["latency_multi_run"]
-        out.append("Multi-run latency testing enabled")
-        out.append(f"Latency runs performed: {lt.get('runs')}")
-        out.append(f"Average TTFT final: {lt.get('avg_ttft_final_ms')} ms")
-        out.append(f"Minimum TTFT final: {lt.get('min_ttft_final_ms')} ms")
-        out.append(f"Maximum TTFT final: {lt.get('max_ttft_final_ms')} ms")
-        sla = lt.get("sla_assessment", {})
-        if sla:
-            out.append(f"SLA first-byte pass: {sla.get('first_byte_pass')}")
-            out.append(f"SLA average-latency pass: {sla.get('avg_pass')}")
-            out.append(f"SLA P90 pass: {sla.get('p90_pass')}")
-
-    if "realtime_socket" in stage:
-        rs = stage["realtime_socket"]
-        out.append(f"Streaming mode enabled via: {rs.get('method')}")
-        out.append(f"Chunk size used: {rs.get('chunk_ms')} ms")
-        out.append(f"Chunk count: {rs.get('chunk_count')}")
-        out.append(f"Sample rate: {rs.get('sample_rate')}")
-
-    if "concurrency_test" in stage:
-        ct = stage["concurrency_test"]
-        out.append("Concurrency/load testing enabled")
-        out.append(f"Levels tested: {ct.get('levels_tested')}")
-        out.append(f"Max safe concurrency: {ct.get('max_safe_concurrency')}")
-        out.append(f"Quota ceiling detected at: {ct.get('quota_ceiling')}")
-
-    if "logging" in stage:
-        lg = stage["logging"]
-        out.append("Structured logging and alert rules enabled")
-        out.append(f"Alerts fired: {lg.get('alerts_fired')}")
-        out.append(f"SDK log path: {lg.get('sdk_log_path')}")
-        out.append(f"Rules active: {lg.get('rules_active')}")
-
-    if "fallback_test" in stage:
-        fb = stage["fallback_test"]
-        out.append("Fallback validation enabled")
-        out.append(f"Fallback chain: {fb.get('fallback_chain')}")
-        out.append(f"Silence triggered re-prompt: {fb.get('silence_triggered_reprompt')}")
-        out.append(f"Language retry worked: {fb.get('language_retry_worked')}")
-        out.append(f"DTMF simulated: {fb.get('dtmf_simulated')}")
-
-    # Quality score summary
-    q = stage.get("quality_scores", {})
-    if q:
-        out.append("Transcript quality scoring enabled")
-        out.append(f"Overall quality score: {stage.get('overall_quality_score')}")
-        out.append(f"Punctuation quality score: {q.get('punctuation_quality', {}).get('score')}")
-        out.append(f"Numeric quality score: {q.get('numeric_quality', {}).get('score')}")
-        out.append(f"Domain quality score: {q.get('domain_quality', {}).get('score')}")
-        out.append(f"VAD quality score: {q.get('vad_quality', {}).get('score')}")
-        out.append(f"Short-word quality score: {q.get('short_word_quality', {}).get('score')}")
-        out.append(f"Readability quality score: {q.get('readability_quality', {}).get('score')}")
-
-    if not out:
-        out.append(f"No explicit stage parameter changes captured for `{stage_name}`")
-
-    return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -243,9 +161,9 @@ def get_stage_parameter_changes(stage: dict) -> list[str]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def build_markdown(report: dict) -> str:
-    stages = report.get("stages", [])
+    stages      = report.get("stages", [])
     comparisons = report.get("comparisons", [])
-    lines = []
+    lines       = []
 
     lines += [
         "# Azure Speech-to-Text — Incremental Improvement Observations",
@@ -257,26 +175,398 @@ def build_markdown(report: dict) -> str:
         "## Overview",
         "",
         "This document records observations at each stage of the Azure STT",
-        "incremental improvement process. Each stage adds one feature or test",
-        "configuration and compares the resulting metrics, quality scores, and transcript.",
-        "",
-        "Baseline is used as a reference point only and not as ground truth.",
+        "incremental improvement process. Each stage adds one feature on top",
+        "of the previous and compares the resulting metrics and transcript.",
         "",
         "---",
         "",
     ]
 
+    # ── Per-stage sections ────────────────────────────────────────────
     for i, stage in enumerate(stages):
-        m = get_metrics(stage)
-        feat = stage.get("features", {})
-        stage_num = get_stage_num(stage, i)
-        stage_name = get_stage_name(stage, i)
-        phase = get_phase(stage)
-        task = get_task(stage)
+        m           = get_metrics(stage)
+        feat        = stage.get("features", {})
+        stage_num   = get_stage_num(stage, i)
+        stage_name  = get_stage_name(stage, i)
+        phase       = get_phase(stage)
+        task        = get_task(stage)
         description = get_description(stage)
-        comp_key = get_comp_key(stage, i)
-        param_changes = get_stage_parameter_changes(stage)
+        comp_key    = get_comp_key(stage, i)
 
-        comp = next((c for c in comparisons if c.get("to_stage") == comp_key), None)
+        comp = next(
+            (c for c in comparisons if c.get("to_stage") == comp_key),
+            None
+        )
 
-        lines
+        # ── Header ───────────────────────────────────────────────────
+        lines += [f"## Stage {stage_num}: `{stage_name}`", ""]
+
+        if phase or task:
+            parts = []
+            if phase: parts.append(f"**Phase:** {phase}")
+            if task:  parts.append(f"**Task:** {task}")
+            lines.append("  &nbsp;|&nbsp;  ".join(parts))
+            lines.append("")
+
+        lines += [f"**What was added:** {description}", ""]
+
+        # ── Features ─────────────────────────────────────────────────
+        lines += ["### Features active at this stage", ""]
+        if feat:
+            for k, v in feat.items():
+                tick = "✅" if v else "⬜"
+                lines.append(f"- {tick} `{k}`")
+        else:
+            lines.append("- No feature metadata available")
+
+        # ── Metrics ───────────────────────────────────────────────────
+        lines += [
+            "",
+            "### Metrics",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
+            f"| Stage Number      | **{stage_num}** |",
+            f"| Stage Name        | **`{stage_name}`** |",
+            f"| Phase             | {fmt(phase or None)} |",
+            f"| Task              | {fmt(task or None)} |",
+            f"| Detected Language | {fmt(stage.get('detected_language'))} |",
+            f"| TTFT Partial      | {fmt(m.get('ttft_partial_ms'), ' ms')} |",
+            f"| TTFT Final        | {fmt(m.get('ttft_final_ms'), ' ms')} |",
+            f"| Total Time        | {fmt(m.get('total_time_sec'), ' sec')} |",
+            f"| Segments          | {fmt(m.get('segment_count'))} |",
+            f"| Words             | {fmt(m.get('word_count'))} |",
+            f"| Empty Segments    | {fmt(m.get('empty_segments'))} |",
+            f"| Avg Confidence    | {fmt(m.get('avg_confidence'))} |",
+            f"| Min Confidence    | {fmt(m.get('min_confidence'))} |",
+            f"| Max Confidence    | {fmt(m.get('max_confidence'))} |",
+            f"| Partial Count     | {fmt(m.get('partial_count'))} |",
+            "",
+        ]
+
+        # ── Transcript ────────────────────────────────────────────────
+        transcript = stage.get("transcript", "(empty)")
+        lines += [
+            "### Transcript",
+            "",
+            "```",
+            transcript[:800],
+            "```" if len(transcript) <= 800 else "...(truncated)\n```",
+            "",
+        ]
+
+        # ── Comparison vs previous ────────────────────────────────────
+        if comp:
+            from_stage = comp.get("from_stage", "previous")
+            to_stage   = comp.get("to_stage",   stage_name)
+
+            lines += [
+                f"### Change vs Previous Stage (`{from_stage}` → `{to_stage}`)",
+                "",
+                "| Metric | Before | After | Change | Signal |",
+                "|--------|--------|-------|--------|--------|",
+            ]
+
+            for metric, d in comp.get("metric_deltas", {}).items():
+                if d.get("change") is None:
+                    continue
+                sign = "+" if d["change"] > 0 else ""
+                sym  = direction_symbol(d.get("direction"))
+                lines.append(
+                    f"| {metric} | {fmt(d.get('prev'))} | {fmt(d.get('curr'))} "
+                    f"| {sign}{d.get('change')} | {sym} {d.get('direction')} |"
+                )
+
+            lines.append("")
+
+            td = comp.get("transcript_diff", {})
+            lines += [
+                f"**Transcript similarity vs previous:** {fmt(td.get('similarity_pct'), '%')}",
+                f"**Word-level changes:** {fmt(td.get('change_count'))}",
+                "",
+            ]
+
+            changes = td.get("changes", [])
+            if changes:
+                lines += ["**Sample word changes:**", ""]
+                for c in changes[:10]:
+                    before = c.get("before") or "(nothing)"
+                    after  = c.get("after")  or "(nothing)"
+                    lines.append(f"- `[{c.get('type')}]` `{before}` → `{after}`")
+                lines.append("")
+
+            # Support both key names from different script versions
+            obs = comp.get("observations") or comp.get("observation_notes") or []
+            lines += ["### Observations", ""]
+            for note in obs:
+                lines.append(f"- {note}")
+            lines.append("")
+
+        else:
+            lines += [
+                "### Observations",
+                "",
+                "- This is the baseline stage — no previous stage to compare against.",
+                "- All future stages will be measured against this transcript and metrics.",
+                "",
+            ]
+
+        lines += ["---", ""]
+
+    # ── Net gain summary ──────────────────────────────────────────────
+    if len(stages) >= 2:
+        baseline = stages[0]
+        latest   = stages[-1]
+        bm       = get_metrics(baseline)
+        lm       = get_metrics(latest)
+
+        b_num  = get_stage_num(baseline, 0)
+        b_name = get_stage_name(baseline, 0)
+        l_num  = get_stage_num(latest, len(stages) - 1)
+        l_name = get_stage_name(latest, len(stages) - 1)
+
+        lines += [
+            "## Net Gain: Baseline → Latest Stage",
+            "",
+            f"Comparing **Stage {b_num}: `{b_name}`** → **Stage {l_num}: `{l_name}`**",
+            "",
+            "| Metric | Baseline | Latest | Net Change |",
+            "|--------|----------|--------|------------|",
+        ]
+
+        for metric in [
+            "word_count", "segment_count", "avg_confidence", "min_confidence",
+            "ttft_final_ms", "ttft_partial_ms", "empty_segments", "total_time_sec",
+        ]:
+            bv   = bm.get(metric)
+            lv   = lm.get(metric)
+            if bv is None and lv is None:
+                continue
+            diff = round(lv - bv, 4) if (bv is not None and lv is not None) else None
+            sign = "+" if (diff or 0) > 0 else ""
+            lines.append(
+                f"| {metric} | {fmt(bv)} | {fmt(lv)} | {sign}{fmt(diff)} |"
+            )
+
+        lines += ["", "---", ""]
+
+    # ── Progression table ─────────────────────────────────────────────
+    lines += [
+        "## Stage Progression Summary",
+        "",
+        "| # | Stage Name | Phase | Task | Words | Segs | Avg Conf | TTFT Final (ms) | Total Time (s) |",
+        "|---|-----------|-------|------|-------|------|----------|-----------------|----------------|",
+    ]
+
+    for idx, stage in enumerate(stages):
+        m          = get_metrics(stage)
+        stage_num  = get_stage_num(stage, idx)
+        stage_name = get_stage_name(stage, idx)
+        phase      = get_phase(stage)
+        task       = get_task(stage)
+
+        lines.append(
+            f"| {stage_num} "
+            f"| `{stage_name}` "
+            f"| {fmt(phase or None)} "
+            f"| {fmt(task or None)} "
+            f"| {fmt(m.get('word_count'))} "
+            f"| {fmt(m.get('segment_count'))} "
+            f"| {fmt(m.get('avg_confidence'))} "
+            f"| {fmt(m.get('ttft_final_ms'))} "
+            f"| {fmt(m.get('total_time_sec'))} |"
+        )
+
+    lines += [
+        "",
+        "---",
+        "",
+        "## Metric Reference",
+        "",
+        "| Metric | Description | Better direction |",
+        "|--------|-------------|-----------------|",
+        "| TTFT Partial | Time to first interim result | Lower |",
+        "| TTFT Final | Time to first committed segment | Lower |",
+        "| Avg Confidence | Azure certainty score 0–1 | Higher |",
+        "| Word Count | Total words in transcript | Higher (more captured) |",
+        "| Empty Segments | Segments with no text | Lower |",
+        "| Total Time | End-to-end processing time | Lower |",
+        "",
+        "### Confidence Interpretation",
+        "| Range | Signal |",
+        "|-------|--------|",
+        "| > 0.90 | Excellent — clear, calm speech |",
+        "| 0.75–0.90 | Good — minor uncertainty |",
+        "| 0.65–0.75 | Moderate — possible misrecognition |",
+        "| < 0.65 | Low — stress, noise, or wrong language |",
+        "",
+        f"*Generated by `generate_observation_doc.py` on "
+        f"{datetime.now().strftime('%Y-%m-%d %H:%M')}*",
+    ]
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PLAIN TEXT BUILDER
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_plain_text(report: dict) -> str:
+    stages      = report.get("stages", [])
+    comparisons = report.get("comparisons", [])
+    lines       = []
+
+    lines += [
+        "AZURE STT — INCREMENTAL IMPROVEMENT OBSERVATIONS",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+        f"Stages run: {len(stages)}",
+        "=" * 65,
+        "",
+    ]
+
+    for i, stage in enumerate(stages):
+        m           = get_metrics(stage)
+        stage_num   = get_stage_num(stage, i)
+        stage_name  = get_stage_name(stage, i)
+        phase       = get_phase(stage)
+        task        = get_task(stage)
+        description = get_description(stage)
+        comp_key    = get_comp_key(stage, i)
+
+        comp = next(
+            (c for c in comparisons if c.get("to_stage") == comp_key),
+            None
+        )
+
+        lines += [
+            f"STAGE {stage_num}: {stage_name.upper()}",
+            f"  Phase        : {phase or 'N/A'}",
+            f"  Task         : {task or 'N/A'}",
+            f"  Description  : {description}",
+            "",
+            f"  TTFT Partial : {fmt(m.get('ttft_partial_ms'), ' ms')}",
+            f"  TTFT Final   : {fmt(m.get('ttft_final_ms'), ' ms')}",
+            f"  Total Time   : {fmt(m.get('total_time_sec'), ' sec')}",
+            f"  Segments     : {fmt(m.get('segment_count'))}",
+            f"  Words        : {fmt(m.get('word_count'))}",
+            f"  Avg Conf     : {fmt(m.get('avg_confidence'))}",
+            f"  Empty Segs   : {fmt(m.get('empty_segments'))}",
+            "",
+        ]
+
+        if comp:
+            from_stage = comp.get("from_stage", "previous")
+            to_stage   = comp.get("to_stage",   stage_name)
+
+            lines.append(
+                f"  CHANGES VS PREVIOUS STAGE ({from_stage} → {to_stage}):"
+            )
+
+            for metric, d in comp.get("metric_deltas", {}).items():
+                if d.get("change") is None:
+                    continue
+                arrow = {
+                    "improved": "↑",
+                    "worse":    "↓",
+                    "same":     "→",
+                }.get(d.get("direction"), "?")
+                sign = "+" if d["change"] > 0 else ""
+                lines.append(
+                    f"    {metric:<22}: "
+                    f"{fmt(d.get('prev'))} → {fmt(d.get('curr'))} "
+                    f"({sign}{d.get('change')}) {arrow} {d.get('direction')}"
+                )
+
+            obs = comp.get("observations") or comp.get("observation_notes") or []
+            lines += ["", "  OBSERVATIONS:"]
+            for note in obs:
+                lines.append(f"    {note}")
+
+        else:
+            lines += [
+                "  OBSERVATIONS:",
+                "    Baseline stage — all future stages compared to this.",
+            ]
+
+        lines += ["", "-" * 65, ""]
+
+    # ── Net gain ──────────────────────────────────────────────────────
+    if len(stages) >= 2:
+        baseline = stages[0]
+        latest   = stages[-1]
+        bm       = get_metrics(baseline)
+        lm       = get_metrics(latest)
+
+        b_label = f"Stage {get_stage_num(baseline, 0)}: {get_stage_name(baseline, 0)}"
+        l_label = f"Stage {get_stage_num(latest, len(stages)-1)}: {get_stage_name(latest, len(stages)-1)}"
+
+        lines += [f"NET GAIN: {b_label}  →  {l_label}", ""]
+
+        for metric in ["word_count", "avg_confidence", "ttft_final_ms", "empty_segments"]:
+            bv = bm.get(metric)
+            lv = lm.get(metric)
+            if bv is None or lv is None:
+                continue
+            diff = round(lv - bv, 4)
+            sign = "+" if diff > 0 else ""
+            lines.append(f"  {metric:<22}: {bv} → {lv} ({sign}{diff})")
+
+        lines += ["", "=" * 65]
+
+    # ── Progression table ─────────────────────────────────────────────
+    lines += ["", "STAGE PROGRESSION SUMMARY", ""]
+    lines.append(
+        f"  {'#':<4} {'Stage Name':<22} {'Phase':<14} "
+        f"{'Words':>6} {'Segs':>5} {'Conf':>7} {'TTFT-F':>8} {'Time':>8}"
+    )
+    lines.append(
+        f"  {'─'*4} {'─'*22} {'─'*14} "
+        f"{'─'*6} {'─'*5} {'─'*7} {'─'*8} {'─'*8}"
+    )
+
+    for idx, stage in enumerate(stages):
+        m          = get_metrics(stage)
+        stage_num  = get_stage_num(stage, idx)
+        stage_name = get_stage_name(stage, idx)
+        phase      = get_phase(stage)
+
+        lines.append(
+            f"  {stage_num:<4} {stage_name:<22} {fmt(phase or None):<14} "
+            f"{str(m.get('word_count','N/A')):>6} "
+            f"{str(m.get('segment_count','N/A')):>5} "
+            f"{str(m.get('avg_confidence','N/A')):>7} "
+            f"{str(m.get('ttft_final_ms','N/A')):>8} "
+            f"{str(m.get('total_time_sec','N/A')):>8}"
+        )
+
+    return "\n".join(lines)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN
+# ─────────────────────────────────────────────────────────────────────────────
+
+def main():
+    report = load_report()
+
+    md_content  = build_markdown(report)
+    txt_content = build_plain_text(report)
+
+    os.makedirs("observations", exist_ok=True)
+
+    with open(MD_OUT,  "w", encoding="utf-8") as f:
+        f.write(md_content)
+    with open(TXT_OUT, "w", encoding="utf-8") as f:
+        f.write(txt_content)
+
+    print("Observation report generated:")
+    print(f"  Markdown → {MD_OUT}")
+    print(f"  Text     → {TXT_OUT}")
+    print()
+    print(txt_content[:2000])
+    if len(txt_content) > 2000:
+        print("...(see full file for rest)")
+
+
+if __name__ == "__main__":
+    main()
