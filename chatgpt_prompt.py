@@ -258,10 +258,16 @@ def _build_speech_config(cfg: dict) -> speechsdk.SpeechConfig:
     if cfg.get("recognition_mode") == "dictation":
         sc.enable_dictation()
     else:
-        sc.set_property(
-            speechsdk.PropertyId.SpeechServiceConnection_RecognitionMode,
-            "CONVERSATION",
-        )
+        try:
+            sc.set_property(
+                speechsdk.PropertyId.SpeechServiceConnection_RecognitionMode,
+                "CONVERSATION",
+            )
+        except AttributeError:
+            sc.set_property(
+                speechsdk.PropertyId.SpeechServiceConnection_RecoMode,
+                "CONVERSATION",
+            )
     # Profanity
     pmap = {
         "masked":  speechsdk.ProfanityOption.Masked,
@@ -738,11 +744,21 @@ def _percentile(values: list[float], pct: int) -> float | None:
     s = sorted(values)
     return s[min(int(len(s)*pct/100), len(s)-1)]
 
+def get_language_config_for_spanglish():
+    """
+    For Spanglish / mixed-language audio:
+    NEVER lock language.
+    Always keep Azure auto-detect enabled.
+    """
+    return {
+        "locked_language": None,
+        "candidate_languages": ["en-US", "es-ES"]
+    }
 
 #  STAGE CONFIG BUILDER
 def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dict:
     """Returns a dict of all stage configs keyed by stage_id."""
-
+    lang_cfg = get_language_config_for_spanglish()
     return {
 
         "stage_0": {
@@ -786,12 +802,12 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "id":          "stage_1",
                 "name":        "Stage 1 — ASR Config Finalization",
                 "phase":       "Setup",
-                "task":        "Lock language/locale, audio format (telephony/broadband), disable auto-detect",
-                "description": "Locks language to detected. Sets profanity to raw. Eliminates auto-detect overhead.",
-                "parameters_changed":
-                    "locked_language (auto→detected), profanity (masked→raw), audio format test",
+                "task": "ASR config finalization for bilingual audio",
+                "description": "Keeps auto-detect enabled for en-US + es-ES. Sets profanity to raw and optimizes config for Spanglish audio.",
+                "parameters_changed": "profanity (masked→raw), bilingual auto-detect preserved, audio format test",
                 "parameters": {
-                    "locked_language":    f"{detected_language}  ← LOCKED (was: auto-detect)",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "conversation",
                     "profanity":          "raw  ← CHANGED (was: masked)",
                     "end_silence_ms":     800,
@@ -807,7 +823,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "TTFT-Partial vs Stage 0. Any words unmasked? "
                     "Compare 16kHz vs 8kHz transcripts for accuracy difference.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
@@ -827,7 +844,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "description": "Runs same locked-language config on 8kHz downsampled audio.",
                 "parameters_changed": "audio_format: 16kHz → 8kHz (telephony)",
                 "parameters": {
-                    "locked_language":    f"{detected_language}",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "conversation",
                     "profanity":          "raw",
                     "end_silence_ms":     800,
@@ -841,7 +859,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "Word count and digit accuracy vs Stage 1 (16kHz). "
                     "If 8kHz ≥ 16kHz in word count → use 8kHz in production.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
@@ -872,7 +891,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     f"At which concurrency level do errors appear? "
                     f"Is P95 TTFT within {LATENCY_SLA_MS}ms SLA?",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
@@ -892,7 +912,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "description": "Uses PushAudioInputStream to push audio in 100ms real-time chunks.",
                 "parameters_changed": "audio_input: file → PushAudioInputStream (streaming chunks)",
                 "parameters": {
-                    "locked_language":    f"{detected_language}",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "conversation",
                     "profanity":          "raw",
                     "end_silence_ms":     800,
@@ -907,7 +928,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "TTFT-Partial vs Stage 0 (file-based). "
                     "Transcript quality should match Stage 1.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
@@ -934,7 +956,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Same as Stage 1. Segment count reference for VAD comparison.",
                 "what_to_observe":  "Segment count. Are any sentences truncated mid-speech?",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
@@ -962,7 +985,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "Segment count vs 4a (should decrease). "
                     "Word count vs 4a (should increase or equal).",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -989,7 +1013,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "what_to_observe":
                     "If segment count drops drastically → utterances are merging (avoid 4c).",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     2000,
@@ -1009,7 +1034,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "description": f"Adds {len(DOMAIN_PHRASES)} domain-specific phrases to PhraseListGrammar.",
                 "parameters_changed": f"phrase_list: none → {len(DOMAIN_PHRASES)} entries",
                 "parameters": {
-                    "locked_language":    f"{detected_language}",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "conversation",
                     "profanity":          "raw",
                     "end_silence_ms":     1200,
@@ -1022,7 +1048,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Improved numeric accuracy. Short words (ID, OK) less dropped.",
                 "what_to_observe":  "digit_token_count vs Stage 0. short_word_count vs Stage 0.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1044,7 +1071,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "parameters_changed":
                     f"phrase_list: Stage5 list + {len(baseline_phrases)} baseline-extracted phrases",
                 "parameters": {
-                    "locked_language":    f"{detected_language}",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "conversation",
                     "profanity":          "raw",
                     "end_silence_ms":     1200,
@@ -1058,7 +1086,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "Check if any word mis-recognised in Stage 0 is now correct. "
                     "Compare similarity_pct to Stage 5.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1085,7 +1114,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Mixed output — some words, some digits.",
                 "what_to_observe":  "digit_token_count. How many numbers appear as words vs digits?",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1113,7 +1143,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "digit_token_count vs 7a. "
                     "Check: does 'I need to go' still say 'to' (not '2')?",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "dictation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1143,7 +1174,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "digit_token_count vs 7b (should be ≥). "
                     "Verify 'to'/'for'/'a' stayed as words.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "dictation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1177,7 +1209,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "confidence_avg and confidence_min. "
                     f"low_conf_segments count (segments below {CONFIDENCE_REPROMPT_THRESHOLD}).",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1210,7 +1243,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "P50 and P95 TTFT across runs. "
                     "Does tight timeout (500ms) cause truncation vs normal (1200ms)?",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1240,7 +1274,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "At which concurrency level do throttle errors appear? "
                     "P95 TTFT degradation as concurrency increases.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "conversation",
             "profanity":          "raw",
             "end_silence_ms":     800,
@@ -1272,7 +1307,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "expected_outcome": "Audit log populated. Alerts file shows triggered thresholds.",
                 "what_to_observe":  "transcription_audit.log record count. Any alerts triggered?",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "dictation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1303,7 +1339,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "low_conf_segments count. fallback_report.reprompt_flagged. "
                     "fallback_report.dtmf_fallback.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "dictation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1320,11 +1357,11 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "name":        "Stage C1 — Combined Best  ✅ PRODUCTION RECOMMENDATION",
                 "phase":       "Production",
                 "task":        "All effective stages combined",
-                "description": "Stage1 (locked lang + raw profanity) + Stage 4b (conservative VAD) + "
-                               "Stage 5 (phrase boosting) + Stage 7c (dictation + numeric PP).",
-                "parameters_changed": "All effective stages applied together",
+                "description": "Stage1 (bilingual auto-detect + raw profanity) + Stage 4b (conservative VAD) + Stage 5 (phrase boosting) + Stage 7c (dictation + numeric PP)."
+                "parameters_changed": "All effective stages applied together for production setup"
                 "parameters": {
-                    "locked_language":    f"{detected_language}  (Stage1)",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "dictation  (Stage7)",
                     "profanity":          "raw  (Stage1)",
                     "end_silence_ms":     "1200  (Stage4b)",
@@ -1338,7 +1375,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "similarity_pct vs Stage 0. digit_token_count (expect highest). "
                     "TTFT (expect ≤ Stage 0). word_count (expect ≥ Stage 0).",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "dictation",
             "profanity":          "raw",
             "end_silence_ms":     1200,
@@ -1358,7 +1396,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                 "description": "C1 + Stage 4c (aggressive VAD) + Stage 6 (extended vocab).",
                 "parameters_changed": "Stage C1 + aggressive VAD + extended vocab",
                 "parameters": {
-                    "locked_language":    f"{detected_language}",
+                    "locked_language": lang_cfg["locked_language"],
+                    "candidate_languages": lang_cfg["candidate_languages"],
                     "recognition_mode":   "dictation",
                     "profanity":          "raw",
                     "end_silence_ms":     "2000  (Stage4c)",
@@ -1372,7 +1411,8 @@ def build_all_stages(detected_language: str, baseline_phrases: list[str]) -> dic
                     "If segment_count same as C1 → no benefit from aggressive VAD. "
                     "If word_count higher than C1 → C2 recovered words → use C2.",
             },
-            "locked_language":    detected_language,
+            "locked_language": lang_cfg["locked_language"],
+            "candidate_languages": lang_cfg["candidate_languages"],
             "recognition_mode":   "dictation",
             "profanity":          "raw",
             "end_silence_ms":     2000,
