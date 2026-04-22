@@ -2461,5 +2461,32 @@ def main():
 if __name__ == "__main__":
     main()
 
+# SLA threshold for Latency stage (ms) — conversations should be < this
+LATENCY_SLA_MS = 800
+this should't be hardbound 
+and calulate ttft for partial and ttfb along with ttft_final 
+and compare everystage with the baseline one's  ttft atnd ttfb along with ttft_final 
 
+also getting this 
+
+════════════════════════════════════════════════════════════════════
+  [ 5/20]  STAGE_3  —  Stage 3 — Real-Time Socket Integration
+  [██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]  25%
+════════════════════════════════════════════════════════════════════
+
+  Parameters Changed: audio_input: file → PushAudioInputStream (streaming chunks)
+
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2462, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2272, in main
+    result = run_streaming_transcription(
+        wav_16k, cfg,
+        stage_id=sid, baseline_transcript=baseline_transcript
+    )
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 502, in run_streaming_transcription
+    speechsdk.audio.AudioStreamFormat.get_wave_format_pcm(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'AudioStreamFormat' has no attribute 'get_wave_format_pcm'
 
