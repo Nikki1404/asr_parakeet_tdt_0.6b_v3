@@ -2764,3 +2764,34 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+getting this 
+════════════════════════════════════════════════════════════════════
+  [ 5/20]  STAGE_3  —  Stage 3 — Real-Time Socket Integration
+  [██████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░]  25%
+════════════════════════════════════════════════════════════════════
+
+  Parameters Changed: audio_input: file → stream
+
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 638, in run_streaming_transcription
+    fmt = speechsdk.audio.AudioStreamFormat.get_wave_format_pcm(
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'AudioStreamFormat' has no attribute 'get_wave_format_pcm'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2766, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 2537, in main
+    result = run_streaming_transcription(
+        wav_16k, cfg,
+        stage_id=sid, baseline_transcript=baseline_transcript
+    )
+  File "C:\Users\re_nikitav\Documents\azure_asr_test\azure_incremental.py", line 642, in run_streaming_transcription
+    fmt = speechsdk.audio.AudioStreamFormat.get_default_input_format()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: type object 'AudioStreamFormat' has no attribute 'get_default_input_format'
