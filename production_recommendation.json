@@ -1,0 +1,75 @@
+{
+  "recommended_stages": [
+    1,
+    2,
+    3,
+    5,
+    6
+  ],
+  "best_single_stage": {
+    "stage_num": 1,
+    "stage_name": "asr_config",
+    "overall_quality_score": 64.3,
+    "helped": [
+      "punctuation/readability",
+      "VAD / truncation handling"
+    ]
+  },
+  "best_combination_note": "Recommended production path is usually stages 1, 2, 3, 5, 6 because they improve transcription quality while keeping exact spoken meaning preserved.",
+  "unsafe_stages": [],
+  "notes": [
+    {
+      "stage_num": 1,
+      "stage_name": "asr_config",
+      "quality_score": 64.3,
+      "helped": [
+        "punctuation/readability",
+        "VAD / truncation handling"
+      ]
+    },
+    {
+      "stage_num": 2,
+      "stage_name": "vad_tuning",
+      "quality_score": 64.3,
+      "helped": [
+        "punctuation/readability",
+        "VAD / truncation handling"
+      ]
+    },
+    {
+      "stage_num": 3,
+      "stage_name": "phrase_boost",
+      "quality_score": 64.3,
+      "helped": [
+        "punctuation/readability",
+        "VAD / truncation handling"
+      ]
+    },
+    {
+      "stage_num": 4,
+      "stage_name": "vocab_tuning",
+      "quality_score": 63.02,
+      "helped": [
+        "punctuation/readability",
+        "VAD / truncation handling"
+      ]
+    },
+    {
+      "stage_num": 5,
+      "stage_name": "numeric_handling",
+      "quality_score": 64.3,
+      "helped": [
+        "punctuation/readability",
+        "VAD / truncation handling"
+      ]
+    },
+    {
+      "stage_num": 6,
+      "stage_name": "dictation_mode",
+      "quality_score": 44.6,
+      "helped": [
+        "punctuation/readability"
+      ]
+    }
+  ]
+}

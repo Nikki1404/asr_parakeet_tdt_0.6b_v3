@@ -1,0 +1,481 @@
+AZURE STT — INCREMENTAL IMPROVEMENT OBSERVATIONS
+Generated: 2026-04-21 13:20
+Stages run: 13
+================================================================================
+
+STAGE 0: BASELINE
+  Phase        : Baseline
+  Task         : Original working script
+  Description  : Original working script [Baseline]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: SpeechConfig(subscription, region)
+    Azure: OutputFormat = Detailed
+    Azure: AutoDetectSourceLanguageConfig(en-US, es-US)
+    Azure: WAV PCM 16kHz mono 16-bit input
+    Change: No optimization feature enabled
+    Change: Used as baseline reference only
+
+  TTFT Partial : 2505.8 ms
+  TTFT Final   : 3656.8 ms
+  Total Time   : 442.96 sec
+  Segments     : 83
+  Words        : 1240
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  OBSERVATIONS:
+    Baseline/reference stage only.
+
+--------------------------------------------------------------------------------
+
+STAGE 1: ASR_CONFIG
+  Phase        : Setup
+  Task         : ASR Config Finalization
+  Description  : ASR Config Finalization [Setup]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: AutoDetectSourceLanguageConfig(languages=['en-US','es-US'])
+    Azure: Fixed WAV PCM 16kHz mono 16-bit audio format
+    Azure: SpeechConfig output_format = Detailed
+    Change: Locked candidate locales
+    Change: Standardized input audio format
+    Change: Avoided open-ended language detection
+    Change: language_locked = ['en-US', 'es-US']
+    Change: audio_format = WAV PCM 16kHz mono 16-bit (converted via FFmpeg)
+    Change: auto_detect_locked = True
+    Change: open_ended_detect = False
+
+  TTFT Partial : 2571.5 ms
+  TTFT Final   : 3652.7 ms
+  Total Time   : 443.12 sec
+  Segments     : 83
+  Words        : 1240
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (baseline → asr_config):
+    ttft_partial_ms           : 2505.8 → 2571.5 (+65.7) ↓ worse
+    ttft_final_ms             : 3656.8 → 3652.7 (-4.1) ↑ improved
+    total_time_sec            : 442.96 → 443.12 (+0.16) ↓ worse
+    segment_count             : 83 → 83 (0) → same
+    word_count                : 1240 → 1240 (0) → same
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ➡️  Transcript unchanged (100.0% similar) — feature impact is in metrics, not text
+    ℹ️  Expected: Stable, predictable recognition
+
+--------------------------------------------------------------------------------
+
+STAGE 2: VAD_TUNING
+  Phase        : Audio
+  Task         : VAD Evaluation & Tuning
+  Description  : VAD Evaluation & Tuning [Audio]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: SpeechServiceConnection_EndSilenceTimeoutMs = 1500
+    Azure: SpeechServiceConnection_InitialSilenceTimeoutMs = 5000
+    Azure: Speech_SegmentationSilenceTimeoutMs = 800
+    Change: Increased end silence timeout
+    Change: Tested segmentation and initial silence thresholds
+    Change: Evaluated truncation / false cutoff behavior
+    Change: end_silence_ms = 1500
+    Change: init_silence_ms = 5000
+    Change: seg_silence_ms = 800
+    Change: note = end_silence increased 800→1500ms to reduce truncation
+
+  TTFT Partial : 4748.7 ms
+  TTFT Final   : 6872.0 ms
+  Total Time   : 179.69 sec
+  Segments     : 34
+  Words        : 460
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (asr_config → vad_tuning):
+    ttft_partial_ms           : 2571.5 → 4748.7 (+2177.2) ↓ worse
+    ttft_final_ms             : 3652.7 → 6872.0 (+3219.3) ↓ worse
+    total_time_sec            : 443.12 → 179.69 (-263.43) ↑ improved
+    segment_count             : 83 → 34 (-49) ↓ worse
+    word_count                : 1240 → 460 (-780) ↓ worse
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ⚠️  TTFT Final slower by 3219ms (may be acceptable)
+    ⚠️  780 fewer words — check endpointing
+    ⚠️  Transcript changed significantly (45.6%) — review word diff
+    ℹ️  Expected: Reduced truncation and false cut-offs
+
+--------------------------------------------------------------------------------
+
+STAGE 3: PHRASE_BOOST
+  Phase        : Accuracy
+  Task         : Word / Phrase Boosting
+  Description  : Word / Phrase Boosting [Accuracy]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: PhraseListGrammar.from_recognizer(...)
+    Azure: Added numeric phrases
+    Azure: Added finance / domain phrases
+    Change: Boosted digits and domain vocabulary
+    Change: Tested phrase hit improvement in transcript
+    Change: Phrase boosting active: total_phrases=28, hits=1
+
+  TTFT Partial : 2966.2 ms
+  TTFT Final   : 4104.5 ms
+  Total Time   : 442.23 sec
+  Segments     : 86
+  Words        : 1292
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (vad_tuning → phrase_boost):
+    ttft_partial_ms           : 4748.7 → 2966.2 (-1782.5) ↑ improved
+    ttft_final_ms             : 6872.0 → 4104.5 (-2767.5) ↑ improved
+    total_time_sec            : 179.69 → 442.23 (+262.54) ↓ worse
+    segment_count             : 34 → 86 (+52) ↑ improved
+    word_count                : 460 → 1292 (+832) ↑ improved
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ✅ TTFT Final improved by 2768ms
+    ✅ 832 more words captured — less truncation
+    ⚠️  Transcript changed significantly (51.9%) — review word diff
+    ℹ️  Expected: Improved numeric and domain accuracy
+
+--------------------------------------------------------------------------------
+
+STAGE 4: VOCAB_TUNING
+  Phase        : Accuracy
+  Task         : Transcript-Based Vocabulary Tuning
+  Description  : Transcript-Based Vocabulary Tuning [Accuracy]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: PhraseListGrammar with mined transcript terms
+    Change: Extracted repeated useful words from prior transcripts
+    Change: Added mined vocabulary as boost phrases
+    Change: Mined vocabulary terms added: 50
+
+  TTFT Partial : 2502.8 ms
+  TTFT Final   : 3748.1 ms
+  Total Time   : 442.86 sec
+  Segments     : 87
+  Words        : 1328
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (phrase_boost → vocab_tuning):
+    ttft_partial_ms           : 2966.2 → 2502.8 (-463.4) ↑ improved
+    ttft_final_ms             : 4104.5 → 3748.1 (-356.4) ↑ improved
+    total_time_sec            : 442.23 → 442.86 (+0.63) ↓ worse
+    segment_count             : 86 → 87 (+1) ↑ improved
+    word_count                : 1292 → 1328 (+36) ↑ improved
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ✅ TTFT Final improved by 356ms
+    ✅ 36 more words captured — less truncation
+    ➡️  Transcript similar (94.1%) — small word-level changes
+    ℹ️  Expected: Domain alignment
+
+--------------------------------------------------------------------------------
+
+STAGE 5: NUMERIC_HANDLING
+  Phase        : Logic
+  Task         : Numeric Handling Validation
+  Description  : Numeric Handling Validation [Logic]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: Detailed JSON parsing from SpeechServiceResponse_JsonResult
+    Azure: ITN / Lexical / Display field analysis
+    Change: Evaluated number rendering quality
+    Change: Used context-aware digit analysis
+    Change: Prevented blind conversions like to -> 2
+
+  TTFT Partial : 3049.3 ms
+  TTFT Final   : 4157.3 ms
+  Total Time   : 442.54 sec
+  Segments     : 86
+  Words        : 1292
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (vocab_tuning → numeric_handling):
+    ttft_partial_ms           : 2502.8 → 3049.3 (+546.5) ↓ worse
+    ttft_final_ms             : 3748.1 → 4157.3 (+409.2) ↓ worse
+    total_time_sec            : 442.86 → 442.54 (-0.32) ↑ improved
+    segment_count             : 87 → 86 (-1) ↓ worse
+    word_count                : 1328 → 1292 (-36) ↓ worse
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ⚠️  TTFT Final slower by 409ms (may be acceptable)
+    ⚠️  36 fewer words — check endpointing
+    ➡️  Transcript similar (94.1%) — small word-level changes
+    ℹ️  Expected: Reduced verification failures
+
+--------------------------------------------------------------------------------
+
+STAGE 6: DICTATION_MODE
+  Phase        : Accuracy
+  Task         : Dictation Mode
+  Description  : Dictation Mode [Accuracy]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: SpeechConfig.enable_dictation()
+    Change: Enabled dictation mode
+    Change: Evaluated punctuation and readability improvement
+    Change: Dictation punctuation counts: {'commas': 0, 'periods': 5, 'questions': 0, 'total_punct': 5}
+
+  TTFT Partial : 2485.1 ms
+  TTFT Final   : 3557.5 ms
+  Total Time   : 442.42 sec
+  Segments     : 86
+  Words        : 1291
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (numeric_handling → dictation_mode):
+    ttft_partial_ms           : 3049.3 → 2485.1 (-564.2) ↑ improved
+    ttft_final_ms             : 4157.3 → 3557.5 (-599.8) ↑ improved
+    total_time_sec            : 442.54 → 442.42 (-0.12) ↑ improved
+    segment_count             : 86 → 86 (0) → same
+    word_count                : 1292 → 1291 (-1) ↓ worse
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ✅ TTFT Final improved by 600ms
+    ⚠️  Transcript changed significantly (78.3%) — review word diff
+    ℹ️  Expected: More readable, structured transcript
+
+--------------------------------------------------------------------------------
+
+STAGE 7: EMOTION_TONE
+  Phase        : Quality
+  Task         : Emotion / Tone Evaluation
+  Description  : Emotion / Tone Evaluation [Quality]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: Confidence from NBest JSON
+    Azure: Segment word rate estimation
+    Azure: Tone/disfluency keyword proxy analysis
+    Change: No transcript rewriting
+    Change: Quality proxy from confidence/rate/disfluency markers
+
+  TTFT Partial : 2452.9 ms
+  TTFT Final   : 3568.4 ms
+  Total Time   : 442.58 sec
+  Segments     : 86
+  Words        : 1291
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (dictation_mode → emotion_tone):
+    ttft_partial_ms           : 2485.1 → 2452.9 (-32.2) ↑ improved
+    ttft_final_ms             : 3557.5 → 3568.4 (+10.9) ↓ worse
+    total_time_sec            : 442.42 → 442.58 (+0.16) ↓ worse
+    segment_count             : 86 → 86 (0) → same
+    word_count                : 1291 → 1291 (0) → same
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ➡️  Transcript unchanged (100.0% similar) — feature impact is in metrics, not text
+    ℹ️  Expected: Robust recognition measurement under varied speech
+
+--------------------------------------------------------------------------------
+
+STAGE 8: LATENCY_TESTING
+  Phase        : Testing
+  Task         : Latency & Timeout Testing
+  Description  : Latency & Timeout Testing [Testing]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: 3 repeated recognition runs
+    Azure: TTFT Partial
+    Azure: TTFT Final
+    Azure: avg / p90 / p95 latency estimation
+    Change: Measured latency stability across runs
+    Change: Checked SLA-style thresholds
+
+  TTFT Partial : 2545.4 ms
+  TTFT Final   : 3652.0 ms
+  Total Time   : 442.19 sec
+  Segments     : 86
+  Words        : 1291
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (emotion_tone → latency_testing):
+    ttft_partial_ms           : 2452.9 → 2545.4 (+92.5) ↓ worse
+    ttft_final_ms             : 3568.4 → 3652.0 (+83.6) ↓ worse
+    total_time_sec            : 442.58 → 442.19 (-0.39) ↑ improved
+    segment_count             : 86 → 86 (0) → same
+    word_count                : 1291 → 1291 (0) → same
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ⚠️  TTFT Final slower by 84ms (may be acceptable)
+    ➡️  Transcript unchanged (100.0% similar) — feature impact is in metrics, not text
+    ℹ️  Expected: Smooth turn-taking
+
+--------------------------------------------------------------------------------
+
+STAGE 9: REALTIME_SOCKET
+  Phase        : Integration
+  Task         : Real-Time Socket Integration
+  Description  : Real-Time Socket Integration [Integration]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: PushAudioInputStream
+    Azure: AudioStreamFormat(samples_per_second, bits_per_sample, channels)
+    Azure: 40 ms chunk streaming
+    Change: Simulated real-time streaming ingestion
+    Change: Compared with file-based recognition
+    Change: Push stream config: chunk_ms=40, chunk_count=22557, sample_rate=16000
+
+  TTFT Partial : 5103.4 ms
+  TTFT Final   : 9677.4 ms
+  Total Time   : 600.94 sec
+  Segments     : 64
+  Words        : 1122
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (latency_testing → realtime_socket):
+    ttft_partial_ms           : 2545.4 → 5103.4 (+2558.0) ↓ worse
+    ttft_final_ms             : 3652.0 → 9677.4 (+6025.4) ↓ worse
+    total_time_sec            : 442.19 → 600.94 (+158.75) ↓ worse
+    segment_count             : 86 → 64 (-22) ↓ worse
+    word_count                : 1291 → 1122 (-169) ↓ worse
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ⚠️  TTFT Final slower by 6025ms (may be acceptable)
+    ⚠️  169 fewer words — check endpointing
+    ➡️  Transcript similar (93.0%) — small word-level changes
+    ℹ️  Expected: Low-latency real-time ASR
+
+--------------------------------------------------------------------------------
+
+STAGE 10: CONCURRENCY
+  Phase        : Testing
+  Task         : Load & Concurrency Testing
+  Description  : Load & Concurrency Testing [Testing]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: Parallel SpeechRecognizer sessions
+    Azure: Concurrency levels [1, 3, 5, 10]
+    Azure: Throttle/quota detection
+    Change: Measured multi-stream stability
+    Change: Checked probable concurrency ceiling
+    Change: Concurrency tested: levels=[1, 3, 5, 10], max_safe=10, ceiling=None
+
+  TTFT Partial : 2355.1 ms
+  TTFT Final   : 3362.1 ms
+  Total Time   : 442.47 sec
+  Segments     : 86
+  Words        : 1291
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (realtime_socket → concurrency):
+    ttft_partial_ms           : 5103.4 → 2355.1 (-2748.3) ↑ improved
+    ttft_final_ms             : 9677.4 → 3362.1 (-6315.3) ↑ improved
+    total_time_sec            : 600.94 → 442.47 (-158.47) ↑ improved
+    segment_count             : 64 → 86 (+22) ↑ improved
+    word_count                : 1122 → 1291 (+169) ↑ improved
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ✅ TTFT Final improved by 6315ms
+    ✅ 169 more words captured — less truncation
+    ➡️  Transcript similar (93.0%) — small word-level changes
+    ℹ️  Expected: Stable under load
+
+--------------------------------------------------------------------------------
+
+STAGE 11: LOGGING_ALERTS
+  Phase        : Monitoring
+  Task         : Logging & Alerts Setup
+  Description  : Logging & Alerts Setup [Monitoring]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: SPEECH_SDK_LOGFILE
+    Azure: Structured session JSON logging
+    Azure: Alert rules for latency/confidence/cancel/error
+    Change: Enabled diagnostic logging
+    Change: Generated alert artifacts
+    Change: Logging enabled: alerts_fired=86, sdk_log=observations\stage_11_logging_alerts\logs\azure_sdk.log
+
+  TTFT Partial : 2435.1 ms
+  TTFT Final   : 3552.3 ms
+  Total Time   : 442.39 sec
+  Segments     : 86
+  Words        : 1291
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (concurrency → logging_alerts):
+    ttft_partial_ms           : 2355.1 → 2435.1 (+80.0) ↓ worse
+    ttft_final_ms             : 3362.1 → 3552.3 (+190.2) ↓ worse
+    total_time_sec            : 442.47 → 442.39 (-0.08) ↑ improved
+    segment_count             : 86 → 86 (0) → same
+    word_count                : 1291 → 1291 (0) → same
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ⚠️  TTFT Final slower by 190ms (may be acceptable)
+    ➡️  Transcript unchanged (100.0% similar) — feature impact is in metrics, not text
+    ℹ️  Expected: Early issue detection
+
+--------------------------------------------------------------------------------
+
+STAGE 12: FALLBACK
+  Phase        : Go-Live
+  Task         : Fallback Validation
+  Description  : Fallback Validation [Go-Live]
+
+  PARAMETERS / CHANGES TESTED:
+    Azure: Reduced InitialSilenceTimeoutMs = 3000 for fallback test
+    Azure: Language retry with reversed candidate order
+    Azure: Silence file no-speech path
+    Change: Simulated re-prompt flow
+    Change: Simulated language retry
+    Change: Simulated DTMF / agent escalation fallback
+    Change: Fallback chain tested: reprompt=True, lang_retry=True, dtmf=True
+
+  TTFT Partial : 2494.8 ms
+  TTFT Final   : 3562.2 ms
+  Total Time   : 442.23 sec
+  Segments     : 86
+  Words        : 1291
+  Avg Conf     : N/A
+  Empty Segs   : 0
+  Overall Qual : N/A
+
+  CHANGES VS PREVIOUS STAGE (logging_alerts → fallback):
+    ttft_partial_ms           : 2435.1 → 2494.8 (+59.7) ↓ worse
+    ttft_final_ms             : 3552.3 → 3562.2 (+9.9) ↓ worse
+    total_time_sec            : 442.39 → 442.23 (-0.16) ↑ improved
+    segment_count             : 86 → 86 (0) → same
+    word_count                : 1291 → 1291 (0) → same
+    empty_segments            : 0 → 0 (0) → same
+
+  OBSERVATIONS:
+    ➡️  Transcript unchanged (100.0% similar) — feature impact is in metrics, not text
+    ℹ️  Expected: Resilient failure handling
+
+--------------------------------------------------------------------------------
