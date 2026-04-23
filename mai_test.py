@@ -16,6 +16,42 @@ curl.exe -k --location "https://eastus2.stt.speech.microsoft.com/speechtotext/tr
 curl.exe -k -v --location "https://ankit-m9l63a79-eastus2.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15" --header "Ocp-Apim-Subscription-Key: 5s3pFV0dpevEwzemTJFSFdaGtMI4uUtaANYUkVdfH2o4RdY89CbtJQQJ99BDA" --form "audio=@C:/Users/re_nikitav/Downloads/a.wav" --form 'definition={"locales":["en-US"],"enhancedMode":{"enabled":true,"model":"mai-transcribe-1"}}'
 
 
+import requests
+
+
+def transcribe_audio(audio_bytes: bytes, filename: str = "audio.wav") -> dict:
+    url = (
+        f"https://eastus2.api.cognitive.microsoft.com"
+        f"/speechtotext/transcriptions:transcribe?api-version=2024-11-15"
+    )
+    headers = {"Ocp-Apim-Subscription-Key": "5s3pFV0dpevEwzemTJFSFdaGtMI4uUtaANYUkVd"}
+    definition = '{"locales":["en-US"],"profanityFilterMode":"None"}'
+    files = {
+        "audio": (filename, audio_bytes, _mime_type(filename)),
+        "definition": (None, definition, "application/json"),
+    }
+    resp = requests.post(url, headers=headers, files=files, timeout=60)
+    data = resp.json()
+    combined = " ".join(
+        p.get("text", "") for p in data.get("combinedPhrases", [])
+    ).strip()
+    return {"success": True, "transcript": combined, "raw": data}
+
+def _mime_type(filename):
+    if filename.endswith(".wav"):
+        return "audio/wav"
+    elif filename.endswith(".mp3"):
+        return "audio/mpeg"
+    elif filename.endswith(".m4a"):
+        return "audio/mp4"
+    return "application/octet-stream"
+
+with open("a.wav", "rb") as f:
+    audio_bytes = f.read()
+
+res = transcribe_audio(audio_bytes, "sample.wav")
+print(res["transcript"])
+
 import azure.cognitiveservices.speech as speechsdk
 
 # Use your credentials
