@@ -178,3 +178,87 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+[en-US] [960ms -> 8160ms] My sister-in-law, Kiera Gaga, you know, she's a linguist, and so she wants to sort of track, you know, Spanglish.
+[en-US] [9120ms -> 11440ms] So she asked me if I would wear it at work.
+[en-US] [13560ms -> 18160ms] So if you see me with this thing, I look kind of goofy.
+[en-US] [19440ms -> 25280ms] Yeah, and it records it on Comolo Chips de la Camarita, you know, the tiny little one, and then it, you know...
+[en-US] [26800ms -> 30480ms] She has some sort of program because she's doing, you know, she's got like a grant or something.
+[en-US] [31280ms -> 45920ms] Yeah, and then they transcribe it and then I guess they figure out, you know, whatever she does, something to do with transcribing in Spanglish and, you know, and everything.
+[en-US] [46880ms -> 48800ms] Right, right.
+[en-US] [48840ms -> 52240ms] But I don't know, you know, personal or something.
+[en-US] [56080ms -> 56640ms] Is it me?
+[en-US] [80420ms -> 80980ms] Hello?
+[en-US] [80980ms -> 81420ms] Is it me?
+[en-US] [81900ms -> 82380ms] Hello?
+[en-US] [82460ms -> 83540ms] Is it a four-wheel drive?
+[en-US] [86060ms -> 86620ms] Nieve.
+[en-US] [87220ms -> 88460ms] Mi hermana viva in Georgia.
+[en-US] [88460ms -> 92660ms] No, you don't have a nieve.
+[en-US] [94780ms -> 95980ms] I'm a montana.
+[en-US] [96660ms -> 102460ms] Yeah, muerta que viva.
+[en-US] [110720ms -> 112400ms] It's okay.
+[en-US] [112960ms -> 114560ms] No, no, no.
+[en-US] [115600ms -> 120720ms] It's a horse country.
+[en-US] [120720ms -> 121680ms] It's a horse country.
+[en-US] [123440ms -> 125960ms] It's really pretty actually when you, I think it's before Gainesville.
+[en-US] [125960ms -> 127920ms] I think it's before Gainesville.
+[en-US] [128160ms -> 131360ms] When you, when you drive on 75, I think it's 75.
+[en-US] [132000ms -> 132840ms] It's real pretty.
+[en-US] [132840ms -> 136880ms] I mean, you can see the big, the pieces of property.
+[en-US] [137840ms -> 141360ms] In Virginia, where they have the horse, it's horse country.
+[en-US] [141360ms -> 145440ms] You see the big, because has a little bit of hills.
+[en-US] [145760ms -> 146720ms] Not like a lot of hills.
+[en-US] [149920ms -> 150800ms] 75, right.
+[en-US] [150800ms -> 154800ms] No, no, no.
+[en-US] [156240ms -> 158560ms] And it's like horse country.
+[en-US] [158560ms -> 163840ms] So you see the big prop properties with, you know, the trees and, you know, you see the horses.
+[en-US] [163840ms -> 168880ms] It's very pretty, actually, amazing.
+[en-US] [170240ms -> 170760ms] Perfect.
+[en-US] [171040ms -> 171920ms] Good job, dear.
+[en-US] [177080ms -> 182920ms] All right, it's so cute.
+[en-US] [183000ms -> 183760ms] It's very cute.
+[en-US] [189760ms -> 208880ms] okay very cute
+[en-US] [213680ms -> 227680ms] But, you know, you know, we go to the north side so it doesn't get any sun.
+[en-US] [258080ms -> 258090ms] .
+[en-US] [258080ms -> 258090ms] .
+[en-US] [258080ms -> 258090ms] .
+[en-US] [258080ms -> 276710ms] Bueno, too bad.
+[en-US] [285840ms -> 286040ms] No.
+[en-US] [286080ms -> 289680ms] Right, right, right, right, right, right, right, right, right.
+[en-US] [291280ms -> 293000ms] Okay, do it.
+[en-US] [293040ms -> 300000ms] I'm Michelle.
+[en-US] [303520ms -> 303850ms] Boy, .
+[en-US] [303840ms -> 306400ms] This is a sentiuno.
+[en-US] [306400ms -> 306410ms] .
+[en-US] [313200ms -> 313610ms] Boy, .
+[en-US] [313600ms -> 313610ms] .
+[en-US] [313600ms -> 313610ms] .
+[en-US] [332200ms -> 334520ms] If we pay you, I mean, you're a friend.
+[en-US] [334760ms -> 337120ms] You may say, like, you know, don't.
+[en-US] [337200ms -> 338680ms] Commentary, you guys see you.
+[en-US] [340240ms -> 341160ms] This is.
+[en-US] [341920ms -> 344160ms] It is.
+[en-US] [344160ms -> 347520ms] Two degrees because it used to be 61.
+[en-US] [348000ms -> 348480ms] Yeah.
+[en-US] [348480ms -> 350880ms] 74.
+[en-US] [351120ms -> 351680ms] Alison.
+[en-US] [354720ms -> 356160ms] Alison.
+[en-US] [362800ms -> 362810ms] .
+[en-US] [362800ms -> 362810ms] .
+[en-US] [362800ms -> 362810ms] .
+[en-US] [362800ms -> 362810ms] .
+[en-US] [362800ms -> 362810ms] .
+[en-US] [362800ms -> 374960ms] but again on the north side, we don't ever get direct sun.
+[en-US] [375040ms -> 389680ms] We get no direct sun, we get.
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [389680ms -> 389690ms] .
+[en-US] [396080ms -> 428740ms] yeah warm up the he doesn't miss it in other words no that's what they said about five years super because I had no milk thermostat you know you hit it he said what it is 36
+[en-US] [435600ms -> 437840ms
