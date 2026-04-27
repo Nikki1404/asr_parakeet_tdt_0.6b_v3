@@ -1,56 +1,43 @@
-curl --location 'https://<YourServiceRegion>.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15' \
---header 'Content-Type: multipart/form-data' \
---header 'Ocp-Apim-Subscription-Key: <YourSpeechResourceKey>' \
---form 'audio=@"YourAudioFile.wav"' \
---form 'definition={
-  "locales": ["en"],
-  "enhancedMode": {
-    "enabled": true,
-    "model":"mai-transcribe-1"
-  }
-}'
-
-curl --location 'https://eastus.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15' --header 'Ocp-Apim-Subscription-Key: YOUR_KEY_HERE' --form 'audio=@"C:\path\to\yourfile.wav"' --form 'definition={"locales":["en"],"enhancedMode":{"enabled":true,"model":"mai-transcribe-1"}}'
-curl --location "https://eastus2.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15" --header "Ocp-Apim-Subscription-Key: 5s3pFV0dpevEwzemTJFSxxxxxxxxxxACHYHv6XJ3w3AAAAACOGzVQQ" --form "audio=@C:/Users/YourName/Desktop/audio/maria1.wav" --form "definition={\"locales\":[\"en-US\",\"es-MX\"],\"enhancedMode\":{\"enabled\":true,\"model\":\"mai-transcribe-1\"}}"
-curl.exe -k --location "https://eastus2.stt.speech.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15" --header "Ocp-Apim-Subscription-Key: YOUR_REAL_KEY" --form "audio=@C:/Users/re_nikitav/Downloads/a.wav" --form 'definition={"locales":["en-US"],"enhancedMode":{"enabled":true,"model":"mai-transcribe-1"}}'
-curl.exe -k -v --location "https://ankit-m9l63a79-eastus2.cognitiveservices.azure.com/speechtotext/transcriptions:transcribe?api-version=2025-10-15" --header "Ocp-Apim-Subscription-Key: 5s3pFV0dpevEwzemTJFSFdaGtMI4uUtaANYUkVdfH2o4RdY89CbtJQQJ99BDA" --form "audio=@C:/Users/re_nikitav/Downloads/a.wav" --form 'definition={"locales":["en-US"],"enhancedMode":{"enabled":true,"model":"mai-transcribe-1"}}'
-
-
 import requests
-
 
 def transcribe_audio(audio_bytes: bytes, filename: str = "audio.wav") -> dict:
     url = (
-        f"https://eastus2.api.cognitive.microsoft.com"
-        f"/speechtotext/transcriptions:transcribe?api-version=2024-11-15"
+        "https://eastus2.api.cognitive.microsoft.com"
+        "/speechtotext/transcriptions:transcribe?api-version=2025-10-15"
     )
     headers = {"Ocp-Apim-Subscription-Key": "5s3pFV0dpevEwzemTJFSFdaGtMI4uUtaANYUkVd"}
-    definition = '{"locales":["en-US"],"profanityFilterMode":"None"}'
+
+    # ✅ Add both locales — Azure will auto-detect per utterance
+    definition = '{"locales":["en-US", "es-ES"],"profanityFilterMode":"None"}'
+
     files = {
         "audio": (filename, audio_bytes, _mime_type(filename)),
         "definition": (None, definition, "application/json"),
     }
     resp = requests.post(url, headers=headers, files=files, timeout=60)
     data = resp.json()
+
     combined = " ".join(
         p.get("text", "") for p in data.get("combinedPhrases", [])
     ).strip()
+
     return {"success": True, "transcript": combined, "raw": data}
 
 def _mime_type(filename):
-    if filename.endswith(".wav"):
-        return "audio/wav"
-    elif filename.endswith(".mp3"):
-        return "audio/mpeg"
-    elif filename.endswith(".m4a"):
-        return "audio/mp4"
+    if filename.endswith(".wav"):  return "audio/wav"
+    elif filename.endswith(".mp3"): return "audio/mpeg"
+    elif filename.endswith(".m4a"): return "audio/mp4"
     return "application/octet-stream"
 
 with open("a.wav", "rb") as f:
     audio_bytes = f.read()
 
-res = transcribe_audio(audio_bytes, "sample.wav")
+res = transcribe_audio(audio_bytes, "a.wav")
 print(res["transcript"])
+
+
+
+#azuresdk
 
 import azure.cognitiveservices.speech as speechsdk
 
