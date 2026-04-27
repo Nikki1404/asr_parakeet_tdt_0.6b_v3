@@ -83,6 +83,62 @@ with open("spanish.wav", "rb") as f:
 
 res = transcribe_audio(audio_bytes, "spanish.wav")
 print(res["transcript"])
+
+
+import requests
+
+def transcribe_spanglish(audio_bytes: bytes, filename: str = "audio.wav") -> dict:
+    url = (
+        "https://eastus2.api.cognitive.microsoft.com"
+        "/speechtotext/transcriptions:transcribe?api-version=2025-10-15"
+    )
+    headers = {"Ocp-Apim-Subscription-Key": "5s3pFV0dpevEwzemTJFSFdaGtMI4uUtaANYUkVd"}
+
+    # Pass both locales — Azure detects per phrase
+    definition = '{"locales":["en-US","es-ES"],"profanityFilterMode":"None"}'
+
+    files = {
+        "audio": (filename, audio_bytes, _mime_type(filename)),
+        "definition": (None, definition, "application/json"),
+    }
+
+    resp = requests.post(url, headers=headers, files=files, timeout=60)
+    data = resp.json()
+
+    phrases = data.get("phrases", [])
+
+    transcript_parts = []
+    for p in phrases:
+        text     = p.get("text", "").strip()
+        locale   = p.get("locale", "unknown")
+        offset   = p.get("offsetMilliseconds", 0)
+        duration = p.get("durationMilliseconds", 0)
+
+        print(f"[{locale}] [{offset}ms -> {offset+duration}ms] {text}")
+        transcript_parts.append(text)
+
+    full_transcript = " ".join(transcript_parts).strip()
+
+    return {
+        "success": True,
+        "transcript": full_transcript,
+        "phrases": phrases,  # each has locale, text, offset
+        "raw": data
+    }
+
+def _mime_type(filename):
+    if filename.endswith(".wav"):   return "audio/wav"
+    elif filename.endswith(".mp3"): return "audio/mpeg"
+    elif filename.endswith(".m4a"): return "audio/mp4"
+    return "application/octet-stream"
+
+with open("spanglish.wav", "rb") as f:
+    audio_bytes = f.read()
+
+res = transcribe_spanglish(audio_bytes, "spanglish.wav")
+
+print("\n--- Full Transcript ---")
+print(res["transcript"])
 #azuresdk
 
 import azure.cognitiveservices.speech as speechsdk
