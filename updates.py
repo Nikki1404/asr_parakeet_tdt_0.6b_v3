@@ -347,42 +347,16 @@ file_name	reference_txt	parakeet-tdt-0.6b-v3
 
 
 
-azure - 
-speech_region="eastus",
-language=["en-US", "es-US"]
- 
-azure - 
-speech_region="eastus",
-language="en-US"
- 
-Google - 
- 
-languages=["en-US", "es-US"],
-detect_language=True,
-interim_results=True,
-punctuate=False,
-model="telephony",
-location="us"
- 
-Google - 
-languages="en-US",
-detect_language=True,
-interim_results=True,
-punctuate=False,
-model="telephony",
-location="us"
- 
-Deepgram - 
- 
-endpointing_ms=200,
-language="multi"
- 
-deepgram - 
- 
-endpointing_ms=200,
-language="es-US"
- 
-parakeet-custom-vad-150916788856.us-central1.run.app
- 
-wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
- 
+The agenda of the discussion was to understand the client-side configurations being used across all ASRs, identify the key bottlenecks, and explore the available options to overcome those bottlenecks.
+
+At a high level, we aligned on a common flow for language handling across Google, Azure, and DeepGram. All three ASRs start in multilingual mode, allowing detection of both English and Spanish. At the beginning of the interaction, the user is explicitly asked which language they want to continue with. Even if the user speaks in either language initially, the ASRs are capable of detecting it. Once the first response is processed, the transcript is sent to the LLM agent, which determines the final language and returns a flag (ENUS or ESUS). Based on this, the system locks the language configuration for the rest of the session across these ASRs. This ensures consistency in the conversation. For NVIDIA/Parakeet, however, this locking is not applied and it continues with auto-detection.
+
+For Google ASR, the discussion confirmed that the setup is straightforward, with the telephony model being used. It supports both multilingual and single-language configurations. The only meaningful configuration lever here is the language setting. When multiple languages are enabled, detect_language is required, but once the system is locked to a single language, this parameter has no effect regardless of its value. No major bottlenecks were identified for Google, and it behaves as expected.
+
+For Azure ASR, the system is running via the SDK with minimal configurability. It follows the same multilingual-to-single-language locking approach as Google. However, Azure does not provide options like model selection, and most parameters remain default (such as 16 kHz sample rate). Because of this, while Azure is stable, it offers limited flexibility for tuning, and no major configuration bottlenecks were identified—just fewer options to optimize compared to other ASRs.
+
+For DeepGram, the main discussion point was around endpointing, which was previously identified as a bottleneck. The default endpointing of 25 ms silence was too aggressive and caused premature finalization, making it feel like the system was interrupting the speaker. This was addressed by increasing endpointing to 200 ms of silence, which improved conversational flow significantly. DeepGram also follows the same multilingual start and then locks to a single language after the LLM decision. Endpointing remains the primary tuning parameter and key area of improvement.
+
+For NVIDIA / Parakeet (WebSocket-based streaming), the discussion highlighted a key limitation. Unlike the other ASRs, it does not support dynamic language locking during an active session without reinitialization. As a result, it continues to rely entirely on auto language detection throughout the interaction. It was also confirmed that the gRPC-based approach has been completely dropped due to higher latency and slightly worse WER, and the WebSocket (v3) implementation is now preferred for better performance. The trade-off here is reduced configurability, especially around language control. It was agreed to integrate the WebSocket approach into the required options, and Sumeet will proceed with testing using the WebSocket-based Parakeet setup and share observations post-testing.
+
+Overall, the discussion confirmed that most configurations are centered around language handling and endpointing, with limited tuning options in Azure, resolved endpointing issues in DeepGram, stable behavior in Google, and language control limitations in NVIDIA being the primary bottlenecks identified.
