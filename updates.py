@@ -346,3 +346,43 @@ file_name	reference_txt	parakeet-tdt-0.6b-v3
 0a12a9ea-af37-41ec-905f-3babb9580e97.wav	posturas pues yo creo que es algo de vocación o sea hay artistas que sí tienen esa vocación política y otro que no yo no yo no tengo ósea si yo puedo hacer una canción como zafra negra que hablaba de	61218.5	58269.9	50571.5444	21.95	181.7987	postura, pues yo creo que es algo de vocación, o sea hay artistas que sí tienen esa vocación política y otros que no, yo no, yo no tengo o sea sí yo puedo hacer una canción como Safra Negra que hablaba de
 
 
+
+azure - 
+speech_region="eastus",
+language=["en-US", "es-US"]
+ 
+azure - 
+speech_region="eastus",
+language="en-US"
+ 
+Google - 
+ 
+languages=["en-US", "es-US"],
+detect_language=True,
+interim_results=True,
+punctuate=False,
+model="telephony",
+location="us"
+ 
+Google - 
+languages="en-US",
+detect_language=True,
+interim_results=True,
+punctuate=False,
+model="telephony",
+location="us"
+ 
+Deepgram - 
+ 
+endpointing_ms=200,
+language="multi"
+ 
+deepgram - 
+ 
+endpointing_ms=200,
+language="es-US"
+ 
+parakeet-custom-vad-150916788856.us-central1.run.app
+ 
+wss://parakeet-custom-vad-150916788856.us-central1.run.app/ws
+ 
