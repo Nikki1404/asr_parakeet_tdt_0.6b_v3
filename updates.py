@@ -418,3 +418,178 @@ class StreamingSession:
 
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
+
+
+Transcribing:   0%|          | 0/1 [00:00<?, ?it/s]
+2026-05-04 15:24:09,559 | ERROR | parakeet_engine | TRANSCRIBE ERROR: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
+Traceback (most recent call last):
+  File "/app/app/asr_engines/parakeet_asr.py", line 134, in _transcribe
+    results = self.engine.model.transcribe([tmp_path])
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 308, in transcribe
+    return super().transcribe(
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 270, in transcribe
+    for processed_outputs in generator:
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 369, in transcribe_generator
+    model_outputs = self._transcribe_forward(test_batch, transcribe_cfg)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 936, in _transcribe_forward
+    encoded, encoded_len = self.forward(input_signal=batch[0], input_signal_length=batch[1])
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 706, in forward
+    encoded, encoded_len = self.encoder(audio_signal=processed_signal, length=processed_signal_length)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 586, in forward
+    return self.forward_internal(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 635, in forward_internal
+    audio_signal, length = self.pre_encode(x=audio_signal, lengths=length)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/subsampling.py", line 425, in forward
+    x = self.conv(x)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/conv.py", line 458, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
+
+
+
+
+
+Transcribing:   0%|          | 0/1 [00:00<?, ?it/s]
+2026-05-04 15:25:37,223 | ERROR | parakeet_engine | TRANSCRIBE ERROR: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
+Traceback (most recent call last):
+  File "/app/app/asr_engines/parakeet_asr.py", line 134, in _transcribe
+    results = self.engine.model.transcribe([tmp_path])
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 308, in transcribe
+    return super().transcribe(
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 270, in transcribe
+    for processed_outputs in generator:
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 369, in transcribe_generator
+    model_outputs = self._transcribe_forward(test_batch, transcribe_cfg)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 936, in _transcribe_forward
+    encoded, encoded_len = self.forward(input_signal=batch[0], input_signal_length=batch[1])
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 706, in forward
+    encoded, encoded_len = self.encoder(audio_signal=processed_signal, length=processed_signal_length)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 586, in forward
+    return self.forward_internal(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 635, in forward_internal
+    audio_signal, length = self.pre_encode(x=audio_signal, lengths=length)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/subsampling.py", line 425, in forward
+    x = self.conv(x)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/conv.py", line 458, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
+2026-05-04 15:25:37,231 | INFO | parakeet_server | [88b838fd] INFER START | active=8
+2026-05-04 15:25:37,236 | INFO | parakeet_server | [a9b33817] INFER END | active=8 time=0.03s
+2026-05-04 15:25:37,235 | ERROR | parakeet_engine | TRANSCRIBE ERROR: Cannot unfreeze partially without first freezing the module with `freeze()`
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 369, in transcribe_generator
+    model_outputs = self._transcribe_forward(test_batch, transcribe_cfg)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 936, in _transcribe_forward
+    encoded, encoded_len = self.forward(input_signal=batch[0], input_signal_length=batch[1])
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 706, in forward
+    encoded, encoded_len = self.encoder(audio_signal=processed_signal, length=processed_signal_length)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 586, in forward
+    return self.forward_internal(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 635, in forward_internal
+    audio_signal, length = self.pre_encode(x=audio_signal, lengths=length)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/subsampling.py", line 425, in forward
+    x = self.conv(x)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/container.py", line 219, in forward
+    input = module(input)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/conv.py", line 458, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/conv.py", line 454, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: cuDNN error: CUDNN_STATUS_INTERNAL_ERROR
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/app/app/asr_engines/parakeet_asr.py", line 134, in _transcribe
+    results = self.engine.model.transcribe([tmp_path])
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/models/rnnt_models.py", line 308, in transcribe
+    return super().transcribe(
+  File "/usr/local/lib/python3.10/dist-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 270, in transcribe
+    for processed_outputs in generator:
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 382, in transcribe_generator
+    self._transcribe_on_end(transcribe_cfg)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/transcription.py", line 763, in _transcribe_on_end
+    self.encoder.unfreeze(partial=True)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/module.py", line 114, in unfreeze
+    raise ValueError("Cannot unfreeze partially without first freezing the module with `freeze()`")
+ValueError: Cannot unfreeze partially without first freezing the module with `freeze()`
