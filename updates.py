@@ -691,3 +691,18 @@ Traceback (most recent call last):
   File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/module.py", line 114, in unfreeze
     raise ValueError("Cannot unfreeze partially without first freezing the module with `freeze()`")
 ValueError: Cannot unfreeze partially without first freezing the module with `freeze()`
+
+
+{"message": "Agent state changed to listening", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:45.019334+00:00"}
+{"message": "Websocket recved msg: Yeah., type: partial", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:47.508931+00:00"}
+{"message": "User input transcribed: Yeah., ", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:47.509443+00:00"}
+{"message": "Websocket recved msg: Mm., type: transcript", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:48.665899+00:00"}
+{"message": "User input transcribed: Mm., ", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:48.666375+00:00"}
+{"message": "Websocket recved msg: Yeah., type: transcript", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.160064+00:00"}
+{"message": "User input transcribed: Yeah., ", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.160571+00:00"}
+{"message": "Websocket recved msg: Mm., type: partial", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.355141+00:00"}
+{"message": "User input transcribed: Mm., ", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.355531+00:00"}
+{"message": "Running query at https://inspira-agent-poc-langgraph-150916788856.us-central1.run.app/run_sse", "level": "INFO", "name": "root", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.662311+00:00"}
+{"message": "Agent state changed to thinking", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.663872+00:00"}
+{"message": "Websocket recved msg: Oh., type: transcript", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.856115+00:00"}
+{"message": "User input transcribed: Oh., ", "level": "INFO", "name": "realtime-voice-agent", "pid": 32, "job_id": "AJ_oBNBAp72aHRz", "room_id": "RM_dq5zqoeFZ6gd", "timestamp": "2026-05-05T10:10:49.856598+00:00"}
