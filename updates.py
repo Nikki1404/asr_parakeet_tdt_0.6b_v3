@@ -5,11 +5,17 @@ import time
 import wave
 import tempfile
 import logging
-from typing import Optional
+import threading
+import torch
 
+from typing import Optional
 from app.asr_engines.base import ASREngine, EngineCaps
 
 log = logging.getLogger("parakeet_engine")
+
+# 🔥 track parallel inference
+ACTIVE_INFERENCES = 0
+LOCK = threading.Lock()
 
 
 def safe_text(x) -> str:
@@ -23,7 +29,6 @@ def safe_text(x) -> str:
         try:
             return x.text or ""
         except Exception:
-            log.exception("Error reading hypothesis.text")
             return ""
     return str(x)
 
@@ -101,27 +106,23 @@ class ParakeetSession:
         if text == self.current_text:
             return None
 
-        if self.current_text and self.current_text.startswith(text):
-            return None
-
         self.current_text = text
         return text
 
     def finalize(self, pad_ms):
         final = self._transcribe().strip()
 
-        if final:
-            self.current_text = final
-
-        out = self.current_text.strip()
+        out = final or self.current_text
 
         self.audio.clear()
         self.current_text = ""
         self.last_partial_time = 0.0
 
-        return out
+        return out.strip()
 
     def _transcribe(self) -> str:
+        global ACTIVE_INFERENCES
+
         tmp_path = None
         audio_sec = len(self.audio) / 2 / self.engine.sr
 
@@ -130,30 +131,49 @@ class ParakeetSession:
                 tmp_path = tmp.name
                 tmp.write(self._pcm_to_wav(bytes(self.audio)))
 
+            with LOCK:
+                ACTIVE_INFERENCES += 1
+                parallel = ACTIVE_INFERENCES
+
+            log.info(f"INFER START | parallel={parallel} audio={audio_sec:.2f}s")
+
+            if torch.cuda.is_available():
+                log.info(
+                    f"GPU MEM | alloc={torch.cuda.memory_allocated()/1e9:.2f}GB "
+                    f"reserved={torch.cuda.memory_reserved()/1e9:.2f}GB"
+                )
+
             t0 = time.perf_counter()
             results = self.engine.model.transcribe([tmp_path])
             dt = time.perf_counter() - t0
 
-            log.info(
-                f"TRANSCRIBE | audio={audio_sec:.2f}s time={dt:.2f}s RTF={dt/max(audio_sec,0.01):.2f}"
-            )
+            log.info(f"INFER END | parallel={parallel} time={dt:.2f}s")
 
             if not results:
-                log.warning("Empty transcription result")
                 return ""
 
-            text = safe_text(results[0]).strip()
-            log.info(f"TRANSCRIPT → {text}")
+            return safe_text(results[0]).strip()
 
-            return text
+        except RuntimeError as e:
+            msg = str(e)
 
-        except Exception as e:
-            log.exception(f"TRANSCRIBE ERROR: {e}")
+            if "CUDNN_STATUS_INTERNAL_ERROR" in msg:
+                log.error(
+                    "\n🚨 PARALLEL GPU FAILURE (Parakeet)\n"
+                    f"Parallel calls: {ACTIVE_INFERENCES}\n"
+                    "Cause: NeMo RNNT is NOT thread-safe.\n"
+                    "Fix: use multi-process scaling (NOT threads)\n"
+                )
+
+            log.exception("TRANSCRIBE ERROR")
             return ""
 
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
+
+            with LOCK:
+                ACTIVE_INFERENCES -= 1
 
     def _pcm_to_wav(self, pcm):
         buf = io.BytesIO()
@@ -164,8 +184,8 @@ class ParakeetSession:
             wf.writeframes(pcm)
         return buf.getvalue()
 
-
 #app/main.py-
+import asyncio
 import json
 import logging
 import sys
@@ -192,26 +212,21 @@ log = logging.getLogger("parakeet_server")
 app = FastAPI()
 engine = build_engine(cfg)
 
-ACTIVE_CONNECTIONS = 0
-
 
 @app.on_event("startup")
 async def startup():
-    load_sec = engine.load()
-    log.info(f"Model loaded in {load_sec:.2f}s")
+    t = engine.load()
+    log.info(f"MODEL LOADED in {t:.2f}s")
 
 
 @app.websocket("/ws")
 async def ws_asr(ws: WebSocket):
-    global ACTIVE_CONNECTIONS
 
     conn_id = str(uuid.uuid4())[:8]
-    start_time = time.time()
+    start = time.time()
 
     await ws.accept()
-
-    ACTIVE_CONNECTIONS += 1
-    log.info(f"[{conn_id}] CONNECTED | active={ACTIVE_CONNECTIONS}")
+    log.info(f"[{conn_id}] CONNECTED")
 
     session = StreamingSession(engine, cfg)
 
@@ -219,39 +234,35 @@ async def ws_asr(ws: WebSocket):
         while True:
             data = await ws.receive_bytes()
 
-            log.debug(f"[{conn_id}] AUDIO IN | {len(data)} bytes")
-
-            # 🔥 IMPORTANT: NO run_in_executor
-            events = session.process_chunk(data)
+            loop = asyncio.get_running_loop()
+            events = await loop.run_in_executor(None, session.process_chunk, data)
 
             for ev in events:
                 if len(ev) == 3:
-                    ev_type, text, ttfb_ms = ev
-                    payload = {
-                        "type": ev_type,
-                        "text": text,
-                        "t_start": ttfb_ms,
-                    }
+                    typ, txt, ttfb = ev
+
+                    log.info(f"[{conn_id}] {typ.upper()} → {txt}")
+
+                    await ws.send_text(json.dumps({
+                        "type": typ,
+                        "text": txt,
+                        "t_start": ttfb,
+                    }))
                 else:
-                    ev_type, text = ev
-                    payload = {
-                        "type": ev_type,
-                        "text": text,
-                    }
+                    typ, txt = ev
 
-                log.info(f"[{conn_id}] WS OUT → {payload}")
+                    log.info(f"[{conn_id}] {typ.upper()} → {txt}")
 
-                await ws.send_text(json.dumps(payload))
+                    await ws.send_text(json.dumps({
+                        "type": typ,
+                        "text": txt,
+                    }))
 
     except WebSocketDisconnect:
         log.info(f"[{conn_id}] DISCONNECTED")
 
     finally:
-        ACTIVE_CONNECTIONS -= 1
-        log.info(
-            f"[{conn_id}] CLOSED | duration={time.time() - start_time:.2f}s | active={ACTIVE_CONNECTIONS}"
-        )
-
+        log.info(f"[{conn_id}] CLOSED | duration={time.time()-start:.2f}s")
 
 #app/streaming_session.py-
 import time
@@ -300,12 +311,8 @@ class StreamingSession:
 
             is_speech, pre = self.vad.push_frame(frame)
 
-            self.silence_ms = 0 if is_speech else self.silence_ms + self.cfg.vad_frame_ms
-
             if pre and not self.utt_started:
                 self.utt_started = True
-                self.t_utt_start = time.time()
-                self.t_first_partial = None
                 log.info("UTTERANCE START")
 
                 self.session.accept_pcm16(pre)
@@ -314,35 +321,18 @@ class StreamingSession:
                 continue
 
             self.session.accept_pcm16(frame)
-            self.utt_audio_ms += self.cfg.vad_frame_ms
 
             if self.engine.caps.partials:
                 text = self.session.step_if_ready()
-
                 if text:
+                    log.info(f"PARTIAL: {text}")
+                    events.append(("partial", text, 0))
 
-                    if self.t_first_partial is None:
-                        self.t_first_partial = time.time()
-
-                    ttfb_ms = int((self.t_first_partial - self.t_utt_start) * 1000)
-                    events.append(("partial", text, ttfb_ms))
-
-            if (
-                not is_speech
-                and self.utt_audio_ms >= self.engine.min_utt_ms
-                and self.silence_ms >= self.engine.end_silence_ms
-            ):
-                final = self.session.finalize(self.engine.finalize_pad_ms)
-
+            if not is_speech:
+                final = self.session.finalize(0)
                 if final:
-                    log.info(f"FINAL → {final}")
-
-                    ttfb_ms = (
-                        int((self.t_first_partial - self.t_utt_start) * 1000)
-                        if self.t_first_partial is not None
-                        else None
-                    )
-                    events.append(("transcript", final, ttfb_ms))
+                    log.info(f"FINAL: {final}")
+                    events.append(("transcript", final, 0))
 
                 self.reset()
 
@@ -350,13 +340,8 @@ class StreamingSession:
 
     def reset(self):
         log.info("SESSION RESET")
-
         self.vad.reset()
         self.utt_started = False
-        self.utt_audio_ms = 0
-        self.silence_ms = 0
-        self.t_utt_start = None
-        self.t_first_partial = None
 
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
