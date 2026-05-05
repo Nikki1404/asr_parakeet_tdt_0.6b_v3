@@ -311,27 +311,58 @@ class StreamingSession:
 
             is_speech, pre = self.vad.push_frame(frame)
 
+            self.silence_ms = 0 if is_speech else self.silence_ms + self.cfg.vad_frame_ms
+
             if pre and not self.utt_started:
                 self.utt_started = True
-                log.info("UTTERANCE START")
+                self.utt_audio_ms = 0
+                self.silence_ms = 0
+                self.t_utt_start = time.time()
+                self.t_first_partial = None
 
                 self.session.accept_pcm16(pre)
+                log.info("UTTERANCE START")
 
             if not self.utt_started:
                 continue
 
             self.session.accept_pcm16(frame)
+            self.utt_audio_ms += self.cfg.vad_frame_ms
 
             if self.engine.caps.partials:
                 text = self.session.step_if_ready()
-                if text:
-                    events.append(("partial", text, 0))
 
-            if not is_speech:
-                final = self.session.finalize(0)
+                if text:
+                    if self.t_first_partial is None:
+                        self.t_first_partial = time.time()
+
+                    ttfb_ms = int((self.t_first_partial - self.t_utt_start) * 1000)
+
+                    log.info(f"PARTIAL → {text}")
+
+                    events.append(("partial", text, ttfb_ms))
+
+            if (
+                not is_speech
+                and self.utt_audio_ms >= self.engine.min_utt_ms
+                and self.silence_ms >= self.engine.end_silence_ms
+            ):
+                log.info(
+                    f"ENDPOINT | utt={self.utt_audio_ms}ms silence={self.silence_ms}ms"
+                )
+
+                final = self.session.finalize(self.engine.finalize_pad_ms)
+
                 if final:
-                    log.info(f"FINAL: {final}")
-                    events.append(("transcript", final, 0))
+                    ttfb_ms = (
+                        int((self.t_first_partial - self.t_utt_start) * 1000)
+                        if self.t_first_partial
+                        else None
+                    )
+
+                    log.info(f"FINAL → {final}")
+
+                    events.append(("transcript", final, ttfb_ms))
 
                 self.reset()
 
@@ -339,8 +370,13 @@ class StreamingSession:
 
     def reset(self):
         log.info("SESSION RESET")
+
         self.vad.reset()
         self.utt_started = False
+        self.utt_audio_ms = 0
+        self.silence_ms = 0
+        self.t_utt_start = None
+        self.t_first_partial = None
 
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
