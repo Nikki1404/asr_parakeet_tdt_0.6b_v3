@@ -368,5 +368,5 @@ class StreamingSession:
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
 
-root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# lspci | grep -i nvidia
-00:03.0 3D controller: NVIDIA Corporation AD104GL [L4] (rev a1)
+curl -O https://storage.googleapis.com/compute-gpu-installation/linux/install_gpu_driver.py
+sudo python3 install_gpu_driver.py
