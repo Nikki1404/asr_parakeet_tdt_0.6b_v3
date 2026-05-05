@@ -320,7 +320,6 @@ class StreamingSession:
                 text = self.session.step_if_ready()
 
                 if text:
-                    log.info(f"PARTIAL → {text}")
 
                     if self.t_first_partial is None:
                         self.t_first_partial = time.time()
@@ -358,3 +357,6 @@ class StreamingSession:
         self.silence_ms = 0
         self.t_utt_start = None
         self.t_first_partial = None
+
+
+uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 4 --ws-ping-interval 30 --ws-ping-timeout 300
