@@ -325,7 +325,6 @@ class StreamingSession:
             if self.engine.caps.partials:
                 text = self.session.step_if_ready()
                 if text:
-                    log.info(f"PARTIAL: {text}")
                     events.append(("partial", text, 0))
 
             if not is_speech:
