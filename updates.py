@@ -1,3 +1,86 @@
+#app/batch_infer.py-
+import time
+import threading
+import queue
+import logging
+
+log = logging.getLogger("batch_infer")
+
+
+class BatchItem:
+    def __init__(self, wav_path):
+        self.wav_path = wav_path
+        self.result = None
+        self.event = threading.Event()
+
+
+class DynamicBatchInferer:
+
+    def __init__(self, model, max_batch_size=16, max_wait_ms=50):
+        self.model = model
+        self.max_batch_size = max_batch_size
+        self.max_wait_ms = max_wait_ms
+
+        self.q = queue.Queue()
+        self.running = True
+
+        self.thread = threading.Thread(target=self._worker, daemon=True)
+        self.thread.start()
+
+    def submit(self, wav_path):
+        item = BatchItem(wav_path)
+        self.q.put(item)
+        return item
+
+    def _worker(self):
+        while self.running:
+            batch = []
+            start = time.time()
+
+            # wait for at least 1 request
+            item = self.q.get()
+            batch.append(item)
+
+            # dynamic collection window
+            while True:
+                elapsed = (time.time() - start) * 1000
+
+                if len(batch) >= self.max_batch_size:
+                    break
+
+                if elapsed >= self.max_wait_ms:
+                    break
+
+                try:
+                    item = self.q.get_nowait()
+                    batch.append(item)
+                except queue.Empty:
+                    time.sleep(0.002)
+
+            try:
+                paths = [b.wav_path for b in batch]
+
+                t0 = time.perf_counter()
+                results = self.model.transcribe(paths)
+                infer_time = time.perf_counter() - t0
+
+                log.info(
+                    f"BATCH | size={len(batch)} "
+                    f"time={infer_time:.2f}s "
+                    f"queue={self.q.qsize()}"
+                )
+
+                for item, res in zip(batch, results):
+                    item.result = res
+                    item.event.set()
+
+            except Exception as e:
+                log.exception(f"BATCH ERROR: {e}")
+                for item in batch:
+                    item.result = ""
+                    item.event.set()
+
+
 #app/asr_engines/parakeet_asr.py-
 import io
 import os
@@ -5,14 +88,14 @@ import time
 import wave
 import tempfile
 import logging
-from typing import Optional
 
 from app.asr_engines.base import ASREngine, EngineCaps
+from app.batch_infer import DynamicBatchInferer
 
 log = logging.getLogger("parakeet_engine")
 
 
-def safe_text(x) -> str:
+def safe_text(x):
     if x is None:
         return ""
     if isinstance(x, str):
@@ -23,7 +106,7 @@ def safe_text(x) -> str:
         try:
             return x.text or ""
         except Exception:
-            log.exception("Error reading hypothesis.text")
+            log.exception("Error extracting text")
             return ""
     return str(x)
 
@@ -46,18 +129,27 @@ class ParakeetASR(ASREngine):
         self.min_utt_ms = 300
         self.finalize_pad_ms = 0
 
-        # 🔥 reduced load
+        # 🔥 reduced partial frequency (IMPORTANT)
         self.partial_interval_sec = 3.0
+
+        self.batcher = None
 
     def load(self):
         import nemo.collections.asr as nemo_asr
 
-        t0 = time.time()
         log.info(f"Loading model: {self.model_name}")
+        t0 = time.time()
 
         self.model = nemo_asr.models.ASRModel.from_pretrained(self.model_name)
         self.model = self.model.to(self.device)
         self.model.eval()
+
+        # 🔥 dynamic batcher
+        self.batcher = DynamicBatchInferer(
+            self.model,
+            max_batch_size=16,
+            max_wait_ms=50,
+        )
 
         log.info("Model ready on %s", self.device)
         return time.time() - t0
@@ -83,7 +175,7 @@ class ParakeetSession:
         if len(self.audio) > max_bytes:
             self.audio = self.audio[-max_bytes:]
 
-    def step_if_ready(self) -> Optional[str]:
+    def step_if_ready(self):
         now = time.time()
 
         if not self.audio:
@@ -122,7 +214,10 @@ class ParakeetSession:
 
         return out
 
-    def _transcribe(self) -> str:
+    def _transcribe(self):
+        if not self.audio:
+            return ""
+
         tmp_path = None
         audio_sec = len(self.audio) / 2 / self.engine.sr
 
@@ -131,20 +226,21 @@ class ParakeetSession:
                 tmp_path = tmp.name
                 tmp.write(self._pcm_to_wav(bytes(self.audio)))
 
-            t0 = time.perf_counter()
-            results = self.engine.model.transcribe([tmp_path])
-            elapsed = time.perf_counter() - t0
+            # 🔥 submit to dynamic batcher
+            item = self.engine.batcher.submit(tmp_path)
+
+            wait_start = time.perf_counter()
+            item.event.wait()
+            total_wait = time.perf_counter() - wait_start
+
+            result = safe_text(item.result).strip()
 
             log.info(
                 f"TRANSCRIBE | audio={audio_sec:.2f}s "
-                f"time={elapsed:.2f}s RTF={elapsed/max(audio_sec,0.01):.2f}"
+                f"wait={total_wait:.2f}s"
             )
 
-            if not results:
-                log.warning("Empty transcription result")
-                return ""
-
-            return safe_text(results[0]).strip()
+            return result
 
         except Exception as e:
             log.exception(f"TRANSCRIBE ERROR: {e}")
@@ -152,7 +248,10 @@ class ParakeetSession:
 
         finally:
             if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    log.exception("Temp cleanup failed")
 
     def _pcm_to_wav(self, pcm):
         buf = io.BytesIO()
@@ -162,7 +261,6 @@ class ParakeetSession:
             wf.setframerate(self.engine.sr)
             wf.writeframes(pcm)
         return buf.getvalue()
-
 
 
 #main.py-
