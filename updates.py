@@ -370,3 +370,20 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-pin
 
 curl -O https://storage.googleapis.com/compute-gpu-installation/linux/install_gpu_driver.py
 sudo python3 install_gpu_driver.py
+
+root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# curl -O https://storage.googleapis.com/compute-gpu-installation/linux/install_gpu_driver.py
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   133  100   133    0     0    613      0 --:--:-- --:--:-- --:--:--   615
+root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# ^C
+root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# sudo python3 install_gpu_driver.py
+  File "/home/nikita_verma2/parakeet_asr_custom_vad/install_gpu_driver.py", line 1
+    <?xml version='1.0' encoding='UTF-8'?><Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist.</Message></Error>
+    ^
+SyntaxError: invalid syntax
+root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# sudo python3 install_gpu_driver.py
+  File "/home/nikita_verma2/parakeet_asr_custom_vad/install_gpu_driver.py", line 1
+    <?xml version='1.0' encoding='UTF-8'?><Error><Code>NoSuchBucket</Code><Message>The specified bucket does not exist.</Message></Error>
+    ^
+SyntaxError: invalid syntax
+root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# 
