@@ -368,7 +368,12 @@ class StreamingSession:
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
 
-root@cx-asr-v2:/home/nikita_verma2# modprobe nvidia
-modprobe: FATAL: Module nvidia-current not found in directory /lib/modules/6.1.0-45-cloud-amd64
-modprobe: ERROR: ../libkmod/libkmod-module.c:1047 command_do() Error running install command 'modprobe -i nvidia-current ' for module nvidia: retcode 1
-modprobe: ERROR: could not insert 'nvidia': Invalid argument
+: 'INTERIM_TRANSCRIPT', 'text': 'Yeah.'}
+INFO:__main__:Websocket received msg: Porque si estuvieran escritos en lenguaje de todo el mundo, type: partial
+{'type': 'INTERIM_TRANSCRIPT', 'text': 'Porque si estuvieran escritos en lenguaje de todo el mundo'}
+INFO:__main__:Websocket received msg: aunque estuvieran escritos en lenguaje de todo el mundo, maybe, pero., type: partial
+{'type': 'INTERIM_TRANSCRIPT', 'text': 'aunque estuvieran escritos en lenguaje de todo el mundo, maybe, pero.'}
+INFO:__main__:Connection closed by server
+INFO:__main__:Error occurred: no close frame received or sent
+
+why it is stopping at this not even final transcript came and in the mid connection closed by server i recieved ?
