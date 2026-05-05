@@ -13,9 +13,8 @@ from app.asr_engines.base import ASREngine, EngineCaps
 
 log = logging.getLogger("parakeet_engine")
 
-# 🔥 track parallel inference
 ACTIVE_INFERENCES = 0
-LOCK = threading.Lock()
+COUNTER_LOCK = threading.Lock()
 
 
 def safe_text(x) -> str:
@@ -100,10 +99,7 @@ class ParakeetSession:
 
         text = self._transcribe().strip()
 
-        if not text:
-            return None
-
-        if text == self.current_text:
+        if not text or text == self.current_text:
             return None
 
         self.current_text = text
@@ -111,7 +107,6 @@ class ParakeetSession:
 
     def finalize(self, pad_ms):
         final = self._transcribe().strip()
-
         out = final or self.current_text
 
         self.audio.clear()
@@ -131,17 +126,11 @@ class ParakeetSession:
                 tmp_path = tmp.name
                 tmp.write(self._pcm_to_wav(bytes(self.audio)))
 
-            with LOCK:
+            with COUNTER_LOCK:
                 ACTIVE_INFERENCES += 1
                 parallel = ACTIVE_INFERENCES
 
             log.info(f"INFER START | parallel={parallel} audio={audio_sec:.2f}s")
-
-            if torch.cuda.is_available():
-                log.info(
-                    f"GPU MEM | alloc={torch.cuda.memory_allocated()/1e9:.2f}GB "
-                    f"reserved={torch.cuda.memory_reserved()/1e9:.2f}GB"
-                )
 
             t0 = time.perf_counter()
             results = self.engine.model.transcribe([tmp_path])
@@ -155,14 +144,12 @@ class ParakeetSession:
             return safe_text(results[0]).strip()
 
         except RuntimeError as e:
-            msg = str(e)
-
-            if "CUDNN_STATUS_INTERNAL_ERROR" in msg:
+            if "CUDNN_STATUS_INTERNAL_ERROR" in str(e):
                 log.error(
-                    "\n🚨 PARALLEL GPU FAILURE (Parakeet)\n"
-                    f"Parallel calls: {ACTIVE_INFERENCES}\n"
-                    "Cause: NeMo RNNT is NOT thread-safe.\n"
-                    "Fix: use multi-process scaling (NOT threads)\n"
+                    f"\n🚨 GPU PARALLEL FAILURE\n"
+                    f"Active parallel calls: {ACTIVE_INFERENCES}\n"
+                    f"Reason: NeMo model is NOT thread-safe\n"
+                    f"Limit reached\n"
                 )
 
             log.exception("TRANSCRIBE ERROR")
@@ -172,7 +159,7 @@ class ParakeetSession:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-            with LOCK:
+            with COUNTER_LOCK:
                 ACTIVE_INFERENCES -= 1
 
     def _pcm_to_wav(self, pcm):
