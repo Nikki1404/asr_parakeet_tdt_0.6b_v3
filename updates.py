@@ -359,4 +359,4 @@ class StreamingSession:
         self.t_first_partial = None
 
 
-uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 4 --ws-ping-interval 30 --ws-ping-timeout 300
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
