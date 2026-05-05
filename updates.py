@@ -368,8 +368,5 @@ class StreamingSession:
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
 
-now getting this why ?
--v2:/home/nikita_verma2/parakeet_asr_custom_vad# docker run -d --restart unless-stopped --gpus all -p 8001:8001 --name parakeet_asr_v3 parakeet_custom_vad
-794be5fb126af1d0b524bfe35fe9bb6e132eb7aee2d20203a8a5e6b4c3ebf879
-docker: Error response from daemon: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: error running hook #0: error running hook: exit status 1, stdout: , stderr: Auto-detected mode as 'legacy'
-nvidia-container-cli: initialization error: nvml error: driver not loaded: unknown.
+root@cx-asr-v2:/home/nikita_verma2/parakeet_asr_custom_vad# lspci | grep -i nvidia
+00:03.0 3D controller: NVIDIA Corporation AD104GL [L4] (rev a1)
