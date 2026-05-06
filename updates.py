@@ -510,5 +510,29 @@ class StreamingSession:
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
 
-what to do when gettign this 
-Failed to start cx-asr-v2: A g2-standard-4 VM instance with 1 nvidia-l4 accelerator(s) is currently unavailable in the us-central1-a zone. Alternatively, you can try your request again with a different VM hardware configuration or at a later time. For more information, see the troubleshooting documentation.
+A machine image contains a VM's properties, metadata, permissions and data from all its attached disks. You can use a machine image to create, backup or restore a VM. Learn more 
+
+Name
+cx-asr-v2-image
+Name is permanent
+Description
+Source VM instance
+cx-asr-v2
+Location
+
+Multi-regional
+
+Regional
+Select location
+us (multiple regions in the United States)
+Encryption
+
+Google-managed encryption key
+Keys owned by Google
+
+Cloud KMS key
+Keys owned by customers
+You can now automate creation of Cloud KMS keys using Autokey.
+
+Customer-supplied encryption key (CSEK)
+Manage outside of Google Cloud
