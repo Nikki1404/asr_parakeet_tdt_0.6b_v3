@@ -510,12 +510,5 @@ class StreamingSession:
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "30", "--ws-ping-timeout", "300"]
 
-: 'INTERIM_TRANSCRIPT', 'text': 'Yeah.'}
-INFO:__main__:Websocket received msg: Porque si estuvieran escritos en lenguaje de todo el mundo, type: partial
-{'type': 'INTERIM_TRANSCRIPT', 'text': 'Porque si estuvieran escritos en lenguaje de todo el mundo'}
-INFO:__main__:Websocket received msg: aunque estuvieran escritos en lenguaje de todo el mundo, maybe, pero., type: partial
-{'type': 'INTERIM_TRANSCRIPT', 'text': 'aunque estuvieran escritos en lenguaje de todo el mundo, maybe, pero.'}
-INFO:__main__:Connection closed by server
-INFO:__main__:Error occurred: no close frame received or sent
-
-why it is stopping at this not even final transcript came and in the mid connection closed by server i recieved ?
+what to do when gettign this 
+Failed to start cx-asr-v2: A g2-standard-4 VM instance with 1 nvidia-l4 accelerator(s) is currently unavailable in the us-central1-a zone. Alternatively, you can try your request again with a different VM hardware configuration or at a later time. For more information, see the troubleshooting documentation.
