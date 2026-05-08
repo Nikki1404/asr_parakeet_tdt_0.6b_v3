@@ -271,6 +271,19 @@ async def startup():
     load_sec = engine.load()
     log.info(f"Model loaded in {load_sec:.2f}s")
 
+@app.get("/health")
+async def health():
+
+    return {
+        "status": "healthy",
+        "model_loaded": engine.model is not None,
+        "backend": cfg.asr_backend,
+        "model_name": cfg.model_name,
+        "device": cfg.device,
+        "sample_rate": cfg.sample_rate,
+    }
+
+
 
 @app.websocket("/ws")
 async def ws_asr(ws: WebSocket):
