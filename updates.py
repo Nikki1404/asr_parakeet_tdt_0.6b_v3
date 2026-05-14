@@ -1076,13 +1076,114 @@ def upsample_if_needed(pcm: bytes) -> bytes:
 
 
 }
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# aws eks get-token --region us-east-1 --cluster-name CK-APPS-EKS-DEV
-{
-    "kind": "ExecCredential",
-    "apiVersion": "client.authentication.k8s.io/v1beta1",
-    "spec": {},
-    "status": {
-        "expirationTimestamp": "2026-05-14T12:47:38Z",
-        "token": "k8s-aws-v1.aHR0cHM6Ly9zdHMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vP0FjdGlvbj1HZXRDYWxsZXJJZGVudGl0eSZWZXJzaW9uPTIwMTEtMDYtMTUmWC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BU0lBUTNFR1AyRDVSR0JKNzdYVyUyRjIwMjYwNTE0JTJGdXMtZWFzdC0xJTJGc3RzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA1MTRUMTIzMzM4WiZYLUFtei1FeHBpcmVzPTYwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCUzQngtazhzLWF3cy1pZCZYLUFtei1TZWN1cml0eS1Ub2tlbj1JUW9KYjNKcFoybHVYMlZqRUpYJTJGJTJGJTJGJTJGJTJGJTJGJTJGJTJGJTJGJTJGd0VhQ1hWekxXVmhjM1F0TVNKSU1FWUNJUUMlMkJzQSUyQklqJTJGa0tIRDI4bnVSbEZLJTJCQmNiQzlBcSUyRiUyRnRuSmFUSWFzbExyVnpBSWhBSiUyRktzZVJUaTR6NGkzMGhlOW5NTXVmMkZHR2xtVWdpNzhKVTlrYU9xTjh5S3J3RkNGMFFBQm9NTURVNE1qWTBNVEV6TkRBeklnemk2NG52bW1FeUZpd3dpYUVxbVFYeUwyQlhqVGJUMDU1WEFueWJzRVEyZllxayUyRkpkS0RXcEpCNE1kJTJCVHFGMkRFUzNPajA3ZngxSE5GYmJaUTBEJTJGVUc4dGFlR1E2UFNrQlAwR3daRFVWcmpJdHMlMkYxeFZlSE5pZSUyQmdySnRtWFdhcHdZakFjTERKejlDTWptNVclMkZ1RGtmSThFJTJGazFRY21HaTVNUHhZRDByS0ZTTllEZXZ6MFFHemxnc3JwMk9OY3VoU0Y0VjBpRDk5bk5mUXRNQ1prY0JlZlJPaG4zb042UTVqR3FmVGVxZ2NvTEcyMjQlMkJaVSUyQkxTYTBMU1B4WFNWdjhQY0dvbGdXeDJNWDM0dkhmb2x1aTBOTTlGbkpjSjgzRVglMkI1NlRMa1NHMnBYS1dra0RHN3BjRkY4JTJGaFdHMlUlMkYxeExnbzQ0SWZRaE94RiUyQkQ2NVhVYWpheFdGY2l1bkZIajZ6Vm5UNXlrTnFmUzhLclVNcGJodGVCODFPU1hEU1ZzRTljWlIlMkZsYXo4a21OQTdwZXgyS2VDSG80WWl4ODFIVnFQZFRPbElic3d1Vmp6Rnd6dFAzcU1YVlZwMEMybjlYMFphcktCdGJyVkJZejN6SjM5M1lsbmc2aE1NVGZiTkx4alhvbXhwZyUyQkR5c1VTZkhha242WHVqJTJGVjdyQ3FNTkZDOG9zNFdDdDVYZVVtT3R4RzhxZnJTNm81N3pNQ3dxR0NNYkNyOVclMkZYJTJGUWlpYWFPbVNReXBQQzJGaHlyeTJVTTdaSndhUWoxbjRuJTJGcCUyQnFyJTJGZ1FsSHd1ZUJJWDhGcGZnQlBMMHc1eUE1NzlCNnR0d051R3hINXdnaDc1NXJkZVYyZ1VpZ29hMVlqcVR5aDNqTzZlNGVQZTRRRHdxOUVyZXYyS1AzMjdCSGxlcnVpTVZxQldGT2lnZ2F0TWF1WTBFS0VXdVZyZiUyRmlhQ0hsQ2FCbnRxOUptYWw1VXg4a241emhuRWhZODNjUFNHNlo5V3Z6Ujk5U2RDNERtOFJ2d0prRzkxVGNvd2k5ejY1YkZmbXdXck05SjZiaSUyRnIzSER1WDZKMGVBZllEUmhJc1MwVVBXOXMlMkJVcjNZU2RHU05KYk5MWWNpZER6bSUyQlQ3RmhCMjVLdWViT0ZuZ0Vvc1FvOHhDRmFZQ25hS3JUdHZYOSUyQnJxRzFIWTI2RUpGS1hnSWlEUXZubjN2SlAlMkZ2MmpEdDlwYlFCanF3QWNEVGRhQk5DUnZqRjZQaWlvZmh3QXZOU3ByWDJPdWtWJTJGQTE4MW80YWtNSlVpZU1ucnd4V3EzcXBQUFpCJTJGbWtlUGFJNHFYTkxra29Rek9nS1lKMkhTZ1ZyS2JMTmdnMlhBVWFWTSUyRiUyRiUyQnpCZk9udmlKMlBBWWJRUFJFUW4zJTJGRmhlZTlVODRWOGNkWEpyYXM5OG50YUQxWjZ5cDE1OSUyQktGNUVMWXl3QlZzaUhHSSUyRjdHbEdkbUFDVlJyTiUyRkJ0WjFPcmlzWG9CN0YzTk0wMm5Sdng4ZVF2SXlFV3UlMkZSQ2NkUHMlMkZ5WE9hVjNVNFlIJlgtQW16LVNpZ25hdHVyZT0zMDk0MTMxYWNmMjkxMGM0MDRkMjZiZDQ1MGU1YzY0YTEwYjBkMzRiYmUzNzYyNDhkYzc0OTUwOTY1ZjU1Mjhh"
-    }
-}
+
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# kubectl get pods -n cx-speech -v=8
+I0514 12:56:39.171156   79862 cmd.go:527] kubectl command headers turned on
+I0514 12:56:39.177797   79862 loader.go:402] Config loaded from file:  /root/.kube/config
+I0514 12:56:39.178039   79862 envvar.go:172] "Feature gate default state" feature="WatchListClient" enabled=false
+I0514 12:56:39.178063   79862 envvar.go:172] "Feature gate default state" feature="ClientsAllowCBOR" enabled=false
+I0514 12:56:39.178071   79862 envvar.go:172] "Feature gate default state" feature="ClientsPreferCBOR" enabled=false
+I0514 12:56:39.178078   79862 envvar.go:172] "Feature gate default state" feature="InOrderInformers" enabled=true
+I0514 12:56:39.178085   79862 envvar.go:172] "Feature gate default state" feature="InformerResourceVersion" enabled=false
+I0514 12:56:39.178153   79862 discovery_client.go:252] "Request Body" body=""
+I0514 12:56:39.178217   79862 round_trippers.go:527] "Request" verb="GET" url="https://8211B5F31D9807F655D404D1A1CFA17E.gr7.us-east-1.eks.amazonaws.com/api?timeout=32s" headers=<
+        Accept: application/json;g=apidiscovery.k8s.io;v=v2;as=APIGroupDiscoveryList,application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList,application/json
+        User-Agent: kubectl/v1.34.3 (linux/amd64) kubernetes/df11db1
+ >
+I0514 12:56:40.955759   79862 round_trippers.go:632] "Response" status="401 Unauthorized" headers=<
+        Audit-Id: dfff6e9c-37d0-40d9-9041-18094c835d43
+        Cache-Control: no-cache, private
+        Content-Length: 129
+        Content-Type: application/json
+        Date: Thu, 14 May 2026 12:56:40 GMT
+ > milliseconds=1777
+I0514 12:56:40.956128   79862 discovery_client.go:252] "Response Body" body=<
+        {"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"Unauthorized","reason":"Unauthorized","code":401}
+ >
+E0514 12:56:40.956465   79862 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+I0514 12:56:40.956500   79862 cached_discovery.go:120] skipped caching discovery info due to the server has asked for the client to provide credentials
+I0514 12:56:40.956582   79862 discovery_client.go:252] "Request Body" body=""
+I0514 12:56:40.956648   79862 round_trippers.go:527] "Request" verb="GET" url="https://8211B5F31D9807F655D404D1A1CFA17E.gr7.us-east-1.eks.amazonaws.com/api?timeout=32s" headers=<
+        Accept: application/json;g=apidiscovery.k8s.io;v=v2;as=APIGroupDiscoveryList,application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList,application/json
+        User-Agent: kubectl/v1.34.3 (linux/amd64) kubernetes/df11db1
+ >
+I0514 12:56:41.857023   79862 round_trippers.go:632] "Response" status="401 Unauthorized" headers=<
+        Audit-Id: 3f1f3689-180f-4539-b0ad-c093af47b8d3
+        Cache-Control: no-cache, private
+        Content-Length: 129
+        Content-Type: application/json
+        Date: Thu, 14 May 2026 12:56:41 GMT
+ > milliseconds=900
+I0514 12:56:41.857417   79862 discovery_client.go:252] "Response Body" body=<
+        {"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"Unauthorized","reason":"Unauthorized","code":401}
+ >
+E0514 12:56:41.857743   79862 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+I0514 12:56:41.857771   79862 cached_discovery.go:120] skipped caching discovery info due to the server has asked for the client to provide credentials
+I0514 12:56:41.857790   79862 shortcut.go:103] Error loading discovery information: the server has asked for the client to provide credentials
+I0514 12:56:41.857865   79862 discovery_client.go:252] "Request Body" body=""
+I0514 12:56:41.857940   79862 round_trippers.go:527] "Request" verb="GET" url="https://8211B5F31D9807F655D404D1A1CFA17E.gr7.us-east-1.eks.amazonaws.com/api?timeout=32s" headers=<
+        Accept: application/json;g=apidiscovery.k8s.io;v=v2;as=APIGroupDiscoveryList,application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList,application/json
+        User-Agent: kubectl/v1.34.3 (linux/amd64) kubernetes/df11db1
+ >
+I0514 12:56:42.743010   79862 round_trippers.go:632] "Response" status="401 Unauthorized" headers=<
+        Audit-Id: c7d143ad-880f-439b-9de8-b41e87a7a81d
+        Cache-Control: no-cache, private
+        Content-Length: 129
+        Content-Type: application/json
+        Date: Thu, 14 May 2026 12:56:42 GMT
+ > milliseconds=885
+I0514 12:56:42.743400   79862 discovery_client.go:252] "Response Body" body=<
+        {"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"Unauthorized","reason":"Unauthorized","code":401}
+ >
+E0514 12:56:42.743730   79862 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+I0514 12:56:42.743756   79862 cached_discovery.go:120] skipped caching discovery info due to the server has asked for the client to provide credentials
+I0514 12:56:42.743839   79862 discovery_client.go:252] "Request Body" body=""
+I0514 12:56:42.743929   79862 round_trippers.go:527] "Request" verb="GET" url="https://8211B5F31D9807F655D404D1A1CFA17E.gr7.us-east-1.eks.amazonaws.com/api?timeout=32s" headers=<
+        Accept: application/json;g=apidiscovery.k8s.io;v=v2;as=APIGroupDiscoveryList,application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList,application/json
+        User-Agent: kubectl/v1.34.3 (linux/amd64) kubernetes/df11db1
+ >
+I0514 12:56:43.635640   79862 round_trippers.go:632] "Response" status="401 Unauthorized" headers=<
+        Audit-Id: 37ffd3ab-ffce-470a-9389-af990abb2513
+        Cache-Control: no-cache, private
+        Content-Length: 129
+        Content-Type: application/json
+        Date: Thu, 14 May 2026 12:56:43 GMT
+ > milliseconds=891
+I0514 12:56:43.636015   79862 discovery_client.go:252] "Response Body" body=<
+        {"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"Unauthorized","reason":"Unauthorized","code":401}
+ >
+E0514 12:56:43.636339   79862 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+I0514 12:56:43.636400   79862 cached_discovery.go:120] skipped caching discovery info due to the server has asked for the client to provide credentials
+I0514 12:56:43.636474   79862 discovery_client.go:252] "Request Body" body=""
+I0514 12:56:43.636554   79862 round_trippers.go:527] "Request" verb="GET" url="https://8211B5F31D9807F655D404D1A1CFA17E.gr7.us-east-1.eks.amazonaws.com/api?timeout=32s" headers=<
+        Accept: application/json;g=apidiscovery.k8s.io;v=v2;as=APIGroupDiscoveryList,application/json;g=apidiscovery.k8s.io;v=v2beta1;as=APIGroupDiscoveryList,application/json
+        User-Agent: kubectl/v1.34.3 (linux/amd64) kubernetes/df11db1
+ >
+I0514 12:56:44.525857   79862 round_trippers.go:632] "Response" status="401 Unauthorized" headers=<
+        Audit-Id: b61debaa-b29f-4c08-9863-bca60222dc0f
+        Cache-Control: no-cache, private
+        Content-Length: 129
+        Content-Type: application/json
+        Date: Thu, 14 May 2026 12:56:44 GMT
+ > milliseconds=889
+I0514 12:56:44.526230   79862 discovery_client.go:252] "Response Body" body=<
+        {"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","message":"Unauthorized","reason":"Unauthorized","code":401}
+ >
+E0514 12:56:44.526567   79862 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+I0514 12:56:44.526595   79862 cached_discovery.go:120] skipped caching discovery info due to the server has asked for the client to provide credentials
+I0514 12:56:44.526727   79862 helpers.go:246] server response object: %s[{
+  "metadata": {},
+  "status": "Failure",
+  "message": "the server has asked for the client to provide credentials",
+  "reason": "Unauthorized",
+  "details": {
+    "causes": [
+      {
+        "reason": "UnexpectedServerResponse",
+        "message": "unknown"
+      }
+    ]
+  },
+  "code": 401
+}]
+error: You must be logged in to the server (the server has asked for the client to provide credentials)
