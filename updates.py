@@ -1073,3 +1073,12 @@ def upsample_if_needed(pcm: bytes) -> bytes:
         y = resampy.resample(x, client_sample_rate, cfg.sample_rate)
         y = np.clip(y, -1.0, 1.0)
         return (y * 32767.0).astype(np.int16).tobytes()
+
+
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# kubectl get pods -n cx-speech
+E0514 12:22:23.076694   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+E0514 12:22:24.041679   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+E0514 12:22:24.979846   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+E0514 12:22:25.924828   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+E0514 12:22:26.855634   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
+error: You must be logged in to the server (the server has asked for the client to provide credentials)
