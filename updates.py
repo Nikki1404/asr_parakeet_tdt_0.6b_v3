@@ -1075,17 +1075,14 @@ def upsample_if_needed(pcm: bytes) -> bytes:
         return (y * 32767.0).astype(np.int16).tobytes()
 
 
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# kubectl get pods -n cx-speech
-E0514 12:22:23.076694   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
-E0514 12:22:24.041679   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
-E0514 12:22:24.979846   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
-E0514 12:22:25.924828   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
-E0514 12:22:26.855634   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
-error: You must be logged in to the server (the server has asked for the client to provide credentials)
-
-(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# aws sts get-caller-identity
+}
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# aws eks get-token --region us-east-1 --cluster-name CK-APPS-EKS-DEV
 {
-    "UserId": "AROAQ3EGP2D53GWTSOKLS:i-05a31ee067e1506cb",
-    "Account": "058264113403",
-    "Arn": "arn:aws:sts::058264113403:assumed-role/EXL_EMR-ADS-CX-AICOE-UEST1-DEV_SSM_Role/i-05a31ee067e1506cb"
+    "kind": "ExecCredential",
+    "apiVersion": "client.authentication.k8s.io/v1beta1",
+    "spec": {},
+    "status": {
+        "expirationTimestamp": "2026-05-14T12:47:38Z",
+        "token": "k8s-aws-v1.aHR0cHM6Ly9zdHMudXMtZWFzdC0xLmFtYXpvbmF3cy5jb20vP0FjdGlvbj1HZXRDYWxsZXJJZGVudGl0eSZWZXJzaW9uPTIwMTEtMDYtMTUmWC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BU0lBUTNFR1AyRDVSR0JKNzdYVyUyRjIwMjYwNTE0JTJGdXMtZWFzdC0xJTJGc3RzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNjA1MTRUMTIzMzM4WiZYLUFtei1FeHBpcmVzPTYwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCUzQngtazhzLWF3cy1pZCZYLUFtei1TZWN1cml0eS1Ub2tlbj1JUW9KYjNKcFoybHVYMlZqRUpYJTJGJTJGJTJGJTJGJTJGJTJGJTJGJTJGJTJGJTJGd0VhQ1hWekxXVmhjM1F0TVNKSU1FWUNJUUMlMkJzQSUyQklqJTJGa0tIRDI4bnVSbEZLJTJCQmNiQzlBcSUyRiUyRnRuSmFUSWFzbExyVnpBSWhBSiUyRktzZVJUaTR6NGkzMGhlOW5NTXVmMkZHR2xtVWdpNzhKVTlrYU9xTjh5S3J3RkNGMFFBQm9NTURVNE1qWTBNVEV6TkRBeklnemk2NG52bW1FeUZpd3dpYUVxbVFYeUwyQlhqVGJUMDU1WEFueWJzRVEyZllxayUyRkpkS0RXcEpCNE1kJTJCVHFGMkRFUzNPajA3ZngxSE5GYmJaUTBEJTJGVUc4dGFlR1E2UFNrQlAwR3daRFVWcmpJdHMlMkYxeFZlSE5pZSUyQmdySnRtWFdhcHdZakFjTERKejlDTWptNVclMkZ1RGtmSThFJTJGazFRY21HaTVNUHhZRDByS0ZTTllEZXZ6MFFHemxnc3JwMk9OY3VoU0Y0VjBpRDk5bk5mUXRNQ1prY0JlZlJPaG4zb042UTVqR3FmVGVxZ2NvTEcyMjQlMkJaVSUyQkxTYTBMU1B4WFNWdjhQY0dvbGdXeDJNWDM0dkhmb2x1aTBOTTlGbkpjSjgzRVglMkI1NlRMa1NHMnBYS1dra0RHN3BjRkY4JTJGaFdHMlUlMkYxeExnbzQ0SWZRaE94RiUyQkQ2NVhVYWpheFdGY2l1bkZIajZ6Vm5UNXlrTnFmUzhLclVNcGJodGVCODFPU1hEU1ZzRTljWlIlMkZsYXo4a21OQTdwZXgyS2VDSG80WWl4ODFIVnFQZFRPbElic3d1Vmp6Rnd6dFAzcU1YVlZwMEMybjlYMFphcktCdGJyVkJZejN6SjM5M1lsbmc2aE1NVGZiTkx4alhvbXhwZyUyQkR5c1VTZkhha242WHVqJTJGVjdyQ3FNTkZDOG9zNFdDdDVYZVVtT3R4RzhxZnJTNm81N3pNQ3dxR0NNYkNyOVclMkZYJTJGUWlpYWFPbVNReXBQQzJGaHlyeTJVTTdaSndhUWoxbjRuJTJGcCUyQnFyJTJGZ1FsSHd1ZUJJWDhGcGZnQlBMMHc1eUE1NzlCNnR0d051R3hINXdnaDc1NXJkZVYyZ1VpZ29hMVlqcVR5aDNqTzZlNGVQZTRRRHdxOUVyZXYyS1AzMjdCSGxlcnVpTVZxQldGT2lnZ2F0TWF1WTBFS0VXdVZyZiUyRmlhQ0hsQ2FCbnRxOUptYWw1VXg4a241emhuRWhZODNjUFNHNlo5V3Z6Ujk5U2RDNERtOFJ2d0prRzkxVGNvd2k5ejY1YkZmbXdXck05SjZiaSUyRnIzSER1WDZKMGVBZllEUmhJc1MwVVBXOXMlMkJVcjNZU2RHU05KYk5MWWNpZER6bSUyQlQ3RmhCMjVLdWViT0ZuZ0Vvc1FvOHhDRmFZQ25hS3JUdHZYOSUyQnJxRzFIWTI2RUpGS1hnSWlEUXZubjN2SlAlMkZ2MmpEdDlwYlFCanF3QWNEVGRhQk5DUnZqRjZQaWlvZmh3QXZOU3ByWDJPdWtWJTJGQTE4MW80YWtNSlVpZU1ucnd4V3EzcXBQUFpCJTJGbWtlUGFJNHFYTkxra29Rek9nS1lKMkhTZ1ZyS2JMTmdnMlhBVWFWTSUyRiUyRiUyQnpCZk9udmlKMlBBWWJRUFJFUW4zJTJGRmhlZTlVODRWOGNkWEpyYXM5OG50YUQxWjZ5cDE1OSUyQktGNUVMWXl3QlZzaUhHSSUyRjdHbEdkbUFDVlJyTiUyRkJ0WjFPcmlzWG9CN0YzTk0wMm5Sdng4ZVF2SXlFV3UlMkZSQ2NkUHMlMkZ5WE9hVjNVNFlIJlgtQW16LVNpZ25hdHVyZT0zMDk0MTMxYWNmMjkxMGM0MDRkMjZiZDQ1MGU1YzY0YTEwYjBkMzRiYmUzNzYyNDhkYzc0OTUwOTY1ZjU1Mjhh"
+    }
 }
