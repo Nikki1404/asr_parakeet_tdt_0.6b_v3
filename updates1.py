@@ -1043,4 +1043,98 @@ if __name__ == "__main__":
     if args.file:
         asyncio.run(run_files(args.file, args.speed))
     else:
-        asyncio.run(run_mic(args.device))
+        asyncio.run(run_mic(args.device))"
+
+
+
+#app/main.py
+import asyncio
+import json
+import logging
+import sys
+
+import numpy as np
+import resampy
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import Response
+from fastapi.websockets import WebSocketDisconnect
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
+from app.config import load_config
+from app.factory import build_engine
+from app.streaming_session import StreamingSession
+
+cfg = load_config()
+
+logging.basicConfig(
+    level=cfg.log_level,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
+log = logging.getLogger("parakeet_server")
+
+app = FastAPI()
+engine = build_engine(cfg)
+
+
+@app.on_event("startup")
+async def startup():
+    load_sec = engine.load()
+    log.info(f"Model loaded in {load_sec:.2f}s")
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+def upsample_if_needed(pcm: bytes, client_sample_rate: int) -> bytes:
+    if not pcm or client_sample_rate == cfg.sample_rate:
+        return pcm
+    x = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+    y = resampy.resample(x, client_sample_rate, cfg.sample_rate)
+    y = np.clip(y, -1.0, 1.0)
+    return (y * 32767.0).astype(np.int16).tobytes()
+
+
+@app.websocket("/ws")
+async def ws_asr(ws: WebSocket):
+    await ws.accept()
+    client = ws.client  # (host, port)
+    log.info(f"[CONNECTION] Client connected: {client}")
+
+    session = StreamingSession(engine, cfg)
+    log.info(f"[SESSION] New session created for {client}")
+
+    try:
+        while True:
+            data = await ws.receive_bytes()
+
+            loop = asyncio.get_running_loop()
+            events = await loop.run_in_executor(None, session.process_chunk, data)
+
+            for ev in events:
+                if len(ev) == 3:
+                    ev_type, text, ttfb_ms = ev
+                    log.info(f"[{ev_type.upper()}] ttfb={ttfb_ms}ms | {text}")
+                    await ws.send_text(json.dumps({
+                        "type": ev_type,
+                        "text": text,
+                        "t_start": ttfb_ms,
+                    }))
+                else:
+                    ev_type, text = ev
+                    log.info(f"[{ev_type.upper()}] {text}")
+                    await ws.send_text(json.dumps({
+                        "type": ev_type,
+                        "text": text,
+                    }))
+
+    except WebSocketDisconnect:
+        log.info(f"[DISCONNECT] Client disconnected: {client}")
