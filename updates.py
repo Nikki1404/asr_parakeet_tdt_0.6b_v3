@@ -1082,3 +1082,10 @@ E0514 12:22:24.979846   47331 memcache.go:265] "Unhandled Error" err="couldn't g
 E0514 12:22:25.924828   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
 E0514 12:22:26.855634   47331 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: the server has asked for the client to provide credentials"
 error: You must be logged in to the server (the server has asked for the client to provide credentials)
+
+(base) root@EC03-E01-AICOE1:/home/CORP/re_nikitav# aws sts get-caller-identity
+{
+    "UserId": "AROAQ3EGP2D53GWTSOKLS:i-05a31ee067e1506cb",
+    "Account": "058264113403",
+    "Arn": "arn:aws:sts::058264113403:assumed-role/EXL_EMR-ADS-CX-AICOE-UEST1-DEV_SSM_Role/i-05a31ee067e1506cb"
+}
