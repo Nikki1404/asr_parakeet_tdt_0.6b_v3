@@ -1343,4 +1343,23 @@ async def stream_parakeet(audio_file: str):
         finally:
             stask.cancel()
             rtask.cancel()
+
+
+
+  ⏳ [13:40:13] (58 ms) So                                                                                                ⏳ [13:40:16] (58 ms) Hi, this is A S R Test.                                                                           ⏳ [13:40:17] (58 ms) Hi, this is ASR testing and I would like to                                                       ⏳ [13:40:18] (58 ms) Hi, this is ASR testing and I would like to test how it would give me                             ⏳ [13:40:19] (58 ms) Hi, this is ASR-Testing and I would like to test how it would give me the response or not.                                                                                                                              [13:40:20] Final | first partial at 58 ms
+  ✅  Hi, this is ASR Testing and I would like to test how it would give me the response or not.
+────────────────────────────────────────────────────────────────────────
+  ⏳ [13:40:28] (53 ms) Well.                                                                                             ⏳ [13:40:29] (53 ms) Okay, fine, so I can see the                                                                      ⏳ [13:40:31] (53 ms) Okay, fine. So I can see the proper transcriptions.                                               ⏳ [13:40:32] (53 ms) Okay fine. So I can see the proper transcriptions and I think                                                                                                                                                           [13:40:33] Final | first partial at 53 ms
+  ✅  Okay, fine, so I can see the proper transcriptions and I think
+────────────────────────────────────────────────────────────────────────
+  ⏳ [13:40:34] (52 ms) Yeah.                                                                                             ⏳ [13:40:36] (52 ms) It works fine with me.                                                                                                                                                                                                  [13:40:36] Final | first partial at 52 ms
+  ✅  It works fine with me.
+────────────────────────────────────────────────────────────────────────
+  ⏳ [13:40:41] (1605 ms) Hello, this is Azar Tell.                                                                                                                                                                                             [13:40:42] Final | first partial at 1605 ms
+  ✅  Hello, this is Azar Testing.
+────────────────────────────────────────────────────────────────────────
+  ⏳ [13:40:46] (53 ms) Yeah.                                                                                             ⏳ [13:40:47] (53 ms) I said this was ASR testing.                                                                                                                                                                                            [13:40:48] Final | first partial at 53 ms
+  ✅  I said this was ASR testing.
+────────────────────────────────────────────────────────────────────────
+
  
