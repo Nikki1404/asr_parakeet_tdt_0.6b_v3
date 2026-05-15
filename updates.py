@@ -1368,3 +1368,4 @@ In order to test this , please create a realtime websocket demo where we send th
  
 this will simulate the exact scenario that is happening in the audio sending of the websocket
  
+asr-realtime-ml-6fdccb6556-qq6d5           1/1     Running                  1 (7h35m ago)   7h43m
