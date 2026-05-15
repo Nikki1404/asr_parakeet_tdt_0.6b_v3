@@ -1362,4 +1362,9 @@ async def stream_parakeet(audio_file: str):
   ✅  I said this was ASR testing.
 ────────────────────────────────────────────────────────────────────────
 
+Nikita Verma
+Hi Sumeet Tiwari, Could you please share your availability to connect ? I would like to discuss regarding the config we are using for the nvidia and if  I could get a raw binary dump of one websocket…
+In order to test this , please create a realtime websocket demo where we send the audio on the websocket using the microphone using 16000 Hz audio
+ 
+this will simulate the exact scenario that is happening in the audio sending of the websocket
  
