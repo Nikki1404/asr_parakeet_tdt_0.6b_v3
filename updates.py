@@ -1126,155 +1126,160 @@ and I was asked to do this
 import asyncio
 import json
 import logging
-import websockets
-import soundfile as sf
-import numpy as np
+import time
 
-logger = logging.getLogger(__name__)
+import librosa
+import numpy as np
+import soundfile as sf
+import websockets
+
 logging.basicConfig(level=logging.INFO)
 
-# CONFIG
-WEBSOCKET_ADDRESS = "ws://192.168.4.38:8001/ws"
+logger = logging.getLogger("parakeet_test")
+
+WS_URL = "wss://cx-asr.exlservice.com/asr/ml/ws"
+
 TARGET_SR = 16000
+
 CHUNK_MS = 30
+
 CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
+
 CHUNK_BYTES = CHUNK_SAMPLES * 2
 
 
-# AUDIO LOADER
-def load_audio(filepath: str):
-    audio, sr = sf.read(filepath, dtype="float32")
+def load_audio(filepath: str) -> bytes:
+
+    audio, sr = sf.read(
+        filepath,
+        dtype="float32",
+    )
 
     if audio.ndim == 2:
         audio = audio.mean(axis=1)
 
     if sr != TARGET_SR:
-        import librosa
+
         audio = librosa.resample(
             audio,
             orig_sr=sr,
-            target_sr=TARGET_SR
+            target_sr=TARGET_SR,
         )
 
     pcm = (
-        np.clip(audio, -1.0, 1.0) * 32767
+        np.clip(audio, -1.0, 1.0)
+        * 32767
     ).astype(np.int16)
 
     return pcm.tobytes()
 
 
-# MAIN STREAM FUNCTION
-async def stream_parakeet(audio_file: str):
-    event_queue = asyncio.Queue()
+async def receiver(ws):
+
+    async for msg in ws:
+
+        if not isinstance(msg, str):
+            continue
+
+        try:
+            obj = json.loads(msg)
+
+        except Exception:
+            continue
+
+        typ = obj.get("type")
+
+        txt = obj.get("text", "")
+
+        ttfb = obj.get("t_start")
+
+        ts = time.strftime("%H:%M:%S")
+
+        if typ == "partial":
+
+            print(
+                f"\r⏳ [{ts}] "
+                f"({ttfb} ms) "
+                f"{txt:<120}",
+                end="",
+                flush=True,
+            )
+
+        elif typ == "transcript":
+
+            print("\r" + " " * 160 + "\r", end="")
+
+            print(
+                f"[{ts}] FINAL "
+                f"(first partial {ttfb} ms)"
+            )
+
+            print(f"✅ {txt}")
+
+            print("─" * 80)
+
+
+async def sender(
+    ws,
+    pcm_audio: bytes,
+):
+
+    offset = 0
+
+    while offset < len(pcm_audio):
+
+        chunk = pcm_audio[
+            offset: offset + CHUNK_BYTES
+        ]
+
+        offset += CHUNK_BYTES
+
+        if len(chunk) < CHUNK_BYTES:
+
+            chunk += bytes(
+                CHUNK_BYTES - len(chunk)
+            )
+
+        await ws.send(chunk)
+
+        await asyncio.sleep(
+            CHUNK_MS / 1000
+        )
+
+
+async def stream_audio(
+    audio_file: str,
+):
 
     pcm_audio = load_audio(audio_file)
 
+    logger.info(
+        "Loaded audio | %.2fs",
+        len(pcm_audio) / 2 / TARGET_SR,
+    )
+
     async with websockets.connect(
-        WEBSOCKET_ADDRESS,
-        max_size=None,
+        WS_URL,
         ping_interval=20,
-        ping_timeout=20
+        ping_timeout=20,
+        max_size=None,
     ) as ws:
 
-        logger.info("Connected to websocket")
+        logger.info(
+            "Connected to websocket"
+        )
 
-        async def receive_task():
-            """
-            Listen for partial + final transcripts
-            throughout the full audio stream.
-            """
-            try:
-                async for msg in ws:
-                    if isinstance(msg, str):
-                        obj = json.loads(msg)
+        recv_task = asyncio.create_task(
+            receiver(ws)
+        )
 
-                        typ = obj.get("type")
-                        txt = obj.get("text", "")
+        await sender(
+            ws,
+            pcm_audio,
+        )
 
-                        logger.info(
-                            f"Websocket received msg: {txt}, type: {typ}"
-                        )
+        await asyncio.sleep(8)
+        await ws.close()
+        recv_task.cancel()
 
-                        if typ == "partial":
-                            await event_queue.put({
-                                "type": "INTERIM_TRANSCRIPT",
-                                "text": txt
-                            })
 
-                        elif typ in ["transcript", "final"]:
-                            await event_queue.put({
-                                "type": "FINAL_TRANSCRIPT",
-                                "text": txt
-                            })
-
-            except websockets.exceptions.ConnectionClosed:
-                logger.info("Connection closed by server")
-
-        async def send_task():
-            """
-            Stream complete audio file chunk by chunk.
-            """
-            try:
-                offset = 0
-                total_chunks = 0
-
-                while offset < len(pcm_audio):
-                    chunk = pcm_audio[
-                        offset: offset + CHUNK_BYTES
-                    ]
-                    offset += CHUNK_BYTES
-
-                    if len(chunk) < CHUNK_BYTES:
-                        chunk += bytes(
-                            CHUNK_BYTES - len(chunk)
-                        )
-
-                    await ws.send(chunk)
-                    total_chunks += 1
-
-                    if total_chunks % 1000 == 0:
-                        logger.info(
-                            f"Sent {total_chunks} chunks"
-                        )
-
-                    await asyncio.sleep(
-                        CHUNK_MS / 1000
-                    )
-
-                logger.info("Finished sending full audio")
-
-                # final flush
-                await asyncio.sleep(0.5)
-
-                await ws.send(
-                    json.dumps({"cmd": "flush"})
-                )
-
-                logger.info("Flush sent")
-
-                # wait for last transcript
-                await asyncio.sleep(10)
-
-                await event_queue.put(None)
-
-            except Exception as e:
-                logger.info(f"Error occurred: {e}")
-                await event_queue.put(None)
-
-        # start background tasks
-        stask = asyncio.create_task(send_task())
-        rtask = asyncio.create_task(receive_task())
-
-        try:
-            while True:
-                event = await event_queue.get()
-
-                if event is None:
-                    break
-
-                yield event
-
-        finally:
-            stask.cancel()
-            rtask.cancel()
- 
