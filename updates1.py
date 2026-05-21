@@ -2138,4 +2138,97 @@ if __name__ == "__main__":
 
 
 
-docker run --gpus all -p 8001:8001 -v $(pwd)/asr_audio_chunks:/app/asr_audio_chunks parakeet-asr-fixed
+pipeline {
+    agent {
+        label 'cicd'
+    }
+    environment {
+        ACCOUNT_ID = "058264113403"
+        REGION = "us-east-1"
+        ENVIRONMENT = "develop"
+        AWS_ROLE_ARN = "arn:aws:iam::${ACCOUNT_ID}:role/EXLJenkinsCrossAccountRole-BU"
+        EKS_CLUSTER           = "CX-APPS-AA-EKS-DEV"
+    }
+    stages {
+        stage('Security Scanning') {
+            steps {
+                script {
+                    try {
+                        sh "ls -al"
+                        // build propagate: false, job: "ISGADSO/autonomous_agent/bu-digital-cx-aa-app/${env.BRANCH_NAME}"
+
+                        } catch (Exception e) {
+                            echo "Failed to trigger downstream job: ${e.getMessage()}"
+                            currentBuild.result = 'FAILURE'
+
+                        }
+                 }
+            }
+        }  
+        stage('Set Environment Variables based on branch'){
+            steps{
+                script{
+                    def commitHash = sh(script: 'git rev-parse --short=6 HEAD', returnStdout: true).trim()
+                    sh "echo ${env.BRANCH_NAME}"
+                    if (env.BRANCH_NAME == 'dev') {
+                        env.ENVIRONMENT           = "develop"
+                        env.IMAGE_REPO_NAME       = "asr-realtime-ml"
+                        env.ECR_REPO_URI          = "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${env.IMAGE_REPO_NAME}"
+                        env.IMAGE_TAG             = "develop_${commitHash}"
+                        env.DEPLOYMENT_NAME       = "asr-realtime-ml"
+                        env.CONTAINER_NAME        = "asr-realtime-ml-container"
+                        env.K8_NAMESPACE          = "cx-speech"
+                        env.FOLDER_NAME           = "."
+                        // env.DOCKER_COMPOSE_FILE   = "docker-compose.yml"
+                        // env.AZURE_REPO            = "asr-realtime"
+			            env.DOCKER_FILE		  = "Dockerfile"
+                        sh "echo ${env.FOLDER_NAME}"
+                    }
+                }
+            }
+        }
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    // Build and push Docker image to ECR    
+                    sh "echo ${env.FOLDER_NAME}"            
+                    withAWS(role: AWS_ROLE_ARN, region: REGION , useNode: true) {
+			 sh "aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin '$ACCOUNT_ID'.dkr.ecr.'$REGION'.amazonaws.com"
+                    	sh "export TAG=${env.IMAGE_TAG}"
+			sh "docker build -t $IMAGE_REPO_NAME:$IMAGE_TAG -f ./$DOCKER_FILE ."
+                    	sh "docker images"
+                       
+                        sh "echo docker tag  ${env.IMAGE_REPO_NAME}:${env.IMAGE_TAG} ${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
+                        sh "docker tag ${env.IMAGE_REPO_NAME}:${env.IMAGE_TAG} ${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
+                        sh "echo docker push"
+                        sh "docker push ${env.ECR_REPO_URI}:${env.IMAGE_TAG}"
+                   }
+                }
+            }
+        }
+
+	stage('Deploy EKS') {
+            steps {
+                script {
+                    // Build and push Docker image to ECR                
+                    withAWS(role: AWS_ROLE_ARN, region: REGION , useNode: true) {
+			// def secretJson = sh(
+	  //                       script: "aws secretsmanager get-secret-value --secret-id dev/transform-cx/ds --region $AWS_REGION --query SecretString --output text > config.ini",
+	  //                       returnStdout: true
+   //                  	).trim()
+			// sh "head -n 10 config.ini"
+                        sh "echo Setting kubeconfig"
+                        sh "aws eks --region ${AWS_REGION} update-kubeconfig --name ${EKS_CLUSTER}"
+                        sh "kubectl config get-contexts"
+                        sh "aws eks describe-cluster --name ${EKS_CLUSTER} --region ${AWS_REGION}"
+			// sh "kubectl create configmap ${env.DEPLOYMENT_NAME}-config --from-file=config.ini --namespace=${env.K8_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -"
+                        sh "echo Deployment EKS Started"
+                        sh "kubectl set image deployment/${env.DEPLOYMENT_NAME} ${env.CONTAINER_NAME}=${env.ECR_REPO_URI}:${env.IMAGE_TAG} -n ${env.K8_NAMESPACE}"
+                        sh "kubectl rollout restart deployment/${env.DEPLOYMENT_NAME} -n ${env.K8_NAMESPACE}"
+                   }
+                }
+            }
+        }
+ 
+    }
+}
