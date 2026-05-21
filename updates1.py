@@ -2135,3 +2135,7 @@ if __name__ == "__main__":
                 args.lang,
             )
         )
+
+
+
+docker run --gpus all -p 8001:8001 -v $(pwd)/asr_audio_chunks:/app/asr_audio_chunks parakeet-asr-fixed
