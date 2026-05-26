@@ -2047,3 +2047,280 @@ if __name__ == "__main__":
         asyncio.run(
             run_mic(args.device)
         )
+
+
+#sample websocket code
+import asyncio
+import json
+import logging
+import time
+from pathlib import Path
+
+import librosa
+import numpy as np
+import soundfile as sf
+import websockets
+
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger("parakeet_test")
+
+# ============================================================================
+# CONFIG
+# ============================================================================
+
+WS_URL = "wss://cx-asr.exlservice.com/asr/ml/ws"
+
+LANGUAGE = "en"   # change to "es" for Spanish
+
+TARGET_SR = 16000
+
+CHUNK_MS = 30
+
+CHUNK_SAMPLES = TARGET_SR * CHUNK_MS // 1000
+
+CHUNK_BYTES = CHUNK_SAMPLES * 2
+
+# ============================================================================
+# AUDIO LOADING
+# ============================================================================
+
+
+def load_audio(filepath: str) -> bytes:
+
+    audio, sr = sf.read(
+        filepath,
+        dtype="float32",
+    )
+
+    if audio.ndim == 2:
+        audio = audio.mean(axis=1)
+
+    if sr != TARGET_SR:
+
+        logger.info(
+            "Resampling %s Hz -> %s Hz",
+            sr,
+            TARGET_SR,
+        )
+
+        audio = librosa.resample(
+            audio,
+            orig_sr=sr,
+            target_sr=TARGET_SR,
+        )
+
+    pcm = (
+        np.clip(audio, -1.0, 1.0)
+        * 32767
+    ).astype(np.int16)
+
+    return pcm.tobytes()
+
+# ============================================================================
+# SEND CONFIG
+# ============================================================================
+
+
+async def send_config(ws):
+
+    cfg = {
+        "type": "config",
+        "lang": LANGUAGE,
+        "sr": TARGET_SR,
+    }
+
+    await ws.send(json.dumps(cfg))
+
+    logger.info(
+        "Sent config | lang=%s | sr=%s",
+        LANGUAGE,
+        TARGET_SR,
+    )
+
+# ============================================================================
+# RECEIVER
+# ============================================================================
+
+
+async def receiver(ws):
+
+    async for msg in ws:
+
+        if not isinstance(msg, str):
+            continue
+
+        try:
+            obj = json.loads(msg)
+
+        except Exception:
+            continue
+
+        typ = obj.get("type")
+
+        txt = obj.get("text", "")
+
+        ttfb = obj.get("t_start")
+
+        ts = time.strftime("%H:%M:%S")
+
+        # --------------------------------------------------------------------
+        # READY
+        # --------------------------------------------------------------------
+
+        if typ == "ready":
+
+            logger.info(
+                "SERVER READY | lang=%s | client_sr=%s | server_sr=%s",
+                obj.get("lang"),
+                obj.get("client_sr"),
+                obj.get("server_sr"),
+            )
+
+        # --------------------------------------------------------------------
+        # ERROR
+        # --------------------------------------------------------------------
+
+        elif typ == "error":
+
+            logger.error(
+                "SERVER ERROR: %s",
+                txt,
+            )
+
+        # --------------------------------------------------------------------
+        # PARTIAL
+        # --------------------------------------------------------------------
+
+        elif typ == "partial":
+
+            print(
+                f"\r⏳ [{ts}] "
+                f"({ttfb} ms) "
+                f"{txt:<120}",
+                end="",
+                flush=True,
+            )
+
+        # --------------------------------------------------------------------
+        # FINAL
+        # --------------------------------------------------------------------
+
+        elif typ == "transcript":
+
+            print("\r" + " " * 180 + "\r", end="")
+
+            print(
+                f"[{ts}] FINAL "
+                f"(first partial {ttfb} ms)"
+            )
+
+            print(f"✅ {txt}")
+
+            print("─" * 80)
+
+# ============================================================================
+# SENDER
+# ============================================================================
+
+
+async def sender(
+    ws,
+    pcm_audio: bytes,
+):
+
+    offset = 0
+
+    total_chunks = 0
+
+    while offset < len(pcm_audio):
+
+        chunk = pcm_audio[
+            offset: offset + CHUNK_BYTES
+        ]
+
+        offset += CHUNK_BYTES
+
+        if len(chunk) < CHUNK_BYTES:
+
+            chunk += bytes(
+                CHUNK_BYTES - len(chunk)
+            )
+
+        await ws.send(chunk)
+
+        total_chunks += 1
+
+        if total_chunks % 100 == 0:
+
+            logger.info(
+                "Sent chunks=%s",
+                total_chunks,
+            )
+
+        await asyncio.sleep(
+            CHUNK_MS / 1000
+        )
+
+    logger.info(
+        "Finished audio streaming | chunks=%s",
+        total_chunks,
+    )
+
+# ============================================================================
+# MAIN STREAM
+# ============================================================================
+
+
+async def stream_audio(
+    audio_file: str,
+):
+
+    pcm_audio = load_audio(audio_file)
+
+    duration_sec = (
+        len(pcm_audio) / 2 / TARGET_SR
+    )
+
+    logger.info(
+        "Loaded audio | file=%s | duration=%.2fs",
+        Path(audio_file).name,
+        duration_sec,
+    )
+
+    async with websockets.connect(
+        WS_URL,
+        ping_interval=20,
+        ping_timeout=20,
+        max_size=None,
+    ) as ws:
+
+        logger.info(
+            "Connected to websocket"
+        )
+
+        # ------------------------------------------------------------
+        # IMPORTANT:
+        # Send config FIRST
+        # ------------------------------------------------------------
+
+        await send_config(ws)
+
+        recv_task = asyncio.create_task(
+            receiver(ws)
+        )
+
+        await sender(
+            ws,
+            pcm_audio,
+        )
+
+        logger.info(
+            "Waiting for final transcripts..."
+        )
+
+        await asyncio.sleep(8)
+
+        await ws.close()
+
+        recv_task.cancel()
