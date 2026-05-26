@@ -104,26 +104,36 @@ log = logging.getLogger("parakeet_server")
 def safe_text(x) -> str:
     if x is None:
         return ""
+
     if isinstance(x, str):
         return x
+
     if isinstance(x, (list, tuple)) and x:
         return safe_text(x[0])
+
     if hasattr(x, "text"):
         try:
             return x.text or ""
         except Exception:
             return ""
+
     try:
         return str(x)
     except Exception:
         return ""
 
 
-_LATIN_RE = re.compile(r"^[\x00-\xFF\u00C0-\u024F\s.,;:!?'\"\-()\d]+$")
+_LATIN_RE = re.compile(
+    r"^[\x00-\xFF\u00C0-\u024F\s.,;:!?'\"\-()\d]+$"
+)
 
 
 def _similarity(a: str, b: str) -> float:
-    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
+    return SequenceMatcher(
+        None,
+        a.lower().strip(),
+        b.lower().strip(),
+    ).ratio()
 
 
 def _is_gibberish(text: str) -> bool:
@@ -137,9 +147,11 @@ def _is_gibberish(text: str) -> bool:
 
     words = t.split()
 
+    # repeated hallucinations
     if len(words) >= 4 and len(set(w.lower() for w in words)) == 1:
         return True
 
+    # invalid single-char noise
     if len(t) == 1 and not t.isalpha():
         return True
 
@@ -155,14 +167,27 @@ def _score_candidate(text: str, audio_ms: int) -> int:
 
     score = 0
 
-    # Prefer natural short outputs for short speech.
+    # ------------------------------------------------------------
+    # VERY IMPORTANT:
+    # Prefer SHORT outputs for SHORT speech.
+    #
+    # Prevent:
+    # "three four"
+    # -> "go on to four of it"
+    # ------------------------------------------------------------
+
     if audio_ms <= 2000:
+
         if len(words) <= 4:
             score += 12
+
         if len(words) >= 7:
             score -= 20
 
-    # Penalize common multilingual drift artifacts observed in your testing.
+    # ------------------------------------------------------------
+    # Penalize multilingual hallucinations seen in testing
+    # ------------------------------------------------------------
+
     bad_tokens = [
         "devět",
         "tři",
@@ -175,23 +200,31 @@ def _score_candidate(text: str, audio_ms: int) -> int:
     if any(tok in t for tok in bad_tokens):
         score -= 40
 
-    # Prefer expected short-command / digit style outputs.
+    # ------------------------------------------------------------
+    # Prefer command / digit style utterances
+    # ------------------------------------------------------------
+
     common_short_words = {
         "zero", "one", "two", "three", "four", "five",
         "six", "seven", "eight", "nine", "ten",
-        "no", "yes", "okay", "ok", "right",
-        "hola", "sí", "si", "gracias",
+        "okay", "ok", "yes", "no", "right",
+        "hola", "gracias", "sí", "si",
     }
 
-    if any(w.strip(".,!?").lower() in common_short_words for w in words):
+    if any(
+        w.strip(".,!?").lower() in common_short_words
+        for w in words
+    ):
         score += 8
 
+    # Natural language reward
     score += min(len(words), 6)
 
     return score
 
 
 class ParakeetASR(ASREngine):
+
     caps = EngineCaps(
         streaming=False,
         partials=True,
@@ -211,14 +244,26 @@ class ParakeetASR(ASREngine):
         self.sr = sample_rate
         self.language = language
         self.partial_tail_ms = partial_tail_ms
+
         self.model = None
 
-        # Accuracy-first endpointing.
+        # --------------------------------------------------------
+        # ACCURACY-FIRST ENDPOINTING
+        #
+        # Short utterances need:
+        # - more silence
+        # - more context
+        # - no clipping
+        # --------------------------------------------------------
+
         self.end_silence_ms = 1100
         self.min_utt_ms = 700
         self.finalize_pad_ms = 300
 
-        # Partials are display hints only.
+        # --------------------------------------------------------
+        # Slower partials = more stable decoder
+        # --------------------------------------------------------
+
         self.partial_interval_sec = 2.0
 
     def load(self) -> float:
@@ -226,7 +271,10 @@ class ParakeetASR(ASREngine):
 
         t0 = time.time()
 
-        self.model = nemo_asr.models.ASRModel.from_pretrained(self.model_name)
+        self.model = nemo_asr.models.ASRModel.from_pretrained(
+            self.model_name
+        )
+
         self.model = self.model.to(self.device)
         self.model.eval()
 
@@ -237,7 +285,12 @@ class ParakeetASR(ASREngine):
         max_buffer_ms: int,
         language: Optional[str] = None,
     ) -> "ParakeetSession":
-        effective_language = language if language in ("en", "es") else self.language
+
+        effective_language = (
+            language
+            if language in ("en", "es")
+            else self.language
+        )
 
         return ParakeetSession(
             engine=self,
@@ -250,6 +303,7 @@ _MIN_PARTIAL_MS = 900
 
 
 class ParakeetSession:
+
     def __init__(
         self,
         engine: ParakeetASR,
@@ -259,43 +313,73 @@ class ParakeetSession:
         self.engine = engine
         self.language = language
 
-        log.info("[ASR_SESSION] locked_language=%s", language)
+        log.info(
+            "[ASR_SESSION] locked_language=%s",
+            language,
+        )
 
-        self.max_buffer_samples = int(engine.sr * max_buffer_ms / 1000)
+        self.max_buffer_samples = int(
+            engine.sr * max_buffer_ms / 1000
+        )
 
         self.audio = bytearray()
+
         self.current_text = ""
         self.last_good_partial = ""
+
         self.last_partial_time = 0.0
         self._audio_ms = 0
 
     def accept_pcm16(self, pcm16: bytes) -> None:
         self.audio.extend(pcm16)
-        self._audio_ms = int(len(self.audio) / 2 / self.engine.sr * 1000)
+
+        self._audio_ms = int(
+            len(self.audio) / 2 / self.engine.sr * 1000
+        )
 
         max_bytes = self.max_buffer_samples * 2
 
         if len(self.audio) > max_bytes:
             self.audio = self.audio[-max_bytes:]
-            self._audio_ms = int(len(self.audio) / 2 / self.engine.sr * 1000)
+
+            self._audio_ms = int(
+                len(self.audio) / 2 / self.engine.sr * 1000
+            )
 
     def step_if_ready(self) -> Optional[str]:
+
         now = time.time()
 
         if not self.audio:
             return None
 
+        # --------------------------------------------------------
+        # Don't decode tiny unstable buffers
+        # --------------------------------------------------------
+
         if self._audio_ms < _MIN_PARTIAL_MS:
             return None
 
-        if (now - self.last_partial_time) < self.engine.partial_interval_sec:
+        if (
+            now - self.last_partial_time
+        ) < self.engine.partial_interval_sec:
             return None
 
         self.last_partial_time = now
 
-        text = self._transcribe(tail_only=True, pad_ms=250).strip()
+        # --------------------------------------------------------
+        # Tail-only partial decode
+        # --------------------------------------------------------
 
-        if not text or _is_gibberish(text):
+        text = self._transcribe(
+            tail_only=True,
+            pad_ms=250,
+        ).strip()
+
+        if not text:
+            return None
+
+        if _is_gibberish(text):
             return None
 
         if text == self.current_text:
@@ -304,43 +388,129 @@ class ParakeetSession:
         self.current_text = text
         self.last_good_partial = text
 
+        log.info(
+            "[PARTIAL_SELECT] audio_ms=%s | locked_lang=%s | text=%r",
+            self._audio_ms,
+            self.language,
+            text,
+        )
+
         return text
 
     def finalize(self, pad_ms: int) -> str:
+
         candidates = []
 
-        # Main accuracy decode: full utterance + padding.
-        full_final = self._transcribe(tail_only=False, pad_ms=pad_ms).strip()
+        # --------------------------------------------------------
+        # MAIN FINAL DECODE
+        # --------------------------------------------------------
+
+        full_final = self._transcribe(
+            tail_only=False,
+            pad_ms=pad_ms,
+        ).strip()
+
         if full_final:
-            candidates.append(full_final)
+            candidates.append(
+                ("full_final", full_final)
+            )
 
-        # Short utterance retry with more padding.
+        # --------------------------------------------------------
+        # SHORT UTTERANCE RETRY
+        #
+        # More silence padding helps:
+        # - "three four"
+        # - "repo"
+        # - "okay"
+        # --------------------------------------------------------
+
         if self._audio_ms <= 2500:
-            retry_final = self._transcribe(tail_only=False, pad_ms=600).strip()
+
+            retry_final = self._transcribe(
+                tail_only=False,
+                pad_ms=600,
+            ).strip()
+
             if retry_final:
-                candidates.append(retry_final)
+                candidates.append(
+                    ("short_retry", retry_final)
+                )
 
-        # Stable partial is fallback candidate when final drifts.
+        # --------------------------------------------------------
+        # Stable partial candidate
+        # --------------------------------------------------------
+
         if self.last_good_partial:
-            candidates.append(self.last_good_partial)
+            candidates.append(
+                (
+                    "last_good_partial",
+                    self.last_good_partial,
+                )
+            )
 
+        best_source = ""
         best = ""
         best_score = -999
 
-        for candidate in candidates:
-            score = _score_candidate(candidate, self._audio_ms)
+        log.info(
+            "[FINAL_START] audio_ms=%s | locked_lang=%s | last_partial=%r | candidates=%d",
+            self._audio_ms,
+            self.language,
+            self.last_good_partial,
+            len(candidates),
+        )
 
-            if self.last_good_partial and candidate != self.last_good_partial:
-                sim = _similarity(candidate, self.last_good_partial)
+        for source, candidate in candidates:
 
-                # Protect against final hallucination replacing a good partial.
+            score = _score_candidate(
+                candidate,
+                self._audio_ms,
+            )
+
+            sim = None
+
+            # ----------------------------------------------------
+            # VERY IMPORTANT:
+            #
+            # Protect stable partial from
+            # hallucinated final drift.
+            #
+            # Example:
+            #
+            # partial:
+            # "three four"
+            #
+            # final:
+            # "go on to four of it"
+            # ----------------------------------------------------
+
+            if (
+                self.last_good_partial
+                and candidate != self.last_good_partial
+            ):
+                sim = _similarity(
+                    candidate,
+                    self.last_good_partial,
+                )
+
                 if sim < 0.45:
                     score -= 25
+
                 elif sim < 0.65:
                     score -= 12
 
+            log.info(
+                "[FINAL_CANDIDATE] source=%s | audio_ms=%s | score=%s | similarity=%s | text=%r",
+                source,
+                self._audio_ms,
+                score,
+                f"{sim:.2f}" if sim is not None else "NA",
+                candidate,
+            )
+
             if score > best_score:
                 best = candidate
+                best_source = source
                 best_score = score
 
         if best and not _is_gibberish(best):
@@ -348,70 +518,162 @@ class ParakeetSession:
 
         out = self.current_text.strip()
 
+        log.info(
+            "[FINAL_SELECT] source=%s | score=%s | audio_ms=%s | selected=%r",
+            best_source,
+            best_score,
+            self._audio_ms,
+            out,
+        )
+
+        # --------------------------------------------------------
+        # RESET SESSION STATE
+        # --------------------------------------------------------
+
         self.audio.clear()
+
         self.current_text = ""
         self.last_good_partial = ""
+
         self.last_partial_time = 0.0
         self._audio_ms = 0
 
         return out
 
-    def _transcribe(self, tail_only: bool = False, pad_ms: int = 0) -> str:
+    def _transcribe(
+        self,
+        tail_only: bool = False,
+        pad_ms: int = 0,
+    ) -> str:
+
         tmp_path = None
 
         try:
+
             audio = bytes(self.audio)
 
+            # ----------------------------------------------------
+            # Partial decode only uses recent tail
+            # ----------------------------------------------------
+
             if tail_only:
-                tail_bytes = int(self.engine.sr * self.engine.partial_tail_ms / 1000) * 2
+
+                tail_bytes = int(
+                    self.engine.sr
+                    * self.engine.partial_tail_ms
+                    / 1000
+                ) * 2
+
                 audio = audio[-tail_bytes:]
 
+            # ----------------------------------------------------
+            # Add trailing silence padding
+            # ----------------------------------------------------
+
             if pad_ms > 0:
-                pad_bytes = int(self.engine.sr * pad_ms / 1000) * 2
-                audio = audio + (b"\x00" * pad_bytes)
+
+                pad_bytes = int(
+                    self.engine.sr * pad_ms / 1000
+                ) * 2
+
+                audio = audio + (
+                    b"\x00" * pad_bytes
+                )
 
             if not audio:
                 return ""
 
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-                tmp_path = f.name
-                f.write(self._to_wav(audio, self.engine.sr))
+            with tempfile.NamedTemporaryFile(
+                suffix=".wav",
+                delete=False,
+            ) as f:
 
-            results = self._call_model(tmp_path, self.language)
+                tmp_path = f.name
+
+                f.write(
+                    self._to_wav(
+                        audio,
+                        self.engine.sr,
+                    )
+                )
+
+            results = self._call_model(
+                tmp_path,
+                self.language,
+            )
 
             if not results:
                 return ""
 
-            return safe_text(results[0]).strip()
+            text = safe_text(
+                results[0]
+            ).strip()
+
+            return text
 
         except Exception as exc:
-            log.warning("[ASR] transcription error: %s", exc)
+
+            log.warning(
+                "[ASR_TRANSCRIBE_ERROR] %s",
+                exc,
+            )
+
             return ""
 
         finally:
+
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    def _call_model(self, wav_path: str, language: Optional[str]):
+    def _call_model(
+        self,
+        wav_path: str,
+        language: Optional[str],
+    ):
+
         model = self.engine.model
+
+        # --------------------------------------------------------
+        # Language locked from client side.
+        #
+        # NO AUTO-DETECT IN PRODUCTION.
+        # --------------------------------------------------------
 
         if not language:
             return model.transcribe([wav_path])
 
         try:
-            return model.transcribe([wav_path], language_id=language)
+            return model.transcribe(
+                [wav_path],
+                language_id=language,
+            )
+
         except TypeError:
-            log.warning("[ASR] language_id unsupported, trying language")
+
+            log.warning(
+                "[ASR] language_id unsupported, trying language"
+            )
 
         try:
-            return model.transcribe([wav_path], language=language)
+            return model.transcribe(
+                [wav_path],
+                language=language,
+            )
+
         except TypeError:
-            log.warning("[ASR] language unsupported, using auto-detect")
+
+            log.warning(
+                "[ASR] language unsupported, using default"
+            )
 
         return model.transcribe([wav_path])
 
     @staticmethod
-    def _to_wav(pcm: bytes, sr: int) -> bytes:
+    def _to_wav(
+        pcm: bytes,
+        sr: int,
+    ) -> bytes:
+
         buf = io.BytesIO()
 
         with wave.open(buf, "wb") as wf:
@@ -688,9 +950,10 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Optional
 
-from fastapi import FastAPI, Query, WebSocket
+import numpy as np
+import resampy
+from fastapi import FastAPI, WebSocket
 from fastapi.responses import Response
 from fastapi.websockets import WebSocketDisconnect
 
@@ -718,14 +981,48 @@ except ImportError:
     _PROM_ENABLED = False
 
 
+def upsample_if_needed(pcm: bytes, client_sample_rate: int) -> bytes:
+    if not pcm:
+        return pcm
+
+    if client_sample_rate == cfg.sample_rate:
+        return pcm
+
+    log.debug(
+        "[RESAMPLE] client_sr=%s -> server_sr=%s | bytes=%s",
+        client_sample_rate,
+        cfg.sample_rate,
+        len(pcm),
+    )
+
+    try:
+        x = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
+
+        y = resampy.resample(
+            x,
+            client_sample_rate,
+            cfg.sample_rate,
+        )
+
+        y = np.clip(y, -1.0, 1.0)
+
+        return (y * 32767.0).astype(np.int16).tobytes()
+
+    except Exception as exc:
+        log.warning("[RESAMPLE_FAILED] %s", exc)
+        return pcm
+
+
 @app.on_event("startup")
 async def startup():
     load_sec = engine.load()
 
-    log.info("Model loaded in %.2fs", load_sec)
-    log.info("Language mode: client-required")
-    log.info("Audio saving: %s", cfg.save_audio)
-    log.info("Audio save dir: %s", cfg.audio_save_dir)
+    log.info("[STARTUP] model_loaded_sec=%.2f", load_sec)
+    log.info("[STARTUP] backend=%s", cfg.asr_backend)
+    log.info("[STARTUP] model=%s", cfg.model_name)
+    log.info("[STARTUP] server_sample_rate=%s", cfg.sample_rate)
+    log.info("[STARTUP] audio_save=%s", cfg.save_audio)
+    log.info("[STARTUP] audio_save_dir=%s", cfg.audio_save_dir)
 
 
 @app.get("/health")
@@ -734,8 +1031,7 @@ async def health():
         "ok": True,
         "backend": cfg.asr_backend,
         "model": cfg.model_name,
-        "language": "client-required",
-        "require_client_language": cfg.require_client_language,
+        "sample_rate": cfg.sample_rate,
         "save_audio": cfg.save_audio,
         "audio_save_dir": cfg.audio_save_dir,
     }
@@ -754,41 +1050,110 @@ async def metrics():
 
 
 @app.websocket("/asr/ml/ws")
-async def ws_asr(
-    ws: WebSocket,
-    lang: Optional[str] = Query(default=None),
-):
+async def ws_asr(ws: WebSocket):
     await ws.accept()
 
     client = ws.client
+    log.info("[CONNECT] client=%s", client)
 
-    if lang not in ("en", "es"):
-        if cfg.require_client_language:
+    session = None
+
+    try:
+        # ----------------------------------------------------------
+        # First message must be JSON config from client.
+        # Endpoint remains only: ws://host/asr/ml/ws
+        # ----------------------------------------------------------
+        config_raw = await ws.receive_text()
+        config_msg = json.loads(config_raw)
+
+        if config_msg.get("type") != "config":
             await ws.send_text(
                 json.dumps(
                     {
                         "type": "error",
-                        "text": "Language required. Connect using ?lang=en or ?lang=es.",
+                        "text": "First message must be JSON: {'type':'config','lang':'en|es','sr':16000}",
                     }
                 )
             )
             await ws.close()
-            log.warning("[REJECT] %s invalid/missing lang=%s", client, lang)
+            log.warning("[REJECT] client=%s | reason=first_message_not_config", client)
             return
 
-    effective_lang = lang if lang in ("en", "es") else cfg.language
+        lang = config_msg.get("lang")
+        client_sr = int(config_msg.get("sr", cfg.sample_rate))
 
-    log.info("[CONNECT] %s | locked_lang=%s", client, effective_lang)
+        if lang not in ("en", "es"):
+            await ws.send_text(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "text": "lang must be 'en' or 'es'",
+                    }
+                )
+            )
+            await ws.close()
+            log.warning("[REJECT] client=%s | invalid_lang=%s", client, lang)
+            return
 
-    session = StreamingSession(
-        engine=engine,
-        cfg=cfg,
-        language_override=effective_lang,
-    )
+        if client_sr <= 0:
+            await ws.send_text(
+                json.dumps(
+                    {
+                        "type": "error",
+                        "text": "sr must be a valid positive sample rate",
+                    }
+                )
+            )
+            await ws.close()
+            log.warning("[REJECT] client=%s | invalid_sr=%s", client, client_sr)
+            return
 
-    try:
+        log.info(
+            "[SESSION_CONFIG] client=%s | locked_lang=%s | client_sr=%s | server_sr=%s",
+            client,
+            lang,
+            client_sr,
+            cfg.sample_rate,
+        )
+
+        session = StreamingSession(
+            engine=engine,
+            cfg=cfg,
+            language_override=lang,
+        )
+
+        await ws.send_text(
+            json.dumps(
+                {
+                    "type": "ready",
+                    "lang": lang,
+                    "client_sr": client_sr,
+                    "server_sr": cfg.sample_rate,
+                }
+            )
+        )
+
+        chunk_count = 0
+        total_input_bytes = 0
+        total_resampled_bytes = 0
+
         while True:
             data = await ws.receive_bytes()
+
+            chunk_count += 1
+            total_input_bytes += len(data)
+
+            data = upsample_if_needed(data, client_sr)
+            total_resampled_bytes += len(data)
+
+            if chunk_count % 100 == 0:
+                log.info(
+                    "[AUDIO_IN] client=%s | chunks=%d | input_bytes=%d | processed_bytes=%d",
+                    client,
+                    chunk_count,
+                    total_input_bytes,
+                    total_resampled_bytes,
+                )
 
             loop = asyncio.get_running_loop()
 
@@ -802,7 +1167,13 @@ async def ws_asr(
                 if len(ev) == 3:
                     ev_type, text, ttfb_ms = ev
 
-                    log.info("[%s] ttfb=%s | %s", ev_type.upper(), ttfb_ms, text)
+                    log.info(
+                        "[%s] client=%s | ttfb_ms=%s | text=%r",
+                        ev_type.upper(),
+                        client,
+                        ttfb_ms,
+                        text,
+                    )
 
                     await ws.send_text(
                         json.dumps(
@@ -817,7 +1188,12 @@ async def ws_asr(
                 else:
                     ev_type, text = ev
 
-                    log.info("[%s] %s", ev_type.upper(), text)
+                    log.info(
+                        "[%s] client=%s | text=%r",
+                        ev_type.upper(),
+                        client,
+                        text,
+                    )
 
                     await ws.send_text(
                         json.dumps(
@@ -829,21 +1205,27 @@ async def ws_asr(
                     )
 
     except WebSocketDisconnect:
-        log.info("[DISCONNECT] %s", client)
+        log.info("[DISCONNECT] client=%s", client)
 
-        try:
-            session.saver.save_full_session()
-        except Exception as exc:
-            log.warning("[SESSION_SAVE] failed: %s", exc)
+        if session is not None:
+            try:
+                session.saver.save_full_session()
+            except Exception as exc:
+                log.warning("[SESSION_SAVE_FAILED] %s", exc)
 
     except Exception as exc:
-        log.exception("[WS_ERROR] %s", exc)
+        log.exception("[WS_ERROR] client=%s | error=%s", client, exc)
+
+        if session is not None:
+            try:
+                session.saver.save_full_session()
+            except Exception as save_exc:
+                log.warning("[SESSION_SAVE_FAILED_AFTER_ERROR] %s", save_exc)
 
         try:
-            session.saver.save_full_session()
-        except Exception as save_exc:
-            log.warning("[SESSION_SAVE] failed after error: %s", save_exc)
-
+            await ws.close()
+        except Exception:
+            pass
 
   #app/filler_filter.py-
   from __future__ import annotations
