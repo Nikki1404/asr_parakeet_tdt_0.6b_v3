@@ -586,10 +586,27 @@ async def ws_asr(ws: WebSocket):
                         session_id, ctrl_type,
                     )
                     if ctrl_type == "end_session":
-                        log.info(
-                            "[%s] end_session received — closing cleanly",
-                            session_id,
-                        )
+                        log.info("[%s] end_session received — finalizing", session_id)
+                    
+                        final = session.asr_session.finalize(cfg.finalize_pad_ms)
+                    
+                        if final:
+                            final_count += 1
+                    
+                            tx_log.info(
+                                "[%s] FINAL   #%04d | ttfb=n/a      | %s",
+                                session_id,
+                                final_count,
+                                final,
+                            )
+                    
+                            await ws.send_text(json.dumps({
+                                "type": "final",
+                                "text": final,
+                                "t_start": None,
+                            }))
+                    
+                        log.info("[%s] end_session finalized — closing cleanly", session_id)
                         break
                 except Exception as e:
                     log.warning(
