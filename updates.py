@@ -1542,8 +1542,9 @@ class ParakeetSession:
         )
 
         self.audio = np.array([], dtype=np.float32)
-        self.current_text = ""
-        self.last_final = ""
+
+        self.committed_text = ""
+        self.last_partial_text = ""
 
         self._last_partial_time = 0.0
         self._last_partial_samples = 0
@@ -1561,28 +1562,24 @@ class ParakeetSession:
 
         if self.audio.size > self._max_samples:
             self.audio = self.audio[-self._max_samples:]
-            log.debug(
-                "Audio buffer trimmed to max %d samples",
-                self._max_samples,
-            )
+            log.warning("Audio trimmed because MAX_UTT_MS is too small")
 
-    def _is_new_text(self, text: Optional[str]) -> bool:
-        if not text:
-            return False
+    def _stable_partial(self, text: str, keep_last_words: int = 8) -> str:
+        """
+        Prevent old words from changing in the UI.
 
-        new = text.strip()
-        old = self.current_text.strip()
+        We only emit the last few words as unstable partial.
+        The full stable transcript is emitted only as final.
+        """
+        words = text.strip().split()
 
-        if not new:
-            return False
+        if not words:
+            return ""
 
-        if new == old:
-            return False
+        if len(words) <= keep_last_words:
+            return text.strip()
 
-        if old and old.startswith(new):
-            return False
-
-        return True
+        return " ".join(words[-keep_last_words:])
 
     def step_if_ready(self) -> Optional[str]:
         now = time.time()
@@ -1601,13 +1598,19 @@ class ParakeetSession:
         self._last_partial_time = now
         self._last_partial_samples = self.audio.size
 
-        text = self.engine.transcribe_buffer(self.audio)
+        full_text = self.engine.transcribe_buffer(self.audio).strip()
 
-        if not self._is_new_text(text):
+        if not full_text:
             return None
 
-        self.current_text = text.strip()
-        return self.current_text
+        unstable_tail = self._stable_partial(full_text)
+
+        if unstable_tail == self.last_partial_text:
+            return None
+
+        self.last_partial_text = unstable_tail
+
+        return unstable_tail
 
     def finalize(self, pad_ms: int) -> str:
         log.debug("Finalizing utterance with %d ms pad", pad_ms)
@@ -1623,11 +1626,10 @@ class ParakeetSession:
 
         final = self.engine.transcribe_buffer(audio).strip()
 
-        if not final:
-            final = self.current_text.strip()
-
         if final:
-            self.last_final = (self.last_final + " " + final).strip()
+            self.committed_text = (
+                self.committed_text + " " + final
+            ).strip()
 
         self.reset_stream_state()
 
@@ -1635,7 +1637,7 @@ class ParakeetSession:
 
     def reset_stream_state(self):
         self.audio = np.array([], dtype=np.float32)
-        self.current_text = ""
+        self.last_partial_text = ""
         self._last_partial_time = 0.0
         self._last_partial_samples = 0
 
