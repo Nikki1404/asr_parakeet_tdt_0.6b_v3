@@ -1605,3 +1605,328 @@ logging.info('Model cached OK')
 EXPOSE 8001
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-ping-interval", "20", "--ws-ping-timeout", "120"]
+
+
+
+#client.py-
+
+"""
+Parakeet ASR — full-featured test client
+
+    python client.py                           # mic, default local server
+    python client.py --file audio.wav          # file mode
+    python client.py --url wss://host/path     # custom server URL
+    python client.py --health                  # health check and exit
+"""
+from __future__ import annotations
+
+import argparse
+import asyncio
+import json
+import sys
+import time
+from pathlib import Path
+from typing import AsyncGenerator, Optional
+from urllib.parse import urlparse, urlunparse
+import urllib.request
+import urllib.error
+
+import numpy as np
+import websockets
+
+DEFAULT_WS_URL    = "ws://localhost:8001/asr/stream"
+DEFAULT_LANGUAGES = ["en-US", "es-US"]
+SERVER_SR         = 16_000
+CHUNK_MS          = 100
+
+
+# ── URL helpers ───────────────────────────────────────────────
+
+def _health_url(ws_url: str) -> str:
+    parsed = urlparse(ws_url)
+    scheme = "https" if parsed.scheme == "wss" else "http"
+    return urlunparse((scheme, parsed.netloc, "/health", "", "", ""))
+
+
+def _validate_ws_url(url: str) -> str:
+    if urlparse(url).scheme not in ("ws", "wss"):
+        print(f"[error] URL must start with ws:// or wss:// — got: {url}")
+        sys.exit(1)
+    return url
+
+
+# ── audio helpers ─────────────────────────────────────────────
+
+def _to_pcm16_16k(audio: np.ndarray, src_sr: int) -> bytes:
+    if audio.dtype != np.float32:
+        audio = audio.astype(np.float32)
+    if audio.max() > 1.0 or audio.min() < -1.0:
+        audio = audio / 32768.0
+    if audio.ndim == 2:
+        audio = audio.mean(axis=1)
+    if src_sr != SERVER_SR:
+        try:
+            import resampy
+            audio = resampy.resample(audio, src_sr, SERVER_SR)
+        except ImportError:
+            from math import gcd
+            from scipy.signal import resample_poly
+            g     = gcd(SERVER_SR, src_sr)
+            audio = resample_poly(audio, SERVER_SR // g, src_sr // g).astype(np.float32)
+    return (np.clip(audio, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
+
+
+def _load_audio_file(path: str) -> tuple[np.ndarray, int]:
+    import soundfile as sf
+    try:
+        audio, sr = sf.read(path, dtype="float32", always_2d=False)
+        return audio, sr
+    except Exception:
+        pass
+    try:
+        from pydub import AudioSegment
+        seg  = AudioSegment.from_file(path)
+        raw  = np.array(seg.get_array_of_samples(), dtype=np.float32)
+        raw /= 2 ** (seg.sample_width * 8 - 1)
+        if seg.channels > 1:
+            raw = raw.reshape(-1, seg.channels).mean(axis=1)
+        return raw, seg.frame_rate
+    except Exception as e:
+        print(f"[error] cannot load {path}: {e}")
+        sys.exit(1)
+
+
+# ── display ───────────────────────────────────────────────────
+
+class _Display:
+    def __init__(self):
+        self._partial_active = False
+
+    def partial(self, text: str):
+        sys.stdout.write(f"\r\033[K  [partial] {text}")
+        sys.stdout.flush()
+        self._partial_active = True
+
+    def final(self, text: str, ttfb: Optional[int]):
+        if self._partial_active:
+            sys.stdout.write("\r\033[K")
+        ttfb_str = f"  (ttfb {ttfb} ms)" if ttfb is not None else ""
+        print(f"  [final]   {text}{ttfb_str}")
+        self._partial_active = False
+
+    def info(self, msg: str):
+        if self._partial_active:
+            sys.stdout.write("\r\033[K")
+            self._partial_active = False
+        print(msg)
+
+    def separator(self):
+        self.info("─" * 60)
+
+
+# ── health check ──────────────────────────────────────────────
+
+def check_health(ws_url: str) -> None:
+    url = _health_url(ws_url)
+    print(f"GET {url}")
+    try:
+        with urllib.request.urlopen(url, timeout=5) as r:
+            body = json.loads(r.read())
+            code = r.status
+    except urllib.error.HTTPError as e:
+        body = json.loads(e.read())
+        code = e.code
+    except Exception as e:
+        print(f"[error] {e}")
+        sys.exit(1)
+
+    pad = max(len(k) for k in body) + 1
+    print(f"\nHTTP {code}")
+    print("─" * 50)
+    for k, v in body.items():
+        print(f"  {k:<{pad}}: {v}")
+    print()
+    sys.exit(0 if body.get("status") == "ok" else 1)
+
+
+# ── WebSocket session ─────────────────────────────────────────
+
+async def _run_session(
+    ws_url:    str,
+    languages: list[str],
+    audio_gen: AsyncGenerator[bytes, None],
+) -> None:
+    display = _Display()
+    try:
+        async with websockets.connect(
+            ws_url,
+            ping_interval = 20,
+            ping_timeout  = 120,
+            max_size      = None,
+        ) as ws:
+
+            await ws.send(json.dumps({
+                "candidate_languages": languages,
+                "sample_rate":         SERVER_SR,
+            }))
+
+            ack = json.loads(await ws.recv())
+            if ack.get("type") != "session_ready":
+                display.info(f"[error] unexpected ack: {ack}")
+                return
+
+            display.separator()
+            display.info(f"  model      : {ack.get('model', '?')}")
+            display.info(f"  session_id : {ack.get('session_id', '?')}")
+            display.info(f"  languages  : {ack.get('supported_languages', languages)}")
+            display.separator()
+
+            async def _recv():
+                try:
+                    async for raw in ws:
+                        if isinstance(raw, bytes):
+                            continue
+                        msg = json.loads(raw)
+                        t   = msg.get("type")
+                        if t == "partial":
+                            display.partial(msg.get("text", ""))
+                        elif t == "final":
+                            display.final(msg.get("text", ""), msg.get("t_start"))
+                except websockets.ConnectionClosed:
+                    pass
+
+            recv_task = asyncio.create_task(_recv())
+
+            try:
+                async for chunk in audio_gen:
+                    await ws.send(chunk)
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                display.info("\n[client] interrupted — flushing final transcript...")
+
+            try:
+                await ws.send(json.dumps({"type": "end_session"}))
+                await asyncio.sleep(1.5)
+            except Exception:
+                pass
+
+            recv_task.cancel()
+            display.separator()
+            display.info("[client] session closed")
+
+    except (websockets.InvalidURI, OSError, ConnectionRefusedError) as e:
+        print(f"[error] cannot connect to {ws_url}: {e}")
+        sys.exit(1)
+
+
+# ── audio generators ──────────────────────────────────────────
+
+async def _mic_generator(chunk_ms: int) -> AsyncGenerator[bytes, None]:
+    import sounddevice as sd
+
+    chunk_samples = int(SERVER_SR * chunk_ms / 1000)
+    queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+
+    def _cb(indata, frames, t, status):
+        if status:
+            print(f"\n[mic] {status}", file=sys.stderr)
+        mono  = indata[:, 0] if indata.ndim == 2 else indata
+        pcm16 = (np.clip(mono, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
+        loop.call_soon_threadsafe(queue.put_nowait, pcm16)
+
+    print(f"[mic] recording at {SERVER_SR} Hz, {chunk_ms} ms chunks")
+    print("[mic] speak now — press Ctrl+C to stop\n")
+
+    with sd.InputStream(
+        samplerate = SERVER_SR,
+        channels   = 1,
+        dtype      = "float32",
+        blocksize  = chunk_samples,
+        callback   = _cb,
+    ):
+        try:
+            while True:
+                chunk = await queue.get()
+                if chunk is None:
+                    break
+                yield chunk
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            print("\n[mic] stopped")
+
+
+async def _file_generator(path: str, chunk_ms: int) -> AsyncGenerator[bytes, None]:
+    audio, src_sr = _load_audio_file(path)
+    pcm16         = _to_pcm16_16k(audio, src_sr)
+
+    chunk_bytes = int(SERVER_SR * chunk_ms / 1000) * 2
+    duration_s  = len(pcm16) / 2 / SERVER_SR
+    n_chunks    = (len(pcm16) + chunk_bytes - 1) // chunk_bytes
+
+    print(f"[file] {path}")
+    print(f"[file] duration={duration_s:.1f}s  chunks={n_chunks} × {chunk_ms} ms\n")
+
+    t_start = time.perf_counter()
+    for i, offset in enumerate(range(0, len(pcm16), chunk_bytes)):
+        yield pcm16[offset: offset + chunk_bytes]
+        target  = (i + 1) * chunk_ms / 1000
+        elapsed = time.perf_counter() - t_start
+        gap     = target - elapsed
+        if gap > 0:
+            await asyncio.sleep(gap)
+
+    print("\n[file] stream complete — waiting for final transcript...")
+
+
+# ── CLI ───────────────────────────────────────────────────────
+
+def _parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Parakeet ASR test client")
+    p.add_argument("--url",       default=DEFAULT_WS_URL, metavar="URL",
+                   help="Full WebSocket URL (default: %(default)s)")
+    p.add_argument("--file",      default=None, metavar="PATH",
+                   help="Audio file to transcribe (omit for microphone mode)")
+    p.add_argument("--languages", default=DEFAULT_LANGUAGES, nargs="+", metavar="LANG",
+                   help="Candidate BCP-47 language tags (default: en-US es-US)")
+    p.add_argument("--chunk-ms",  default=CHUNK_MS, type=int, metavar="MS",
+                   help="Audio chunk size in ms (default: 100)")
+    p.add_argument("--health",    action="store_true",
+                   help="Check server /health and exit")
+    return p.parse_args()
+
+
+async def _main() -> None:
+    args   = _parse_args()
+    ws_url = _validate_ws_url(args.url)
+
+    if args.health:
+        check_health(ws_url)
+        return
+
+    print("=" * 60)
+    print("  Parakeet Real-Time ASR — test client")
+    print("=" * 60)
+    print(f"  url        : {ws_url}")
+    print(f"  languages  : {args.languages}")
+    print(f"  chunk      : {args.chunk_ms} ms")
+    print(f"  mode       : {'file → ' + args.file if args.file else 'microphone'}")
+    print("=" * 60 + "\n")
+
+    if args.file:
+        if not Path(args.file).exists():
+            print(f"[error] file not found: {args.file}")
+            sys.exit(1)
+        gen = _file_generator(args.file, args.chunk_ms)
+    else:
+        gen = _mic_generator(args.chunk_ms)
+
+    try:
+        await _run_session(ws_url, args.languages, gen)
+    except KeyboardInterrupt:
+        print("\n[client] interrupted")
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(_main())
+    except KeyboardInterrupt:
+        pass
