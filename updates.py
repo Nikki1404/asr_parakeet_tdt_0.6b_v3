@@ -1,4 +1,5 @@
 #app/asr_engines/base.py-
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -30,6 +31,7 @@ class ASREngine(ABC):
 
 
 #app/asr_engines/parakeet_asr.py-
+
 """
 Streaming ASR engine — nvidia/parakeet-tdt-0.6b-v3
 All config values come from app.config.Config; nothing is hardcoded here.
@@ -399,6 +401,7 @@ class ParakeetSession:
 
 
 #app/config.py-
+
 from dataclasses import dataclass
 import os
 
@@ -459,6 +462,7 @@ class Config:
 
 
 #app/factory.py-
+
 from app.config import Config
 from app.asr_engines.parakeet_asr import ParakeetEngine
 
@@ -467,6 +471,7 @@ def build_engine(cfg: Config) -> ParakeetEngine:
     return ParakeetEngine(cfg)
 
 #app/vad.py-
+
 from collections import deque
 import logging
 
@@ -549,6 +554,7 @@ class AdaptiveEnergyVAD:
 
 
 #app/streaming_session.py-
+
 from __future__ import annotations
 
 import logging
@@ -671,6 +677,7 @@ class StreamingSession:
 
 
 #app/main.py-
+
 import asyncio
 import json
 import logging
@@ -802,27 +809,6 @@ async def health():
     )
     return JSONResponse(content=body, status_code=200 if engine_ready else 503)
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# WebSocket  /asr/stream
-# ─────────────────────────────────────────────────────────────────────────────
-#
-#  Init  (client → server, JSON)
-#  { "candidate_languages": ["en-US", "es-US"], "sample_rate": 16000 }
-#
-#  Ack   (server → client, JSON)
-#  { "type": "session_ready", "session_id": "...",
-#    "supported_languages": [...], "model": "..." }
-#
-#  Stream  client sends raw PCM-16 binary frames
-#
-#  Events  (server → client, JSON)
-#  { "type": "partial", "text": "...", "t_start": <ms> }
-#  { "type": "final",   "text": "...", "t_start": <ms> }
-#
-#  Control (client → server, JSON)
-#  { "type": "end_session" }
-# ─────────────────────────────────────────────────────────────────────────────
 
 @app.websocket(WS_PATH)
 async def ws_asr(ws: WebSocket):
