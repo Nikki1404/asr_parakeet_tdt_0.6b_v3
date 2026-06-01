@@ -1933,435 +1933,559 @@ if __name__ == "__main__":
 
 
 
-INFO:     ('172.17.0.1', 34046) - "WebSocket /asr/ml/ws" [accepted]
-2026-06-01 13:58:58,482 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] ━━━ SESSION OPEN ━━━  client=Address(host='172.17.0.1', port=34046)  active=1  total=2
-2026-06-01 13:58:58,482 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] Waiting for init message...
-INFO:     connection open
-2026-06-01 13:58:58,771 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] Init received | candidate_languages=['en-US', 'es-US']  client_sr=16000  server_sr=16000
-2026-06-01 13:58:58,771 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] session_ready sent to client
-2026-06-01 13:58:58,771 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] Streaming started — ready to receive audio chunks
-INFO:     10.90.126.122:31438 - "GET / HTTP/1.1" 404 Not Found
-2026-06-01 13:59:01,594 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,598 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,601 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,604 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,608 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,611 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,614 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,617 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,620 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,709 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,712 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,715 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,718 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,721 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,808 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-INFO:     10.90.126.54:56614 - "GET / HTTP/1.1" 404 Not Found
-2026-06-01 13:59:01,812 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,815 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,818 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,821 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,909 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,912 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,916 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,919 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:01,922 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,005 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,008 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,011 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,014 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,018 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,108 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,111 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,114 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,117 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,120 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,204 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,207 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,210 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,213 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,216 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,319 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,323 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,326 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,329 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,332 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,404 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,410 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,413 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,417 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,510 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,514 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,517 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,520 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,523 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,605 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,609 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,612 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,615 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,618 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,708 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,711 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,714 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,717 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,720 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,807 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,811 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,814 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,817 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,820 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,908 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,911 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,914 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,917 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:02,920 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,003 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,007 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,010 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,013 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,016 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,109 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,112 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,116 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,119 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,122 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,204 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,207 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,210 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,213 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,217 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,310 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,314 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,317 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,320 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,323 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,410 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,413 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,416 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,420 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,510 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,513 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,516 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,519 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,523 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,606 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,609 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,612 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,615 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,618 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,709 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,712 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,715 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,718 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,721 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,806 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,810 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,813 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,816 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,819 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,909 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,912 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,915 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,918 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:03,921 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,005 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,008 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,012 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,015 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,018 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,109 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,112 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,115 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,118 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,122 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,205 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,209 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,212 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,215 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,218 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,309 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,313 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,316 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,319 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,322 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,404 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,411 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,414 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,417 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,511 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,514 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,518 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,521 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,524 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,604 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,607 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,610 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,614 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,617 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,707 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,711 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,714 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,717 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,720 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,806 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,810 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,813 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,816 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,819 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,908 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,911 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,914 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,917 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:04,920 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,005 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,008 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,011 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,014 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,018 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,108 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,111 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,114 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,118 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,121 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,205 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,208 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,211 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,215 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,218 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,309 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,312 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,316 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,319 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,322 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,404 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,410 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,414 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,417 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,511 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,515 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,518 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,522 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,525 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,606 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,610 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,613 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,616 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,619 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,709 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,712 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,716 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,719 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,722 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,803 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,806 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,809 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,812 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,816 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,908 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,912 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,915 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,918 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:05,922 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,005 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,009 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,012 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,015 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,018 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,107 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,110 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,114 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,117 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,120 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,202 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,206 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,209 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,212 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,215 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,308 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,311 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,314 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,317 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,320 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,406 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,410 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,413 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,416 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,419 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,508 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,511 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,515 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,518 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,521 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,603 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,606 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,610 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,613 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,616 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,708 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,711 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:06,715 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,242 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,311 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,313 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,316 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,319 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,322 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,404 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,409 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,412 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,415 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,510 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,513 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,516 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,518 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,521 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,606 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,609 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,612 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,615 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,617 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,713 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,716 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,719 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,721 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,724 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,806 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,809 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,812 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,815 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,817 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,913 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,915 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,918 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,921 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:12,924 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,006 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,009 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,012 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,014 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,017 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,113 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,115 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,118 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,121 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,124 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,205 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,208 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,211 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,214 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,216 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,312 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,315 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,317 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,320 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,323 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,405 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,410 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,413 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,416 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,513 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,516 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,518 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,521 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,524 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,608 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,611 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,614 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,617 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,620 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,709 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,712 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,715 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,718 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,721 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,806 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,809 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,812 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,814 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,817 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,909 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,912 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,915 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,918 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:13,920 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,006 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,008 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,011 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,014 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,017 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,116 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,119 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,122 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,125 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,128 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,204 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,207 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,209 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,212 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,215 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,314 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,317 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,320 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,323 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,326 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,407 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,410 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,413 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,416 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,419 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,513 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,516 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,519 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,522 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,524 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,610 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,613 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,615 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,618 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,621 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,713 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,716 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,718 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,721 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,724 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,810 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,813 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,816 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,819 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,821 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,913 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,916 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,919 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,922 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:14,925 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,005 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,008 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,011 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,014 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,017 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,114 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,117 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,120 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,122 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,125 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,209 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,212 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,214 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,217 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,220 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,312 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,315 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,318 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:15,321 | ERROR | parakeet_engine | conformer_stream_step failed: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
-2026-06-01 13:59:21,707 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] Control message: type=end_session
-2026-06-01 13:59:21,707 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] end_session received — closing cleanly
-2026-06-01 13:59:21,707 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] ━━━ SESSION CLOSED ━━━  duration=22.9s  audio=21.2s  chunks=212  partials=0  finals=0  active=0
-2026-06-01 13:59:21,707 | INFO | asr_server | [20260601_135858_481989_172.17.0.1_34046] Saving session audio → /app/session_audio/20260601_135858_481989_172.17.0.1_34046.wav
-2026-06-01 13:59:21,709 | INFO | asr_server | Session WAV saved → /app/session_audio/20260601_135858_481989_172.17.0.1_34046.wav  (21.2 s)
-INFO:     connection closed
+
+
+#parakeet_asr.py-
+"""
+Streaming ASR engine — nvidia/parakeet-tdt-0.6b-v3
+Fixed to prevent zero-frame chunks causing:
+cannot reshape tensor of 0 elements into shape [1, 8, -1, 0]
+"""
+from __future__ import annotations
+
+import logging
+import time
+from dataclasses import dataclass
+from typing import Any, Optional
+
+import numpy as np
+import torch
+from omegaconf import OmegaConf
+
+from app.asr_engines.base import ASREngine, EngineCaps
+from app.config import Config
+
+log = logging.getLogger("parakeet_engine")
+
+
+def _safe_text(h: Any) -> str:
+    if h is None:
+        return ""
+    if isinstance(h, str):
+        return h
+    if isinstance(h, (list, tuple)) and h:
+        return _safe_text(h[0])
+    if hasattr(h, "text"):
+        try:
+            return h.text or ""
+        except Exception:
+            return ""
+    try:
+        return str(h)
+    except Exception:
+        return ""
+
+
+@dataclass
+class _Timings:
+    preproc: float = 0.0
+    infer: float = 0.0
+    flush: float = 0.0
+
+
+class ParakeetEngine(ASREngine):
+    caps = EngineCaps(streaming=True, partials=True, ttft_meaningful=True)
+
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self.model = None
+
+        self.shift_frames: int = 0
+        self.pre_cache_frames: int = 0
+        self.hop_samples: int = 0
+        self.drop_extra: int = 0
+        self._stride_sec: float = 0.01
+
+        self.end_silence_ms = cfg.end_silence_ms
+        self.min_utt_ms = cfg.min_utt_ms
+        self.finalize_pad_ms = cfg.finalize_pad_ms
+
+    def _to(self, t: torch.Tensor) -> torch.Tensor:
+        if self.cfg.device == "cuda":
+            return t.cuda(non_blocking=True)
+        return t.cpu()
+
+    def _cache_to(self, cache: tuple) -> tuple:
+        return tuple(
+            self._to(c) if isinstance(c, torch.Tensor) else c
+            for c in cache
+        )
+
+    def load(self) -> float:
+        import nemo.collections.asr as nemo_asr
+
+        t0 = time.time()
+        log.info("Loading model: %s device=%s", self.cfg.model_id, self.cfg.device)
+
+        self.model = nemo_asr.models.ASRModel.from_pretrained(
+            self.cfg.model_id,
+            map_location="cpu",
+        )
+        log.info("Model downloaded / restored from cache")
+
+        self.model = self.model.cuda() if self.cfg.device == "cuda" else self.model.cpu()
+        log.info("Model moved to device: %s", self.cfg.device)
+
+        self._set_att_context()
+        self._configure_decoding()
+
+        self.model.eval()
+
+        try:
+            self.model.preprocessor.featurizer.dither = 0.0
+        except Exception:
+            pass
+
+        self._extract_streaming_cfg()
+        self._validate_streaming_cfg()
+        self._warmup()
+
+        elapsed = time.time() - t0
+        log.info("Engine ready in %.2fs", elapsed)
+        return elapsed
+
+    def _set_att_context(self):
+        size = [70, self.cfg.context_right]
+
+        for arg in (size, tuple(size)):
+            try:
+                self.model.encoder.set_default_att_context_size(arg)
+                log.info(
+                    "Attention context set: left=70 right=%d",
+                    self.cfg.context_right,
+                )
+                return
+            except Exception:
+                continue
+
+        log.warning("Could not set attention context size — using model default")
+
+    def _configure_decoding(self):
+        ms = self.cfg.max_symbols
+
+        strategies = [
+            {
+                "strategy": "greedy",
+                "greedy": {
+                    "max_symbols": ms,
+                    "loop_labels": True,
+                    "use_cuda_graph_decoder": False,
+                },
+            },
+            {
+                "strategy": "greedy",
+                "greedy": {
+                    "max_symbols": ms,
+                    "loop_labels": False,
+                    "use_cuda_graph_decoder": False,
+                },
+            },
+            {
+                "strategy": "greedy",
+                "greedy": {
+                    "max_symbols": ms,
+                },
+            },
+        ]
+
+        for cfg_dict in strategies:
+            try:
+                self.model.change_decoding_strategy(
+                    decoding_cfg=OmegaConf.create(cfg_dict)
+                )
+                log.info("Decoding strategy configured: %s", cfg_dict)
+                return
+            except Exception:
+                continue
+
+        log.warning("Could not set custom decoding strategy — using model default")
+
+    def _extract_streaming_cfg(self):
+        try:
+            scfg = self.model.encoder.streaming_cfg
+            log.info("Raw encoder.streaming_cfg: %s", scfg)
+
+            shift = getattr(scfg, "shift_size", None)
+            pre = getattr(scfg, "pre_encode_cache_size", None)
+
+            self.shift_frames = self._pick_positive_int(
+                shift,
+                fallback=self.cfg.default_shift_frames,
+                name="shift_size",
+            )
+
+            self.pre_cache_frames = self._pick_positive_int(
+                pre,
+                fallback=self.cfg.default_pre_cache_frames,
+                name="pre_encode_cache_size",
+            )
+
+            self.drop_extra = int(getattr(scfg, "drop_extra_pre_encoded", 0) or 0)
+
+        except Exception as e:
+            log.warning(
+                "Could not read encoder.streaming_cfg: %s. Using defaults.",
+                e,
+            )
+            self.shift_frames = self.cfg.default_shift_frames
+            self.pre_cache_frames = self.cfg.default_pre_cache_frames
+            self.drop_extra = 0
+
+        try:
+            self._stride_sec = float(
+                self.model.cfg.preprocessor.get("window_stride", 0.01)
+            )
+        except Exception:
+            self._stride_sec = 0.01
+
+        self.hop_samples = int(self._stride_sec * self.cfg.sample_rate)
+
+        log.info(
+            "Streaming parameters | shift_frames=%d pre_cache_frames=%d "
+            "drop_extra=%d stride=%.3fs hop_samples=%d",
+            self.shift_frames,
+            self.pre_cache_frames,
+            self.drop_extra,
+            self._stride_sec,
+            self.hop_samples,
+        )
+
+    def _pick_positive_int(self, value: Any, fallback: int, name: str) -> int:
+        candidates: list[int] = []
+
+        if isinstance(value, (list, tuple)):
+            for v in value:
+                try:
+                    candidates.append(int(v))
+                except Exception:
+                    pass
+        else:
+            try:
+                candidates.append(int(value))
+            except Exception:
+                pass
+
+        positives = [v for v in candidates if v > 0]
+
+        if positives:
+            chosen = positives[-1]
+            log.info("%s=%s -> using %d", name, value, chosen)
+            return chosen
+
+        log.warning("%s=%s invalid; using fallback=%d", name, value, fallback)
+        return int(fallback)
+
+    def _validate_streaming_cfg(self):
+        if self.shift_frames <= 0:
+            log.warning(
+                "Invalid shift_frames=%s; forcing default=%s",
+                self.shift_frames,
+                self.cfg.default_shift_frames,
+            )
+            self.shift_frames = self.cfg.default_shift_frames
+
+        if self.pre_cache_frames < 0:
+            log.warning(
+                "Invalid pre_cache_frames=%s; forcing default=%s",
+                self.pre_cache_frames,
+                self.cfg.default_pre_cache_frames,
+            )
+            self.pre_cache_frames = self.cfg.default_pre_cache_frames
+
+        if self.drop_extra < 0:
+            log.warning("Invalid drop_extra=%s; forcing 0", self.drop_extra)
+            self.drop_extra = 0
+
+    @torch.inference_mode()
+    def _warmup(self):
+        log.info("Running warmup pass...")
+        try:
+            sess = self.new_session()
+            silence = np.zeros(self.cfg.sample_rate, dtype=np.float32)
+            pcm16 = (silence * 32767).astype(np.int16).tobytes()
+            sess.accept_pcm16(pcm16)
+            sess.finalize(pad_ms=self.cfg.finalize_pad_ms)
+            log.info("Warmup complete")
+        except Exception as e:
+            log.warning("Warmup failed non-fatal: %s", e)
+
+    def new_session(self) -> "ParakeetSession":
+        return ParakeetSession(self)
+
+    @torch.inference_mode()
+    def stream_transcribe(
+        self,
+        audio_f32: np.ndarray,
+        cache: tuple,
+        prev_hyp: Any,
+        prev_pred: Any,
+        emitted: int,
+        force_flush: bool = False,
+    ):
+        timings = _Timings()
+
+        if audio_f32 is None or len(audio_f32) == 0:
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        t0 = time.perf_counter()
+
+        sig = torch.from_numpy(audio_f32.astype(np.float32)).unsqueeze(0)
+        sig = self._to(sig)
+        slen = torch.tensor([len(audio_f32)], dtype=torch.long, device=sig.device)
+
+        mel, _ = self.model.preprocessor(
+            input_signal=sig,
+            length=slen,
+        )
+
+        timings.preproc = time.perf_counter() - t0
+
+        available = int(mel.shape[-1])
+
+        if available <= 0:
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        if self.shift_frames <= 0:
+            self.shift_frames = self.cfg.default_shift_frames
+
+        if emitted < 0:
+            emitted = 0
+
+        if emitted >= available and not force_flush:
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        remaining = available - emitted
+
+        if remaining < self.shift_frames and not force_flush:
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        if emitted == 0:
+            start = 0
+            end = min(self.shift_frames, available)
+            drop = 0
+        else:
+            start = max(0, emitted - self.pre_cache_frames)
+            end = min(emitted + self.shift_frames, available)
+            drop = self.drop_extra
+
+        if force_flush:
+            end = available
+
+        if start >= end:
+            log.debug(
+                "Skipping invalid chunk | start=%s end=%s available=%s emitted=%s",
+                start,
+                end,
+                available,
+                emitted,
+            )
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        chunk = mel[:, :, start:end]
+
+        if chunk.numel() == 0 or int(chunk.shape[-1]) <= 0:
+            log.debug(
+                "Skipping empty chunk | shape=%s start=%s end=%s available=%s emitted=%s",
+                tuple(chunk.shape),
+                start,
+                end,
+                available,
+                emitted,
+            )
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        frames = int(chunk.shape[-1])
+
+        chunk_len = torch.tensor(
+            [frames],
+            dtype=torch.long,
+            device=chunk.device,
+        )
+
+        cache = self._cache_to(cache)
+
+        log.debug(
+            "STREAM STEP | available=%s emitted=%s start=%s end=%s frames=%s force_flush=%s",
+            available,
+            emitted,
+            start,
+            end,
+            frames,
+            force_flush,
+        )
+
+        t1 = time.perf_counter()
+
+        try:
+            prev_pred, texts, c0, c1, c2, prev_hyp = self.model.conformer_stream_step(
+                processed_signal=chunk,
+                processed_signal_length=chunk_len,
+                cache_last_channel=cache[0],
+                cache_last_time=cache[1],
+                cache_last_channel_len=cache[2],
+                keep_all_outputs=False,
+                previous_hypotheses=prev_hyp,
+                previous_pred_out=prev_pred,
+                drop_extra_pre_encoded=drop,
+                return_transcription=True,
+            )
+
+            new_cache = (c0, c1, c2)
+
+        except Exception as e:
+            log.exception(
+                "conformer_stream_step failed | "
+                "available=%s emitted=%s start=%s end=%s frames=%s "
+                "chunk_shape=%s chunk_len=%s drop=%s error=%s",
+                available,
+                emitted,
+                start,
+                end,
+                frames,
+                tuple(chunk.shape),
+                chunk_len.detach().cpu().tolist(),
+                drop,
+                e,
+            )
+            return None, cache, prev_hyp, prev_pred, emitted, timings
+
+        timings.infer = time.perf_counter() - t1
+
+        emitted = min(emitted + self.shift_frames, available)
+
+        text = _safe_text(texts).strip() if texts is not None else ""
+
+        log.debug(
+            "stream_step flush=%s preproc=%.3fs infer=%.3fs text=%r",
+            force_flush,
+            timings.preproc,
+            timings.infer,
+            text,
+        )
+
+        return text, new_cache, prev_hyp, prev_pred, emitted, timings
+
+
+class ParakeetSession:
+    def __init__(self, engine: ParakeetEngine):
+        self.engine = engine
+
+        self._max_samples = int(
+            engine.cfg.sample_rate * engine.cfg.max_utt_ms / 1000
+        )
+
+        self.audio = np.array([], dtype=np.float32)
+        self.cache = None
+        self.prev_hyp = None
+        self.prev_pred = None
+        self.emitted = 0
+        self.current_text = ""
+        self.last_final = ""
+        self._trimmed = False
+
+        self._init_cache()
+
+    def _init_cache(self):
+        raw = self.engine.model.encoder.get_initial_cache_state(batch_size=1)
+        self.cache = self.engine._cache_to((raw[0], raw[1], raw[2]))
+
+    def reset_stream_state(self):
+        self._init_cache()
+        self.prev_hyp = None
+        self.prev_pred = None
+        self.emitted = 0
+        self.current_text = ""
+        self.audio = np.array([], dtype=np.float32)
+        self._trimmed = False
+
+    def accept_pcm16(self, pcm16: bytes) -> None:
+        if not pcm16:
+            return
+
+        x = np.frombuffer(pcm16, dtype=np.int16).astype(np.float32) / 32768.0
+
+        if x.size == 0:
+            return
+
+        self.audio = np.concatenate([self.audio, x])
+
+        if len(self.audio) > self._max_samples:
+            self.audio = self.audio[-self._max_samples:]
+            self._trimmed = True
+            log.debug("Audio buffer trimmed to max %d samples", self._max_samples)
+
+    def _is_new_text(self, t: Optional[str]) -> bool:
+        if not t:
+            return False
+
+        n = t.strip()
+        o = self.current_text.strip()
+
+        if not n or n == o:
+            return False
+
+        if n.startswith(o):
+            return True
+
+        if o.startswith(n):
+            return False
+
+        return True
+
+    def step_if_ready(self) -> Optional[str]:
+        if self._trimmed and self.emitted > 0:
+            log.debug("Buffer trimmed — resetting encoder cache")
+            self._init_cache()
+            self.prev_hyp = None
+            self.prev_pred = None
+            self.emitted = 0
+            self._trimmed = False
+
+        text, self.cache, self.prev_hyp, self.prev_pred, self.emitted, _ = (
+            self.engine.stream_transcribe(
+                self.audio,
+                self.cache,
+                self.prev_hyp,
+                self.prev_pred,
+                self.emitted,
+                force_flush=False,
+            )
+        )
+
+        if not self._is_new_text(text):
+            return None
+
+        self.current_text = text.strip()
+        return self.current_text
+
+    def finalize(self, pad_ms: int) -> str:
+        log.debug("Finalizing utterance with %d ms pad", pad_ms)
+
+        if pad_ms > 0:
+            pad = np.zeros(
+                int(self.engine.cfg.sample_rate * pad_ms / 1000),
+                dtype=np.float32,
+            )
+            self.audio = np.concatenate([self.audio, pad])
+
+        text, self.cache, self.prev_hyp, self.prev_pred, self.emitted, _ = (
+            self.engine.stream_transcribe(
+                self.audio,
+                self.cache,
+                self.prev_hyp,
+                self.prev_pred,
+                self.emitted,
+                force_flush=True,
+            )
+        )
+
+        if text:
+            self.current_text = text.strip()
+
+        final = self.current_text.strip()
+
+        if final:
+            self.last_final = (self.last_final + " " + final).strip()
+
+        self.reset_stream_state()
+        return final
