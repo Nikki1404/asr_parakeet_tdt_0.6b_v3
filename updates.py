@@ -1346,10 +1346,10 @@ class ParakeetEngine(ASREngine):
         self.finalize_pad_ms = cfg.finalize_pad_ms
 
         self.partial_interval_sec = float(
-            os.getenv("PARTIAL_INTERVAL_SEC", "1.0")
+            os.getenv("PARTIAL_INTERVAL_SEC", "0.8")
         )
         self.min_partial_ms = int(
-            os.getenv("MIN_PARTIAL_MS", "700")
+            os.getenv("MIN_PARTIAL_MS", "1200")
         )
 
     def load(self) -> float:
