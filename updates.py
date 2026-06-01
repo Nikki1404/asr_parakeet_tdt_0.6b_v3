@@ -412,7 +412,7 @@ import os
 
 MODEL_ID            = "nvidia/parakeet-tdt-0.6b-v3"
 SUPPORTED_LANGUAGES = ["en-US", "es-US"]
-WS_PATH             = "/asr/stream"
+WS_PATH             = "/asr/ml/ws"
 
 
 @dataclass(frozen=True)
