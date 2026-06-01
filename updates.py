@@ -29,377 +29,6 @@ class ASREngine(ABC):
     @abstractmethod
     def new_session(self) -> ASRSession: ...
 
-
-#app/asr_engines/parakeet_asr.py-
-
-"""
-Streaming ASR engine — nvidia/parakeet-tdt-0.6b-v3
-All config values come from app.config.Config; nothing is hardcoded here.
-"""
-from __future__ import annotations
-
-import logging
-import time
-from dataclasses import dataclass
-from typing import Any, Optional
-
-import numpy as np
-import torch
-from omegaconf import OmegaConf
-
-from app.asr_engines.base import ASREngine, EngineCaps
-from app.config import Config
-
-log = logging.getLogger("parakeet_engine")
-
-
-def _safe_text(h: Any) -> str:
-    if h is None:
-        return ""
-    if isinstance(h, str):
-        return h
-    if isinstance(h, (list, tuple)) and h:
-        return _safe_text(h[0])
-    if hasattr(h, "text"):
-        try:
-            return h.text or ""
-        except Exception:
-            return ""
-    try:
-        return str(h)
-    except Exception:
-        return ""
-
-
-@dataclass
-class _Timings:
-    preproc: float = 0.0
-    infer:   float = 0.0
-    flush:   float = 0.0
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Engine
-# ─────────────────────────────────────────────────────────────────────────────
-
-class ParakeetEngine(ASREngine):
-
-    caps = EngineCaps(streaming=True, partials=True, ttft_meaningful=True)
-
-    def __init__(self, cfg: Config):
-        self.cfg   = cfg
-        self.model = None
-
-        self.shift_frames:     int   = 0
-        self.pre_cache_frames: int   = 0
-        self.hop_samples:      int   = 0
-        self.drop_extra:       int   = 0
-        self._stride_sec:      float = 0.01
-
-        self.end_silence_ms  = cfg.end_silence_ms
-        self.min_utt_ms      = cfg.min_utt_ms
-        self.finalize_pad_ms = cfg.finalize_pad_ms
-
-    # ── device helpers ────────────────────────────────────────
-
-    def _to(self, t: torch.Tensor) -> torch.Tensor:
-        return t.cuda(non_blocking=True) if self.cfg.device == "cuda" else t.cpu()
-
-    def _cache_to(self, cache: tuple) -> tuple:
-        return tuple(
-            self._to(c) if isinstance(c, torch.Tensor) else c
-            for c in cache
-        )
-
-    # ── load ──────────────────────────────────────────────────
-
-    def load(self) -> float:
-        import nemo.collections.asr as nemo_asr
-
-        t0 = time.time()
-        log.info("Loading model: %s  device=%s", self.cfg.model_id, self.cfg.device)
-
-        self.model = nemo_asr.models.ASRModel.from_pretrained(
-            self.cfg.model_id, map_location="cpu"
-        )
-        log.info("Model downloaded / restored from cache")
-
-        self.model = (
-            self.model.cuda() if self.cfg.device == "cuda" else self.model.cpu()
-        )
-        log.info("Model moved to device: %s", self.cfg.device)
-
-        self._set_att_context()
-        self._configure_decoding()
-
-        self.model.eval()
-        try:
-            self.model.preprocessor.featurizer.dither = 0.0
-            log.debug("Dither disabled")
-        except Exception:
-            log.debug("Could not disable dither (non-fatal)")
-
-        self._extract_streaming_cfg()
-        self._warmup()
-
-        elapsed = time.time() - t0
-        log.info("Engine ready in %.2fs", elapsed)
-        return elapsed
-
-    def _set_att_context(self):
-        size = [70, self.cfg.context_right]
-        for arg in (size, tuple(size)):
-            try:
-                self.model.encoder.set_default_att_context_size(arg)
-                log.info(
-                    "Attention context set: left=70  right=%d",
-                    self.cfg.context_right,
-                )
-                return
-            except Exception:
-                continue
-        log.warning("Could not set attention context size — using model default")
-
-    def _configure_decoding(self):
-        ms = self.cfg.max_symbols
-        strategies = [
-            {"strategy": "greedy", "greedy": {"max_symbols": ms, "loop_labels": True,  "use_cuda_graph_decoder": False}},
-            {"strategy": "greedy", "greedy": {"max_symbols": ms, "loop_labels": False, "use_cuda_graph_decoder": False}},
-            {"strategy": "greedy", "greedy": {"max_symbols": ms}},
-        ]
-        for cfg_dict in strategies:
-            try:
-                self.model.change_decoding_strategy(
-                    decoding_cfg=OmegaConf.create(cfg_dict)
-                )
-                log.info("Decoding strategy configured: %s", cfg_dict)
-                return
-            except Exception:
-                continue
-        log.warning("Could not set any custom decoding strategy — using model default")
-
-    def _extract_streaming_cfg(self):
-        try:
-            scfg = self.model.encoder.streaming_cfg
-            self.shift_frames = (
-                scfg.shift_size[1]
-                if isinstance(scfg.shift_size, (list, tuple))
-                else scfg.shift_size
-            )
-            pre = scfg.pre_encode_cache_size
-            self.pre_cache_frames = (
-                pre[1] if isinstance(pre, (list, tuple)) else pre
-            )
-            self.drop_extra = int(getattr(scfg, "drop_extra_pre_encoded", 0))
-            log.info(
-                "Streaming cfg from model: shift=%d  pre_cache=%d  drop_extra=%d",
-                self.shift_frames, self.pre_cache_frames, self.drop_extra,
-            )
-        except AttributeError:
-            self.shift_frames     = self.cfg.default_shift_frames
-            self.pre_cache_frames = self.cfg.default_pre_cache_frames
-            self.drop_extra       = 0
-            log.warning(
-                "streaming_cfg not found on encoder — using config defaults: "
-                "shift=%d  pre_cache=%d",
-                self.shift_frames, self.pre_cache_frames,
-            )
-
-        try:
-            self._stride_sec = float(
-                self.model.cfg.preprocessor.get("window_stride", 0.01)
-            )
-        except Exception:
-            self._stride_sec = 0.01
-            log.warning("Could not read window_stride — defaulting to 0.01s")
-
-        self.hop_samples = int(self._stride_sec * self.cfg.sample_rate)
-        log.info(
-            "Frame stride=%.3fs  hop_samples=%d",
-            self._stride_sec, self.hop_samples,
-        )
-
-    @torch.inference_mode()
-    def _warmup(self):
-        log.info("Running warmup pass...")
-        try:
-            sess    = self.new_session()
-            silence = np.zeros(self.cfg.sample_rate, dtype=np.float32)
-            pcm16   = (silence * 32767).astype(np.int16).tobytes()
-            sess.accept_pcm16(pcm16)
-            sess.finalize(pad_ms=self.cfg.finalize_pad_ms)
-            log.info("Warmup complete")
-        except Exception as e:
-            log.warning("Warmup failed (non-fatal): %s", e)
-
-    # ── session factory ───────────────────────────────────────
-
-    def new_session(self) -> "ParakeetSession":
-        return ParakeetSession(self)
-
-    # ── streaming step ────────────────────────────────────────
-
-    @torch.inference_mode()
-    def stream_transcribe(
-        self,
-        audio_f32:   np.ndarray,
-        cache:       tuple,
-        prev_hyp:    Any,
-        prev_pred:   Any,
-        emitted:     int,
-        force_flush: bool = False,
-    ):
-        timings = _Timings()
-
-        t0   = time.perf_counter()
-        sig  = self._to(torch.from_numpy(audio_f32).unsqueeze(0))
-        slen = torch.tensor([len(audio_f32)], device=sig.device)
-        mel, _ = self.model.preprocessor(input_signal=sig, length=slen)
-        timings.preproc = time.perf_counter() - t0
-
-        available = int(mel.shape[-1]) - 1
-        if available <= 0:
-            return None, cache, prev_hyp, prev_pred, emitted, timings
-
-        if (available - emitted) < self.shift_frames and not force_flush:
-            return None, cache, prev_hyp, prev_pred, emitted, timings
-
-        if emitted == 0:
-            start, end, drop = 0, min(self.shift_frames, available), 0
-        else:
-            start = max(0, emitted - self.pre_cache_frames)
-            end   = min(emitted + self.shift_frames, available)
-            drop  = self.drop_extra
-
-        chunk     = mel[:, :, start:end]
-        chunk_len = torch.tensor([chunk.shape[-1]], device=chunk.device)
-        cache     = self._cache_to(cache)
-
-        t1 = time.perf_counter()
-        try:
-            prev_pred, texts, c0, c1, c2, prev_hyp = self.model.conformer_stream_step(
-                processed_signal        = chunk,
-                processed_signal_length = chunk_len,
-                cache_last_channel      = cache[0],
-                cache_last_time         = cache[1],
-                cache_last_channel_len  = cache[2],
-                keep_all_outputs        = False,
-                previous_hypotheses     = prev_hyp,
-                previous_pred_out       = prev_pred,
-                drop_extra_pre_encoded  = drop,
-                return_transcription    = True,
-            )
-            new_cache = (c0, c1, c2)
-        except Exception as e:
-            log.error("conformer_stream_step failed: %s", e)
-            return None, cache, prev_hyp, prev_pred, emitted, timings
-
-        timings.infer = time.perf_counter() - t1
-        emitted = min(emitted + self.shift_frames, available)
-        text    = _safe_text(texts).strip() if texts is not None else ""
-
-        log.debug(
-            "stream_step  flush=%s  preproc=%.3fs  infer=%.3fs  text=%r",
-            force_flush, timings.preproc, timings.infer, text,
-        )
-
-        return text, new_cache, prev_hyp, prev_pred, emitted, timings
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Per-connection session
-# ─────────────────────────────────────────────────────────────────────────────
-
-class ParakeetSession:
-
-    def __init__(self, engine: ParakeetEngine):
-        self.engine       = engine
-        self._max_samples = int(
-            engine.cfg.sample_rate * engine.cfg.max_utt_ms / 1000
-        )
-        self.audio        = np.array([], dtype=np.float32)
-        self.cache        = None
-        self.prev_hyp     = None
-        self.prev_pred    = None
-        self.emitted      = 0
-        self.current_text = ""
-        self.last_final   = ""
-        self._trimmed     = False
-
-        self._init_cache()
-
-    def _init_cache(self):
-        raw        = self.engine.model.encoder.get_initial_cache_state(batch_size=1)
-        self.cache = self.engine._cache_to((raw[0], raw[1], raw[2]))
-
-    def reset_stream_state(self):
-        self._init_cache()
-        self.prev_hyp     = self.prev_pred = None
-        self.emitted      = 0
-        self.current_text = ""
-        self.audio        = np.array([], dtype=np.float32)
-        self._trimmed     = False
-
-    def accept_pcm16(self, pcm16: bytes) -> None:
-        x          = np.frombuffer(pcm16, dtype=np.int16).astype(np.float32) / 32768.0
-        self.audio = np.concatenate([self.audio, x])
-        if len(self.audio) > self._max_samples:
-            self.audio    = self.audio[-self._max_samples:]
-            self._trimmed = True
-            log.debug("Audio buffer trimmed to max %d samples", self._max_samples)
-
-    def _is_new_text(self, t: Optional[str]) -> bool:
-        if not t:
-            return False
-        n, o = t.strip(), self.current_text.strip()
-        if not n or n == o:  return False
-        if n.startswith(o):  return True
-        if o.startswith(n):  return False
-        return True
-
-    def step_if_ready(self) -> Optional[str]:
-        if self._trimmed and self.emitted > 0:
-            log.debug("Buffer trimmed — resetting encoder cache")
-            self._init_cache()
-            self.prev_hyp = self.prev_pred = None
-            self.emitted  = 0
-            self._trimmed = False
-
-        text, self.cache, self.prev_hyp, self.prev_pred, self.emitted, _ = (
-            self.engine.stream_transcribe(
-                self.audio, self.cache, self.prev_hyp,
-                self.prev_pred, self.emitted, force_flush=False,
-            )
-        )
-        if not self._is_new_text(text):
-            return None
-        self.current_text = text.strip()
-        return self.current_text
-
-    def finalize(self, pad_ms: int) -> str:
-        log.debug("Finalizing utterance with %d ms pad", pad_ms)
-        pad        = np.zeros(
-            int(self.engine.cfg.sample_rate * pad_ms / 1000), dtype=np.float32
-        )
-        self.audio = np.concatenate([self.audio, pad])
-
-        text, self.cache, self.prev_hyp, self.prev_pred, self.emitted, _ = (
-            self.engine.stream_transcribe(
-                self.audio, self.cache, self.prev_hyp,
-                self.prev_pred, self.emitted, force_flush=True,
-            )
-        )
-        if text:
-            self.current_text = text.strip()
-
-        final = self.current_text.strip()
-        self.last_final = (
-            (self.last_final + " " + final).strip() if final else self.last_final
-        )
-        self.reset_stream_state()
-        return final
-
-
 #app/config.py-
 
 from dataclasses import dataclass
@@ -1608,334 +1237,9 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--ws-pin
 
 
 
-#client.py-
 
-"""
-Parakeet ASR — full-featured test client
 
-    python client.py                           # mic, default local server
-    python client.py --file audio.wav          # file mode
-    python client.py --url wss://host/path     # custom server URL
-    python client.py --health                  # health check and exit
-"""
-from __future__ import annotations
-
-import argparse
-import asyncio
-import json
-import sys
-import time
-from pathlib import Path
-from typing import AsyncGenerator, Optional
-from urllib.parse import urlparse, urlunparse
-import urllib.request
-import urllib.error
-
-import numpy as np
-import websockets
-
-DEFAULT_WS_URL    = "ws://localhost:8001/asr/stream"
-DEFAULT_LANGUAGES = ["en-US", "es-US"]
-SERVER_SR         = 16_000
-CHUNK_MS          = 100
-
-
-# ── URL helpers ───────────────────────────────────────────────
-
-def _health_url(ws_url: str) -> str:
-    parsed = urlparse(ws_url)
-    scheme = "https" if parsed.scheme == "wss" else "http"
-    return urlunparse((scheme, parsed.netloc, "/health", "", "", ""))
-
-
-def _validate_ws_url(url: str) -> str:
-    if urlparse(url).scheme not in ("ws", "wss"):
-        print(f"[error] URL must start with ws:// or wss:// — got: {url}")
-        sys.exit(1)
-    return url
-
-
-# ── audio helpers ─────────────────────────────────────────────
-
-def _to_pcm16_16k(audio: np.ndarray, src_sr: int) -> bytes:
-    if audio.dtype != np.float32:
-        audio = audio.astype(np.float32)
-    if audio.max() > 1.0 or audio.min() < -1.0:
-        audio = audio / 32768.0
-    if audio.ndim == 2:
-        audio = audio.mean(axis=1)
-    if src_sr != SERVER_SR:
-        try:
-            import resampy
-            audio = resampy.resample(audio, src_sr, SERVER_SR)
-        except ImportError:
-            from math import gcd
-            from scipy.signal import resample_poly
-            g     = gcd(SERVER_SR, src_sr)
-            audio = resample_poly(audio, SERVER_SR // g, src_sr // g).astype(np.float32)
-    return (np.clip(audio, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
-
-
-def _load_audio_file(path: str) -> tuple[np.ndarray, int]:
-    import soundfile as sf
-    try:
-        audio, sr = sf.read(path, dtype="float32", always_2d=False)
-        return audio, sr
-    except Exception:
-        pass
-    try:
-        from pydub import AudioSegment
-        seg  = AudioSegment.from_file(path)
-        raw  = np.array(seg.get_array_of_samples(), dtype=np.float32)
-        raw /= 2 ** (seg.sample_width * 8 - 1)
-        if seg.channels > 1:
-            raw = raw.reshape(-1, seg.channels).mean(axis=1)
-        return raw, seg.frame_rate
-    except Exception as e:
-        print(f"[error] cannot load {path}: {e}")
-        sys.exit(1)
-
-
-# ── display ───────────────────────────────────────────────────
-
-class _Display:
-    def __init__(self):
-        self._partial_active = False
-
-    def partial(self, text: str):
-        sys.stdout.write(f"\r\033[K  [partial] {text}")
-        sys.stdout.flush()
-        self._partial_active = True
-
-    def final(self, text: str, ttfb: Optional[int]):
-        if self._partial_active:
-            sys.stdout.write("\r\033[K")
-        ttfb_str = f"  (ttfb {ttfb} ms)" if ttfb is not None else ""
-        print(f"  [final]   {text}{ttfb_str}")
-        self._partial_active = False
-
-    def info(self, msg: str):
-        if self._partial_active:
-            sys.stdout.write("\r\033[K")
-            self._partial_active = False
-        print(msg)
-
-    def separator(self):
-        self.info("─" * 60)
-
-
-# ── health check ──────────────────────────────────────────────
-
-def check_health(ws_url: str) -> None:
-    url = _health_url(ws_url)
-    print(f"GET {url}")
-    try:
-        with urllib.request.urlopen(url, timeout=5) as r:
-            body = json.loads(r.read())
-            code = r.status
-    except urllib.error.HTTPError as e:
-        body = json.loads(e.read())
-        code = e.code
-    except Exception as e:
-        print(f"[error] {e}")
-        sys.exit(1)
-
-    pad = max(len(k) for k in body) + 1
-    print(f"\nHTTP {code}")
-    print("─" * 50)
-    for k, v in body.items():
-        print(f"  {k:<{pad}}: {v}")
-    print()
-    sys.exit(0 if body.get("status") == "ok" else 1)
-
-
-# ── WebSocket session ─────────────────────────────────────────
-
-async def _run_session(
-    ws_url:    str,
-    languages: list[str],
-    audio_gen: AsyncGenerator[bytes, None],
-) -> None:
-    display = _Display()
-    try:
-        async with websockets.connect(
-            ws_url,
-            ping_interval = 20,
-            ping_timeout  = 120,
-            max_size      = None,
-        ) as ws:
-
-            await ws.send(json.dumps({
-                "candidate_languages": languages,
-                "sample_rate":         SERVER_SR,
-            }))
-
-            ack = json.loads(await ws.recv())
-            if ack.get("type") != "session_ready":
-                display.info(f"[error] unexpected ack: {ack}")
-                return
-
-            display.separator()
-            display.info(f"  model      : {ack.get('model', '?')}")
-            display.info(f"  session_id : {ack.get('session_id', '?')}")
-            display.info(f"  languages  : {ack.get('supported_languages', languages)}")
-            display.separator()
-
-            async def _recv():
-                try:
-                    async for raw in ws:
-                        if isinstance(raw, bytes):
-                            continue
-                        msg = json.loads(raw)
-                        t   = msg.get("type")
-                        if t == "partial":
-                            display.partial(msg.get("text", ""))
-                        elif t == "final":
-                            display.final(msg.get("text", ""), msg.get("t_start"))
-                except websockets.ConnectionClosed:
-                    pass
-
-            recv_task = asyncio.create_task(_recv())
-
-            try:
-                async for chunk in audio_gen:
-                    await ws.send(chunk)
-            except (KeyboardInterrupt, asyncio.CancelledError):
-                display.info("\n[client] interrupted — flushing final transcript...")
-
-            try:
-                await ws.send(json.dumps({"type": "end_session"}))
-                await asyncio.sleep(1.5)
-            except Exception:
-                pass
-
-            recv_task.cancel()
-            display.separator()
-            display.info("[client] session closed")
-
-    except (websockets.InvalidURI, OSError, ConnectionRefusedError) as e:
-        print(f"[error] cannot connect to {ws_url}: {e}")
-        sys.exit(1)
-
-
-# ── audio generators ──────────────────────────────────────────
-
-async def _mic_generator(chunk_ms: int) -> AsyncGenerator[bytes, None]:
-    import sounddevice as sd
-
-    chunk_samples = int(SERVER_SR * chunk_ms / 1000)
-    queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
-    loop = asyncio.get_running_loop()
-
-    def _cb(indata, frames, t, status):
-        if status:
-            print(f"\n[mic] {status}", file=sys.stderr)
-        mono  = indata[:, 0] if indata.ndim == 2 else indata
-        pcm16 = (np.clip(mono, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
-        loop.call_soon_threadsafe(queue.put_nowait, pcm16)
-
-    print(f"[mic] recording at {SERVER_SR} Hz, {chunk_ms} ms chunks")
-    print("[mic] speak now — press Ctrl+C to stop\n")
-
-    with sd.InputStream(
-        samplerate = SERVER_SR,
-        channels   = 1,
-        dtype      = "float32",
-        blocksize  = chunk_samples,
-        callback   = _cb,
-    ):
-        try:
-            while True:
-                chunk = await queue.get()
-                if chunk is None:
-                    break
-                yield chunk
-        except (KeyboardInterrupt, asyncio.CancelledError):
-            print("\n[mic] stopped")
-
-
-async def _file_generator(path: str, chunk_ms: int) -> AsyncGenerator[bytes, None]:
-    audio, src_sr = _load_audio_file(path)
-    pcm16         = _to_pcm16_16k(audio, src_sr)
-
-    chunk_bytes = int(SERVER_SR * chunk_ms / 1000) * 2
-    duration_s  = len(pcm16) / 2 / SERVER_SR
-    n_chunks    = (len(pcm16) + chunk_bytes - 1) // chunk_bytes
-
-    print(f"[file] {path}")
-    print(f"[file] duration={duration_s:.1f}s  chunks={n_chunks} × {chunk_ms} ms\n")
-
-    t_start = time.perf_counter()
-    for i, offset in enumerate(range(0, len(pcm16), chunk_bytes)):
-        yield pcm16[offset: offset + chunk_bytes]
-        target  = (i + 1) * chunk_ms / 1000
-        elapsed = time.perf_counter() - t_start
-        gap     = target - elapsed
-        if gap > 0:
-            await asyncio.sleep(gap)
-
-    print("\n[file] stream complete — waiting for final transcript...")
-
-
-# ── CLI ───────────────────────────────────────────────────────
-
-def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Parakeet ASR test client")
-    p.add_argument("--url",       default=DEFAULT_WS_URL, metavar="URL",
-                   help="Full WebSocket URL (default: %(default)s)")
-    p.add_argument("--file",      default=None, metavar="PATH",
-                   help="Audio file to transcribe (omit for microphone mode)")
-    p.add_argument("--languages", default=DEFAULT_LANGUAGES, nargs="+", metavar="LANG",
-                   help="Candidate BCP-47 language tags (default: en-US es-US)")
-    p.add_argument("--chunk-ms",  default=CHUNK_MS, type=int, metavar="MS",
-                   help="Audio chunk size in ms (default: 100)")
-    p.add_argument("--health",    action="store_true",
-                   help="Check server /health and exit")
-    return p.parse_args()
-
-
-async def _main() -> None:
-    args   = _parse_args()
-    ws_url = _validate_ws_url(args.url)
-
-    if args.health:
-        check_health(ws_url)
-        return
-
-    print("=" * 60)
-    print("  Parakeet Real-Time ASR — test client")
-    print("=" * 60)
-    print(f"  url        : {ws_url}")
-    print(f"  languages  : {args.languages}")
-    print(f"  chunk      : {args.chunk_ms} ms")
-    print(f"  mode       : {'file → ' + args.file if args.file else 'microphone'}")
-    print("=" * 60 + "\n")
-
-    if args.file:
-        if not Path(args.file).exists():
-            print(f"[error] file not found: {args.file}")
-            sys.exit(1)
-        gen = _file_generator(args.file, args.chunk_ms)
-    else:
-        gen = _mic_generator(args.chunk_ms)
-
-    try:
-        await _run_session(ws_url, args.languages, gen)
-    except KeyboardInterrupt:
-        print("\n[client] interrupted")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(_main())
-    except KeyboardInterrupt:
-        pass
-
-
-
-
-
-#parakeet_asr.py-
+#app/asr_engines/parakeet_asr.py-
 """
 Streaming ASR engine — nvidia/parakeet-tdt-0.6b-v3
 Fixed to prevent zero-frame chunks causing:
@@ -2489,3 +1793,112 @@ class ParakeetSession:
 
         self.reset_stream_state()
         return final
+
+
+INFO:     10.90.126.54:64172 - "GET / HTTP/1.1" 404 Not Found
+INFO:     ('172.17.0.1', 36572) - "WebSocket /asr/ml/ws" [accepted]
+2026-06-01 14:44:53,853 | INFO | asr_server | [20260601_144453_853256_172.17.0.1_36572] ━━━ SESSION OPEN ━━━  client=Address(host='172.17.0.1', port=36572)  active=1  total=1
+2026-06-01 14:44:53,853 | INFO | asr_server | [20260601_144453_853256_172.17.0.1_36572] Waiting for init message...
+INFO:     connection open
+2026-06-01 14:44:54,274 | INFO | asr_server | [20260601_144453_853256_172.17.0.1_36572] Init received | candidate_languages=['en-US', 'es-US']  client_sr=16000  server_sr=16000
+2026-06-01 14:44:54,274 | INFO | asr_server | [20260601_144453_853256_172.17.0.1_36572] session_ready sent to client
+2026-06-01 14:44:54,274 | INFO | asr_server | [20260601_144453_853256_172.17.0.1_36572] Streaming started — ready to receive audio chunks
+2026-06-01 14:44:57,084 | ERROR | parakeet_engine | conformer_stream_step failed | available=35 emitted=8 start=0 end=16 frames=16 chunk_shape=(1, 128, 16) chunk_len=[16] drop=2 error=cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
+Traceback (most recent call last):
+  File "/app/app/asr_engines/parakeet_asr.py", line 382, in stream_transcribe
+    prev_pred, texts, c0, c1, c2, prev_hyp = self.model.conformer_stream_step(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/mixins.py", line 652, in conformer_stream_step
+    ) = self.encoder.cache_aware_stream_step(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/streaming.py", line 62, in cache_aware_stream_step
+    encoder_output = self(
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 586, in forward
+    return self.forward_internal(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 685, in forward_internal
+    audio_signal = layer(
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/conformer_modules.py", line 181, in forward
+    x = self.self_attn(query=x, key=x, value=x, mask=att_mask, pos_emb=pos_emb, cache=cache_last_channel)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/multi_head_attention.py", line 314, in forward
+    matrix_bd = self.rel_shift(matrix_bd)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/multi_head_attention.py", line 267, in rel_shift
+    x = x.view(b, h, -1, qlen)  # (b, h, t2+1, t1)
+RuntimeError: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
+2026-06-01 14:44:57,096 | ERROR | parakeet_engine | conformer_stream_step failed | available=37 emitted=8 start=0 end=16 frames=16 chunk_shape=(1, 128, 16) chunk_len=[16] drop=2 error=cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
+Traceback (most recent call last):
+  File "/app/app/asr_engines/parakeet_asr.py", line 382, in stream_transcribe
+    prev_pred, texts, c0, c1, c2, prev_hyp = self.model.conformer_stream_step(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/mixins.py", line 652, in conformer_stream_step
+    ) = self.encoder.cache_aware_stream_step(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/streaming.py", line 62, in cache_aware_stream_step
+    encoder_output = self(
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 586, in forward
+    return self.forward_internal(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 685, in forward_internal
+    audio_signal = layer(
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/conformer_modules.py", line 181, in forward
+    x = self.self_attn(query=x, key=x, value=x, mask=att_mask, pos_emb=pos_emb, cache=cache_last_channel)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/multi_head_attention.py", line 314, in forward
+    matrix_bd = self.rel_shift(matrix_bd)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/multi_head_attention.py", line 267, in rel_shift
+    x = x.view(b, h, -1, qlen)  # (b, h, t2+1, t1)
+RuntimeError: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
+2026-06-01 14:44:57,099 | ERROR | parakeet_engine | conformer_stream_step failed | available=39 emitted=8 start=0 end=16 frames=16 chunk_shape=(1, 128, 16) chunk_len=[16] drop=2 error=cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
+Traceback (most recent call last):
+  File "/app/app/asr_engines/parakeet_asr.py", line 382, in stream_transcribe
+    prev_pred, texts, c0, c1, c2, prev_hyp = self.model.conformer_stream_step(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/mixins.py", line 652, in conformer_stream_step
+    ) = self.encoder.cache_aware_stream_step(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/mixins/streaming.py", line 62, in cache_aware_stream_step
+    encoder_output = self(
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/core/classes/common.py", line 1141, in wrapped_call
+    outputs = wrapped(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 586, in forward
+    return self.forward_internal(
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/modules/conformer_encoder.py", line 685, in forward_internal
+    audio_signal = layer(
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/conformer_modules.py", line 181, in forward
+    x = self.self_attn(query=x, key=x, value=x, mask=att_mask, pos_emb=pos_emb, cache=cache_last_channel)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1553, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/torch/nn/modules/module.py", line 1562, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/multi_head_attention.py", line 314, in forward
+    matrix_bd = self.rel_shift(matrix_bd)
+  File "/usr/local/lib/python3.10/dist-packages/nemo/collections/asr/parts/submodules/multi_head_attention.py", line 267, in rel_shift
+    x = x.view(b, h, -1, qlen)  # (b, h, t2+1, t1)
+RuntimeError: cannot reshape tensor of 0 elements into shape [1, 8, -1, 0] because the unspecified dimension size -1 can be any value and is ambiguous
