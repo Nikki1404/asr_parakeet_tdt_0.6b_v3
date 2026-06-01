@@ -740,28 +740,25 @@ def _load_audio_file(path: str) -> tuple[np.ndarray, int]:
 
 class _Display:
     def __init__(self):
-        self._partial_active = False
+        self.partial_count = 0
+        self.final_count = 0
 
     def partial(self, text: str):
-        sys.stdout.write(f"\r\033[K  [partial] {text}")
-        sys.stdout.flush()
-        self._partial_active = True
+        self.partial_count += 1
+        print(f"[partial #{self.partial_count:04d}] {text}", flush=True)
 
     def final(self, text: str, ttfb: Optional[int]):
-        if self._partial_active:
-            sys.stdout.write("\r\033[K")
-        ttfb_str = f"  (ttfb {ttfb} ms)" if ttfb is not None else ""
-        print(f"  [final]   {text}{ttfb_str}")
-        self._partial_active = False
+        self.final_count += 1
+        ttfb_str = f" | ttfb={ttfb} ms" if ttfb is not None else ""
+        print(f"\n[FINAL #{self.final_count:04d}{ttfb_str}]")
+        print(text)
+        print("─" * 80, flush=True)
 
     def info(self, msg: str):
-        if self._partial_active:
-            sys.stdout.write("\r\033[K")
-            self._partial_active = False
-        print(msg)
+        print(msg, flush=True)
 
     def separator(self):
-        self.info("─" * 60)
+        print("─" * 80, flush=True)
 
 
 # ── health check ──────────────────────────────────────────────
