@@ -1651,7 +1651,7 @@ class ParakeetSession:
         self._last_partial_samples = 0
 
 
-
+"""
 INFO:     10.90.126.54:21016 - "GET / HTTP/1.1" 404 Not Found
 [20260601_201317_850254_172.17.0.1_57898] PARTIAL #0001 | Uh okay.
 [20260601_201317_850254_172.17.0.1_57898] PARTIAL #0002 | okay, so let me say this one time.
@@ -1709,328 +1709,352 @@ INFO:     10.90.126.54:59332 - "GET / HTTP/1.1" 404 Not Found
 i want  proper numeric handling so it shouldn't change while conversion from word to numeric as it's happening via model itself.
 
 and also client side print proper partials as well 
+"""
 
 """
-Parakeet ASR — full-featured test client
+ASR engine — nvidia/parakeet-tdt-0.6b-v3
 
-    python client.py                           # mic, default local server
-    python client.py --file audio.wav          # file mode
-    python client.py --url wss://host/path     # custom server URL
-    python client.py --health                  # health check and exit
+Important:
+This version intentionally DOES NOT use model.conformer_stream_step(),
+because with this NeMo/Parakeet combination it can fail internally with:
+
+RuntimeError:
+cannot reshape tensor of 0 elements into shape [1, 8, -1, 0]
+
+Instead, it performs buffered transcription using model.transcribe()
+for partials and final utterances.
 """
+
 from __future__ import annotations
 
-import argparse
-import asyncio
-import json
-import sys
+import logging
+import os
+import tempfile
 import time
-from pathlib import Path
-from typing import AsyncGenerator, Optional
-from urllib.parse import urlparse, urlunparse
-import urllib.request
-import urllib.error
+import wave
+from dataclasses import dataclass
+from typing import Any, Optional
 
 import numpy as np
-import websockets
+import torch
+from omegaconf import OmegaConf
 
-DEFAULT_WS_URL    = "ws://localhost:8003/asr/ml/ws"
-DEFAULT_LANGUAGES = ["en-US", "es-US"]
-SERVER_SR         = 16_000
-CHUNK_MS          = 100
+from app.asr_engines.base import ASREngine, EngineCaps
+from app.config import Config
 
-
-# ── URL helpers ───────────────────────────────────────────────
-
-def _health_url(ws_url: str) -> str:
-    parsed = urlparse(ws_url)
-    scheme = "https" if parsed.scheme == "wss" else "http"
-    return urlunparse((scheme, parsed.netloc, "/health", "", "", ""))
+log = logging.getLogger("parakeet_engine")
 
 
-def _validate_ws_url(url: str) -> str:
-    if urlparse(url).scheme not in ("ws", "wss"):
-        print(f"[error] URL must start with ws:// or wss:// — got: {url}")
-        sys.exit(1)
-    return url
-
-
-# ── audio helpers ─────────────────────────────────────────────
-
-def _to_pcm16_16k(audio: np.ndarray, src_sr: int) -> bytes:
-    if audio.dtype != np.float32:
-        audio = audio.astype(np.float32)
-    if audio.max() > 1.0 or audio.min() < -1.0:
-        audio = audio / 32768.0
-    if audio.ndim == 2:
-        audio = audio.mean(axis=1)
-    if src_sr != SERVER_SR:
+def _safe_text(h: Any) -> str:
+    if h is None:
+        return ""
+    if isinstance(h, str):
+        return h
+    if isinstance(h, (list, tuple)):
+        if not h:
+            return ""
+        return _safe_text(h[0])
+    if hasattr(h, "text"):
         try:
-            import resampy
-            audio = resampy.resample(audio, src_sr, SERVER_SR)
-        except ImportError:
-            from math import gcd
-            from scipy.signal import resample_poly
-            g     = gcd(SERVER_SR, src_sr)
-            audio = resample_poly(audio, SERVER_SR // g, src_sr // g).astype(np.float32)
-    return (np.clip(audio, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
-
-
-def _load_audio_file(path: str) -> tuple[np.ndarray, int]:
-    import soundfile as sf
+            return h.text or ""
+        except Exception:
+            return ""
     try:
-        audio, sr = sf.read(path, dtype="float32", always_2d=False)
-        return audio, sr
+        return str(h)
     except Exception:
-        pass
-    try:
-        from pydub import AudioSegment
-        seg  = AudioSegment.from_file(path)
-        raw  = np.array(seg.get_array_of_samples(), dtype=np.float32)
-        raw /= 2 ** (seg.sample_width * 8 - 1)
-        if seg.channels > 1:
-            raw = raw.reshape(-1, seg.channels).mean(axis=1)
-        return raw, seg.frame_rate
-    except Exception as e:
-        print(f"[error] cannot load {path}: {e}")
-        sys.exit(1)
+        return ""
 
 
-# ── display ───────────────────────────────────────────────────
-
-class _Display:
-    def __init__(self):
-        self._partial_active = False
-
-    def partial(self, text: str):
-        sys.stdout.write(f"\r\033[K  [partial] {text}")
-        sys.stdout.flush()
-        self._partial_active = True
-
-    def final(self, text: str, ttfb: Optional[int]):
-        if self._partial_active:
-            sys.stdout.write("\r\033[K")
-        ttfb_str = f"  (ttfb {ttfb} ms)" if ttfb is not None else ""
-        print(f"  [final]   {text}{ttfb_str}")
-        self._partial_active = False
-
-    def info(self, msg: str):
-        if self._partial_active:
-            sys.stdout.write("\r\033[K")
-            self._partial_active = False
-        print(msg)
-
-    def separator(self):
-        self.info("─" * 60)
+@dataclass
+class _Timings:
+    preproc: float = 0.0
+    infer: float = 0.0
+    flush: float = 0.0
 
 
-# ── health check ──────────────────────────────────────────────
+class ParakeetEngine(ASREngine):
+    caps = EngineCaps(
+        streaming=False,
+        partials=True,
+        ttft_meaningful=True,
+    )
 
-def check_health(ws_url: str) -> None:
-    url = _health_url(ws_url)
-    print(f"GET {url}")
-    try:
-        with urllib.request.urlopen(url, timeout=5) as r:
-            body = json.loads(r.read())
-            code = r.status
-    except urllib.error.HTTPError as e:
-        body = json.loads(e.read())
-        code = e.code
-    except Exception as e:
-        print(f"[error] {e}")
-        sys.exit(1)
+    def __init__(self, cfg: Config):
+        self.cfg = cfg
+        self.model = None
 
-    pad = max(len(k) for k in body) + 1
-    print(f"\nHTTP {code}")
-    print("─" * 50)
-    for k, v in body.items():
-        print(f"  {k:<{pad}}: {v}")
-    print()
-    sys.exit(0 if body.get("status") == "ok" else 1)
+        self.end_silence_ms = cfg.end_silence_ms
+        self.min_utt_ms = cfg.min_utt_ms
+        self.finalize_pad_ms = cfg.finalize_pad_ms
 
+        self.partial_interval_sec = float(os.getenv("PARTIAL_INTERVAL_SEC", "1.2"))
+        self.min_partial_ms = int(os.getenv("MIN_PARTIAL_MS", "1800"))
 
-# ── WebSocket session ─────────────────────────────────────────
+    def load(self) -> float:
+        import nemo.collections.asr as nemo_asr
 
-async def _run_session(
-    ws_url:    str,
-    languages: list[str],
-    audio_gen: AsyncGenerator[bytes, None],
-) -> None:
-    display = _Display()
-    try:
-        async with websockets.connect(
-            ws_url,
-            ping_interval = 20,
-            ping_timeout  = 120,
-            max_size      = None,
-        ) as ws:
+        t0 = time.time()
 
-            await ws.send(json.dumps({
-                "candidate_languages": languages,
-                "sample_rate":         SERVER_SR,
-            }))
+        log.info(
+            "Loading model: %s device=%s",
+            self.cfg.model_id,
+            self.cfg.device,
+        )
 
-            ack = json.loads(await ws.recv())
-            if ack.get("type") != "session_ready":
-                display.info(f"[error] unexpected ack: {ack}")
+        self.model = nemo_asr.models.ASRModel.from_pretrained(
+            self.cfg.model_id,
+            map_location="cpu",
+        )
+
+        log.info("Model downloaded / restored from cache")
+
+        if self.cfg.device == "cuda":
+            self.model = self.model.cuda()
+        else:
+            self.model = self.model.cpu()
+
+        self.model.eval()
+
+        log.info("Model moved to device: %s", self.cfg.device)
+
+        self._configure_decoding()
+
+        try:
+            self.model.preprocessor.featurizer.dither = 0.0
+            log.info("Dither disabled")
+        except Exception:
+            log.info("Could not disable dither; continuing")
+
+        self._log_model_config()
+        self._warmup()
+
+        elapsed = time.time() - t0
+        log.info("Engine ready in %.2fs", elapsed)
+        return elapsed
+
+    def _configure_decoding(self):
+        ms = self.cfg.max_symbols
+
+        strategies = [
+            {
+                "strategy": "greedy",
+                "greedy": {
+                    "max_symbols": ms,
+                    "loop_labels": True,
+                    "use_cuda_graph_decoder": False,
+                },
+            },
+            {
+                "strategy": "greedy",
+                "greedy": {
+                    "max_symbols": ms,
+                    "loop_labels": False,
+                    "use_cuda_graph_decoder": False,
+                },
+            },
+            {
+                "strategy": "greedy",
+                "greedy": {
+                    "max_symbols": ms,
+                },
+            },
+        ]
+
+        for cfg_dict in strategies:
+            try:
+                self.model.change_decoding_strategy(
+                    decoding_cfg=OmegaConf.create(cfg_dict)
+                )
+                log.info("Decoding strategy configured: %s", cfg_dict)
                 return
+            except Exception as e:
+                log.debug("Decoding strategy failed: %s | %s", cfg_dict, e)
 
-            display.separator()
-            display.info(f"  model      : {ack.get('model', '?')}")
-            display.info(f"  session_id : {ack.get('session_id', '?')}")
-            display.info(f"  languages  : {ack.get('supported_languages', languages)}")
-            display.separator()
+        log.warning("Could not set custom decoding strategy; using model default")
 
-            async def _recv():
-                try:
-                    async for raw in ws:
-                        if isinstance(raw, bytes):
-                            continue
-                        msg = json.loads(raw)
-                        t   = msg.get("type")
-                        if t == "partial":
-                            display.partial(msg.get("text", ""))
-                        elif t == "final":
-                            display.final(msg.get("text", ""), msg.get("t_start"))
-                except websockets.ConnectionClosed:
-                    pass
+    def _log_model_config(self):
+        try:
+            log.info("Model preprocessor cfg: %s", self.model.cfg.preprocessor)
+        except Exception:
+            pass
 
-            recv_task = asyncio.create_task(_recv())
+        try:
+            log.info("Encoder streaming cfg: %s", self.model.encoder.streaming_cfg)
+        except Exception:
+            log.info("Encoder streaming cfg not available")
+
+        log.info(
+            "Buffered partial config | partial_interval_sec=%.2f min_partial_ms=%d",
+            self.partial_interval_sec,
+            self.min_partial_ms,
+        )
+
+    @torch.inference_mode()
+    def _warmup(self):
+        log.info("Running warmup pass...")
+
+        try:
+            silence = np.zeros(self.cfg.sample_rate, dtype=np.float32)
+            text = self.transcribe_buffer(silence)
+            log.info("Warmup complete | text=%r", text)
+        except Exception as e:
+            log.warning("Warmup failed non-fatal: %s", e)
+
+    def new_session(self) -> "ParakeetSession":
+        return ParakeetSession(self)
+
+    def _write_temp_wav(self, audio_f32: np.ndarray) -> str:
+        audio_f32 = np.asarray(audio_f32, dtype=np.float32)
+
+        if audio_f32.ndim > 1:
+            audio_f32 = audio_f32.reshape(-1)
+
+        audio_f32 = np.nan_to_num(audio_f32, nan=0.0, posinf=0.0, neginf=0.0)
+        audio_f32 = np.clip(audio_f32, -1.0, 1.0)
+        pcm16 = (audio_f32 * 32767.0).astype(np.int16)
+
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        path = tmp.name
+        tmp.close()
+
+        with wave.open(path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(self.cfg.sample_rate)
+            wf.writeframes(pcm16.tobytes())
+
+        return path
+
+    @torch.inference_mode()
+    def transcribe_buffer(self, audio_f32: np.ndarray) -> str:
+        if audio_f32 is None:
+            return ""
+
+        audio_f32 = np.asarray(audio_f32, dtype=np.float32)
+        if audio_f32.size == 0:
+            return ""
+
+        duration_sec = audio_f32.size / float(self.cfg.sample_rate)
+        if duration_sec < 0.25:
+            return ""
+
+        wav_path = self._write_temp_wav(audio_f32)
+
+        try:
+            t0 = time.perf_counter()
 
             try:
-                async for chunk in audio_gen:
-                    await ws.send(chunk)
-            except (KeyboardInterrupt, asyncio.CancelledError):
-                display.info("\n[client] interrupted — flushing final transcript...")
+                result = self.model.transcribe(
+                    [wav_path],
+                    batch_size=1,
+                    verbose=False,
+                )
+            except TypeError:
+                result = self.model.transcribe(
+                    [wav_path],
+                    batch_size=1,
+                )
 
+            elapsed = time.perf_counter() - t0
+            text = _safe_text(result).strip()
+
+            log.debug(
+                "Buffered transcribe | duration=%.2fs elapsed=%.3fs text=%r",
+                duration_sec,
+                elapsed,
+                text,
+            )
+
+            return text
+
+        except Exception as e:
+            log.exception(
+                "Buffered transcribe failed | duration=%.2fs error=%s",
+                duration_sec,
+                e,
+            )
+            return ""
+
+        finally:
             try:
-                await ws.send(json.dumps({"type": "end_session"}))
-                await asyncio.sleep(1.5)
+                os.remove(wav_path)
             except Exception:
                 pass
 
-            recv_task.cancel()
-            display.separator()
-            display.info("[client] session closed")
 
-    except (websockets.InvalidURI, OSError, ConnectionRefusedError) as e:
-        print(f"[error] cannot connect to {ws_url}: {e}")
-        sys.exit(1)
+class ParakeetSession:
+    def __init__(self, engine: ParakeetEngine):
+        self.engine = engine
+        self.audio = np.array([], dtype=np.float32)
 
+        self.committed_text = ""
+        self.last_partial_text = ""
+        self.last_partial_time = 0.0
+        self.last_partial_samples = 0
 
-# ── audio generators ──────────────────────────────────────────
+    def accept_pcm16(self, pcm16: bytes) -> None:
+        if not pcm16:
+            return
 
-async def _mic_generator(chunk_ms: int) -> AsyncGenerator[bytes, None]:
-    import sounddevice as sd
+        x = np.frombuffer(pcm16, dtype=np.int16).astype(np.float32) / 32768.0
+        if x.size == 0:
+            return
 
-    chunk_samples = int(SERVER_SR * chunk_ms / 1000)
-    queue: asyncio.Queue[Optional[bytes]] = asyncio.Queue()
-    loop = asyncio.get_running_loop()
+        self.audio = np.concatenate([self.audio, x])
 
-    def _cb(indata, frames, t, status):
-        if status:
-            print(f"\n[mic] {status}", file=sys.stderr)
-        mono  = indata[:, 0] if indata.ndim == 2 else indata
-        pcm16 = (np.clip(mono, -1.0, 1.0) * 32767.0).astype(np.int16).tobytes()
-        loop.call_soon_threadsafe(queue.put_nowait, pcm16)
+        max_samples = int(self.engine.cfg.sample_rate * self.engine.cfg.max_utt_ms / 1000)
+        if self.audio.size > max_samples:
+            self.audio = self.audio[-max_samples:]
+            log.warning("Audio trimmed because MAX_UTT_MS is too small")
 
-    print(f"[mic] recording at {SERVER_SR} Hz, {chunk_ms} ms chunks")
-    print("[mic] speak now — press Ctrl+C to stop\n")
+    def _stable_partial(self, text: str, keep_last_words: int = 8) -> str:
+        words = text.strip().split()
+        if not words:
+            return ""
+        if len(words) <= keep_last_words:
+            return text.strip()
+        return " ".join(words[:-keep_last_words])
 
-    with sd.InputStream(
-        samplerate = SERVER_SR,
-        channels   = 1,
-        dtype      = "float32",
-        blocksize  = chunk_samples,
-        callback   = _cb,
-    ):
-        try:
-            while True:
-                chunk = await queue.get()
-                if chunk is None:
-                    break
-                yield chunk
-        except (KeyboardInterrupt, asyncio.CancelledError):
-            print("\n[mic] stopped")
+    def step_if_ready(self) -> Optional[str]:
+        now = time.time()
+        audio_ms = int(self.audio.size / self.engine.cfg.sample_rate * 1000)
 
+        if audio_ms < self.engine.min_partial_ms:
+            return None
+        if now - self.last_partial_time < self.engine.partial_interval_sec:
+            return None
+        if self.audio.size == self.last_partial_samples:
+            return None
 
-async def _file_generator(path: str, chunk_ms: int) -> AsyncGenerator[bytes, None]:
-    audio, src_sr = _load_audio_file(path)
-    pcm16         = _to_pcm16_16k(audio, src_sr)
+        self.last_partial_time = now
+        self.last_partial_samples = self.audio.size
 
-    chunk_bytes = int(SERVER_SR * chunk_ms / 1000) * 2
-    duration_s  = len(pcm16) / 2 / SERVER_SR
-    n_chunks    = (len(pcm16) + chunk_bytes - 1) // chunk_bytes
+        full_text = self.engine.transcribe_buffer(self.audio).strip()
+        if not full_text:
+            return None
 
-    print(f"[file] {path}")
-    print(f"[file] duration={duration_s:.1f}s  chunks={n_chunks} × {chunk_ms} ms\n")
+        partial = self._stable_partial(full_text)
+        if partial == self.last_partial_text:
+            return None
 
-    t_start = time.perf_counter()
-    for i, offset in enumerate(range(0, len(pcm16), chunk_bytes)):
-        yield pcm16[offset: offset + chunk_bytes]
-        target  = (i + 1) * chunk_ms / 1000
-        elapsed = time.perf_counter() - t_start
-        gap     = target - elapsed
-        if gap > 0:
-            await asyncio.sleep(gap)
+        self.last_partial_text = partial
+        return partial
 
-    print("\n[file] stream complete — waiting for final transcript...")
-    silence_ms = 1500
-    silence_bytes = int(SERVER_SR * silence_ms / 1000) * 2
-    yield bytes(silence_bytes)
+    def finalize(self, pad_ms: int) -> str:
+        if pad_ms > 0:
+            pad = np.zeros(int(self.engine.cfg.sample_rate * pad_ms / 1000), dtype=np.float32)
+            audio = np.concatenate([self.audio, pad])
+        else:
+            audio = self.audio
 
+        final = self.engine.transcribe_buffer(audio).strip()
+        self.reset_stream_state()
+        self.committed_text = final
+        return final
 
-# ── CLI ───────────────────────────────────────────────────────
-
-def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Parakeet ASR test client")
-    p.add_argument("--url",       default=DEFAULT_WS_URL, metavar="URL",
-                   help="Full WebSocket URL (default: %(default)s)")
-    p.add_argument("--file",      default=None, metavar="PATH",
-                   help="Audio file to transcribe (omit for microphone mode)")
-    p.add_argument("--languages", default=DEFAULT_LANGUAGES, nargs="+", metavar="LANG",
-                   help="Candidate BCP-47 language tags (default: en-US es-US)")
-    p.add_argument("--chunk-ms",  default=CHUNK_MS, type=int, metavar="MS",
-                   help="Audio chunk size in ms (default: 100)")
-    p.add_argument("--health",    action="store_true",
-                   help="Check server /health and exit")
-    return p.parse_args()
-
-
-async def _main() -> None:
-    args   = _parse_args()
-    ws_url = _validate_ws_url(args.url)
-
-    if args.health:
-        check_health(ws_url)
-        return
-
-    print("=" * 60)
-    print("  Parakeet Real-Time ASR — test client")
-    print("=" * 60)
-    print(f"  url        : {ws_url}")
-    print(f"  languages  : {args.languages}")
-    print(f"  chunk      : {args.chunk_ms} ms")
-    print(f"  mode       : {'file → ' + args.file if args.file else 'microphone'}")
-    print("=" * 60 + "\n")
-
-    if args.file:
-        if not Path(args.file).exists():
-            print(f"[error] file not found: {args.file}")
-            sys.exit(1)
-        gen = _file_generator(args.file, args.chunk_ms)
-    else:
-        gen = _mic_generator(args.chunk_ms)
-
-    try:
-        await _run_session(ws_url, args.languages, gen)
-    except KeyboardInterrupt:
-        print("\n[client] interrupted")
-
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(_main())
-    except KeyboardInterrupt:
-        pass
+    def reset_stream_state(self):
+        self.audio = np.array([], dtype=np.float32)
+        self.last_partial_text = ""
+        self.last_partial_time = 0.0
+        self.last_partial_samples = 0
 
