@@ -1235,15 +1235,10 @@ ENV AUDIO_SAVE_DIR=/app/session_audio
 ENV TRANSCRIPTION_LOG=/app/logs/transcriptions.log
 ENV LOG_LEVEL=INFO
 
-# ── bake model into image ──────────────────────────────────────
-RUN python -c "
-import nemo.collections.asr as nemo_asr
-import logging
-logging.basicConfig(level=logging.INFO)
-logging.info('Downloading nvidia/parakeet-tdt-0.6b-v3 ...')
-nemo_asr.models.ASRModel.from_pretrained('nvidia/parakeet-tdt-0.6b-v3')
-logging.info('Model cached OK')
-"
+RUN python -c "\
+import nemo.collections.asr as nemo_asr; \
+m = nemo_asr.models.ASRModel.from_pretrained('nvidia/parakeet-tdt-0.6b-v3'); \
+print('Model cached ✓')"
 
 EXPOSE 8001
 
