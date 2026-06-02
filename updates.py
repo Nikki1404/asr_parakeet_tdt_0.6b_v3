@@ -71,7 +71,7 @@ class Config:
     finalize_pad_ms: int = int(os.getenv("FINALIZE_PAD_MS", "500"))
 
     # ── buffer ───────────────────────────────────────────────
-    max_utt_ms: int = int(os.getenv("MAX_UTT_MS", "30000"))
+    max_utt_ms: int = int(os.getenv("MAX_UTT_MS", "120000"))
 
     # ── decoding ─────────────────────────────────────────────
     max_symbols: int = int(os.getenv("MAX_SYMBOLS", "10"))
